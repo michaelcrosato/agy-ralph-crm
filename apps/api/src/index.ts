@@ -451,4 +451,96 @@ app.get("/api/contacts/:id", tenantAuth, async (c) => {
   return c.json({ success: true, data: contact });
 });
 
+// Opportunities Pipeline & Stage Management REST API Endpoints
+app.get("/api/opportunities", tenantAuth, async (c) => {
+  const opportunities = await dbStore.opportunities.findMany();
+  return c.json({ success: true, data: opportunities });
+});
+
+app.get("/api/opportunities/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const opportunity = await dbStore.opportunities.findOne(id);
+  if (!opportunity) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+  return c.json({ success: true, data: opportunity });
+});
+
+app.post("/api/opportunities", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, stage, accountId, amount, closeDate } = body;
+
+  if (!name || !stage || !accountId) {
+    return c.json({ error: "Missing required opportunity parameters" }, 400);
+  }
+
+  const opp = await dbStore.opportunities.insert({
+    orgId: tenant.orgId,
+    ownerId: tenant.userId,
+    accountId,
+    name,
+    stage,
+    amount: amount !== undefined ? String(amount) : null,
+    closeDate: closeDate ? new Date(closeDate) : null,
+    custom: null,
+  });
+
+  return c.json({ success: true, data: opp });
+});
+
+app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, stage, amount, closeDate } = body;
+
+  const existing = await dbStore.opportunities.findOne(id);
+  if (!existing) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  const updates: Parameters<typeof dbStore.opportunities.update>[1] = {};
+  if (name !== undefined) updates.name = name;
+  if (stage !== undefined) updates.stage = stage;
+  if (amount !== undefined)
+    updates.amount = amount !== null ? String(amount) : null;
+  if (closeDate !== undefined)
+    updates.closeDate = closeDate !== null ? new Date(closeDate) : null;
+
+  const updated = await dbStore.opportunities.update(id, updates);
+  if (!updated) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  let workflowExecution:
+    | { dispatchedWebhooks: string[]; notificationsCreated: string[] }
+    | undefined = undefined;
+
+  if (stage !== undefined && stage !== existing.stage) {
+    const rules = await dbStore.workflows.findMany();
+    workflowExecution = await executeWorkflows(
+      {
+        name: "opportunity.stage_changed",
+        payload: {
+          id: updated.id,
+          stage: updated.stage,
+          amount: Number(updated.amount) || 0,
+        },
+      },
+      rules.map((rule) => ({
+        id: rule.id,
+        triggerEvent: rule.triggerEvent,
+        conditions: rule.conditions,
+        actions: rule.actions,
+      })),
+    );
+  }
+
+  return c.json({
+    success: true,
+    data: updated,
+    workflow: workflowExecution,
+  });
+});
+
 export default app;

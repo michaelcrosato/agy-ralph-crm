@@ -281,6 +281,22 @@ export const dbStore = {
       store.opportunities.push(newOpp);
       return newOpp;
     },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBOpportunity, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunities.findIndex((o) => o.id === id);
+      if (index === -1) return null;
+      if (store.opportunities[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunities[index] = {
+        ...store.opportunities[index],
+        ...updates,
+      };
+      return store.opportunities[index];
+    },
   },
   auditLogs: {
     findMany: async () => {
