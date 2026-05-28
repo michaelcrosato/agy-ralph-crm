@@ -422,4 +422,33 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
   });
 });
 
+// Accounts & Contacts REST API Endpoints
+app.get("/api/accounts", tenantAuth, async (c) => {
+  const accounts = await dbStore.accounts.findMany();
+  return c.json({ success: true, data: accounts });
+});
+
+app.get("/api/accounts/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const account = await dbStore.accounts.findOne(id);
+  if (!account) {
+    return c.json({ error: "Account not found" }, 404);
+  }
+  return c.json({ success: true, data: account });
+});
+
+app.get("/api/contacts", tenantAuth, async (c) => {
+  const contacts = await dbStore.contacts.findMany();
+  return c.json({ success: true, data: contacts });
+});
+
+app.get("/api/contacts/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const contact = await dbStore.contacts.findOne(id);
+  if (!contact) {
+    return c.json({ error: "Contact not found" }, 404);
+  }
+  return c.json({ success: true, data: contact });
+});
+
 export default app;
