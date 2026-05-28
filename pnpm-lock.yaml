@@ -259,6 +259,9 @@ importers:
       '@crm/db':
         specifier: workspace:*
         version: link:../db
+      '@crm/metadata':
+        specifier: workspace:*
+        version: link:../metadata
       drizzle-orm:
         specifier: ^0.30.0
         version: 0.30.10(@types/react@19.2.15)(pg@8.21.0)(postgres@3.4.9)(react@19.2.6)

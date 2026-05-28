@@ -121,3 +121,24 @@ export const auditLogs = pgTable("audit_logs", {
   changes: jsonb("changes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const fieldDefinitions = pgTable("field_definitions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  objectType: text("object_type").notNull(), // "accounts" | "contacts" | "leads"
+  apiName: text("api_name").notNull(),
+  label: text("label").notNull(),
+  dataType: text("data_type").notNull(), // "text" | "number" | "boolean" | "picklist"
+  validationRules: jsonb("validation_rules"),
+});
+
+export const layoutDefinitions = pgTable("layout_definitions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  objectType: text("object_type").notNull(),
+  sections: jsonb("sections").notNull(),
+});
