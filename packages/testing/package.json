@@ -15,6 +15,7 @@
     "@crm/core": "workspace:*",
     "@crm/audit": "workspace:*",
     "@crm/metadata": "workspace:*",
+    "@crm/workflow": "workspace:*",
     "drizzle-orm": "^0.30.0"
   },
   "devDependencies": {

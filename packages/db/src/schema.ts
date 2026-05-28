@@ -142,3 +142,24 @@ export const layoutDefinitions = pgTable("layout_definitions", {
   objectType: text("object_type").notNull(),
   sections: jsonb("sections").notNull(),
 });
+
+export const workflows = pgTable("workflows", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  triggerEvent: text("trigger_event").notNull(), // e.g. "opportunity.stage_changed"
+  conditions: jsonb("conditions"),
+  actions: jsonb("actions").notNull(),
+});
+
+export const webhooks = pgTable("webhooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  targetUrl: text("target_url").notNull(),
+  secret: text("secret"),
+  status: text("status").notNull().default("active"),
+});
