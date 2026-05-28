@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc",
     "verify": "biome check .",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@crm/db": "workspace:*",

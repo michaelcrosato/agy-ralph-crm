@@ -6,11 +6,13 @@
   "scripts": {
     "build": "tsc",
     "verify": "biome check .",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "vitest": "^1.6.0",
-    "@crm/db": "workspace:*"
+    "@crm/db": "workspace:*",
+    "@crm/auth": "workspace:*",
+    "drizzle-orm": "^0.30.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
