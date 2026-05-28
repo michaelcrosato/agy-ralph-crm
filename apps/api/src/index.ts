@@ -1,6 +1,7 @@
 import { type TenantContext, verifySessionToken } from "@crm/auth";
 import { convertLead } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
+import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 
@@ -68,11 +69,94 @@ app.get("/health", (c) =>
 
 app.get("/mcp/tools", (c) => c.json({ tools: mcpTools }));
 
+// Metadata Management Endpoints
+app.post("/api/metadata/fields", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { objectType, apiName, label, dataType, validationRules } = body;
+
+  if (!objectType || !apiName || !label || !dataType) {
+    return c.json({ error: "Missing required metadata parameters" }, 400);
+  }
+
+  const def = await dbStore.fieldDefinitions.insert({
+    orgId: tenant.orgId,
+    objectType,
+    apiName,
+    label,
+    dataType,
+    validationRules: validationRules || null,
+  });
+
+  return c.json({ success: true, data: def });
+});
+
+app.get("/api/metadata/fields", tenantAuth, async (c) => {
+  const fields = await dbStore.fieldDefinitions.findMany();
+  return c.json({ success: true, data: fields });
+});
+
+app.post("/api/metadata/layouts/:objectType", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const objectType = c.req.param("objectType");
+  const body = await c.req.json().catch(() => ({}));
+  const { sections } = body;
+
+  if (!sections) {
+    return c.json({ error: "Missing sections layout structure" }, 400);
+  }
+
+  const layout = await dbStore.layoutDefinitions.insert({
+    orgId: tenant.orgId,
+    objectType,
+    sections,
+  });
+
+  return c.json({ success: true, data: layout });
+});
+
+app.get("/api/metadata/layouts/:objectType", tenantAuth, async (c) => {
+  const objectType = c.req.param("objectType");
+  const layoutDef = await dbStore.layoutDefinitions.findOne(objectType);
+
+  const fields = await dbStore.fieldDefinitions.findMany();
+  const customFieldNames = fields
+    .filter((f) => f.objectType === objectType)
+    .map((f) => f.apiName);
+
+  const baseLayout = layoutDef || {
+    sections: [{ title: "Standard Info", fields: ["name", "email"] }],
+  };
+
+  const compiled = compileFormLayout(customFieldNames, baseLayout);
+  return c.json({ success: true, data: compiled });
+});
+
 // Lead operations protected by tenantAuth
 app.post("/api/leads", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
   const { email, company, status, custom } = body;
+
+  // Perform dynamic validation against tenant custom field schemas
+  if (custom && typeof custom === "object") {
+    const allDefs = await dbStore.fieldDefinitions.findMany();
+    const leadDefs = allDefs.filter((def) => def.objectType === "leads");
+    const validation = validateCustomFields(
+      custom,
+      leadDefs.map((def) => ({
+        apiName: def.apiName,
+        dataType: def.dataType,
+        validationRules: def.validationRules || undefined,
+      })),
+    );
+    if (!validation.success) {
+      return c.json(
+        { error: "Validation failed", errors: validation.errors },
+        400,
+      );
+    }
+  }
 
   const leadData = {
     orgId: tenant.orgId,

@@ -92,6 +92,30 @@ export interface DBOpportunity {
   custom: Record<string, unknown> | null;
 }
 
+export interface DBFieldDefinition {
+  id: string;
+  orgId: string;
+  objectType: string;
+  apiName: string;
+  label: string;
+  dataType: "text" | "number" | "boolean" | "picklist";
+  validationRules: {
+    min?: number;
+    max?: number;
+    options?: string[];
+  } | null;
+}
+
+export interface DBLayoutDefinition {
+  id: string;
+  orgId: string;
+  objectType: string;
+  sections: {
+    title: string;
+    fields: string[];
+  }[];
+}
+
 export interface DBAuditLog {
   id: string;
   orgId: string;
@@ -109,6 +133,8 @@ export const store = {
   contacts: [] as DBContact[],
   opportunities: [] as DBOpportunity[],
   auditLogs: [] as DBAuditLog[],
+  fieldDefinitions: [] as DBFieldDefinition[],
+  layoutDefinitions: [] as DBLayoutDefinition[],
 };
 
 export const dbStore = {
@@ -248,11 +274,56 @@ export const dbStore = {
       return newLog;
     },
   },
+  fieldDefinitions: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.fieldDefinitions.filter((def) => def.orgId === orgId);
+    },
+    insert: async (def: Omit<DBFieldDefinition, "id">) => {
+      const orgId = getActiveOrgId();
+      if (def.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newDef: DBFieldDefinition = {
+        ...def,
+        id: `field-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.fieldDefinitions.push(newDef);
+      return newDef;
+    },
+  },
+  layoutDefinitions: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.layoutDefinitions.filter((layout) => layout.orgId === orgId);
+    },
+    findOne: async (objectType: string) => {
+      const orgId = getActiveOrgId();
+      const layout = store.layoutDefinitions.find(
+        (lay) => lay.objectType === objectType && lay.orgId === orgId,
+      );
+      return layout || null;
+    },
+    insert: async (layout: Omit<DBLayoutDefinition, "id">) => {
+      const orgId = getActiveOrgId();
+      if (layout.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newLayout: DBLayoutDefinition = {
+        ...layout,
+        id: `layout-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.layoutDefinitions.push(newLayout);
+      return newLayout;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
     store.contacts = [];
     store.opportunities = [];
     store.auditLogs = [];
+    store.fieldDefinitions = [];
+    store.layoutDefinitions = [];
   },
 };
