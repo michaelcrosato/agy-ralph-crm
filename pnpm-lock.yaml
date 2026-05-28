@@ -29,6 +29,9 @@ importers:
       '@crm/metadata':
         specifier: workspace:*
         version: link:../../packages/metadata
+      '@crm/module-service-lite':
+        specifier: workspace:*
+        version: link:../../modules/service-lite
       '@crm/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow

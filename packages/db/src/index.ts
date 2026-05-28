@@ -143,6 +143,15 @@ export interface DBWorkflow {
   }[];
 }
 
+export interface DBTicket {
+  id: string;
+  orgId: string;
+  contactId: string;
+  subject: string;
+  status: "Open" | "In Progress" | "Resolved";
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -152,6 +161,7 @@ export const store = {
   fieldDefinitions: [] as DBFieldDefinition[],
   layoutDefinitions: [] as DBLayoutDefinition[],
   workflows: [] as DBWorkflow[],
+  tickets: [] as DBTicket[],
 };
 
 export const dbStore = {
@@ -352,6 +362,47 @@ export const dbStore = {
       return newWorkflow;
     },
   },
+  tickets: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.tickets.filter((t) => t.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const ticket = store.tickets.find((t) => t.id === id);
+      if (ticket && ticket.orgId !== orgId) {
+        return null;
+      }
+      return ticket || null;
+    },
+    insert: async (ticket: Omit<DBTicket, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (ticket.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newTicket: DBTicket = {
+        ...ticket,
+        id: `ticket-${Math.random().toString(36).substring(2, 11)}`,
+        status: ticket.status || "Open",
+        createdAt: new Date(),
+      };
+      store.tickets.push(newTicket);
+      return newTicket;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBTicket, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.tickets.findIndex((t) => t.id === id);
+      if (index === -1) return null;
+      if (store.tickets[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.tickets[index] = { ...store.tickets[index], ...updates };
+      return store.tickets[index];
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -361,5 +412,6 @@ export const dbStore = {
     store.fieldDefinitions = [];
     store.layoutDefinitions = [];
     store.workflows = [];
+    store.tickets = [];
   },
 };

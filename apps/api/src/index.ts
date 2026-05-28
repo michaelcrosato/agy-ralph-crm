@@ -2,6 +2,7 @@ import { type TenantContext, verifySessionToken } from "@crm/auth";
 import { convertLead } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
+import { createTicket, resolveTicket } from "@crm/module-service-lite";
 import { executeWorkflows } from "@crm/workflow";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
@@ -69,6 +70,46 @@ app.get("/health", (c) =>
 );
 
 app.get("/mcp/tools", (c) => c.json({ tools: mcpTools }));
+
+// Model Context Protocol (MCP) Tool Call Executor Route
+app.post("/mcp/tools/call", tenantAuth, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { name, arguments: args } = body;
+
+  if (!name) {
+    return c.json({ error: "Missing tool name parameter" }, 400);
+  }
+
+  if (name === "crm_get_account") {
+    const accountId = args?.accountId;
+    if (!accountId) {
+      return c.json({ error: "Missing required argument: accountId" }, 400);
+    }
+    const account = await dbStore.accounts.findOne(accountId);
+    return c.json({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(account),
+        },
+      ],
+    });
+  }
+
+  if (name === "crm_list_contacts") {
+    const contacts = await dbStore.contacts.findMany();
+    return c.json({
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(contacts),
+        },
+      ],
+    });
+  }
+
+  return c.json({ error: "Unknown MCP tool called" }, 400);
+});
 
 // Metadata Management Endpoints
 app.post("/api/metadata/fields", tenantAuth, async (c) => {
@@ -157,6 +198,55 @@ app.post("/api/workflows", tenantAuth, async (c) => {
 app.get("/api/workflows", tenantAuth, async (c) => {
   const rules = await dbStore.workflows.findMany();
   return c.json({ success: true, data: rules });
+});
+
+// Support Ticketing (Service-Lite Extension) Endpoints
+app.post("/api/tickets", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { contactId, subject } = body;
+
+  if (!contactId || !subject) {
+    return c.json({ error: "Missing required ticketing parameters" }, 400);
+  }
+
+  // Generate support ticket representation
+  const ticketData = createTicket({
+    orgId: tenant.orgId,
+    contactId,
+    subject,
+  });
+
+  // Persist into database store under active RLS isolation context
+  const newTicket = await dbStore.tickets.insert({
+    orgId: tenant.orgId,
+    contactId: ticketData.contactId,
+    subject: ticketData.subject,
+    status: ticketData.status,
+  });
+
+  return c.json({ success: true, data: newTicket });
+});
+
+app.get("/api/tickets", tenantAuth, async (c) => {
+  const tickets = await dbStore.tickets.findMany();
+  return c.json({ success: true, data: tickets });
+});
+
+app.post("/api/tickets/:id/resolve", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const ticket = await dbStore.tickets.findOne(id);
+  if (!ticket) {
+    return c.json({ error: "Ticket not found" }, 404);
+  }
+
+  // Resolve Ticket and mutate status
+  const resolved = resolveTicket(ticket);
+  const updated = await dbStore.tickets.update(id, {
+    status: resolved.status,
+  });
+
+  return c.json({ success: true, data: updated });
 });
 
 // Lead operations protected by tenantAuth
