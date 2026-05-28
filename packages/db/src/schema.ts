@@ -163,3 +163,16 @@ export const webhooks = pgTable("webhooks", {
   secret: text("secret"),
   status: text("status").notNull().default("active"),
 });
+
+export const tickets = pgTable("tickets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  contactId: uuid("contact_id")
+    .notNull()
+    .references(() => contacts.id, { onDelete: "cascade" }),
+  subject: text("subject").notNull(),
+  status: text("status").notNull().default("Open"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

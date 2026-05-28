@@ -13,6 +13,11 @@ dist
 out
 /out
 
+# Compiled TypeScript in src
+apps/*/src/**/*.js
+apps/*/src/**/*.d.ts
+apps/*/src/**/*.map
+
 # Turborepo
 .turbo
 
