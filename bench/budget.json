@@ -1,0 +1,8 @@
+{
+  "maxContextTokens": 32768,
+  "maxFileLinesStandard": 400,
+  "performanceTargets": {
+    "queryTimeMsLimit": 50,
+    "leadConversionTimeMsLimit": 100
+  }
+}
