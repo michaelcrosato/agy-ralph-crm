@@ -127,6 +127,22 @@ export interface DBAuditLog {
   createdAt: Date;
 }
 
+export interface DBWorkflow {
+  id: string;
+  orgId: string;
+  name: string;
+  triggerEvent: string;
+  conditions: {
+    field: string;
+    operator: "equals" | "not_equals";
+    value: string;
+  } | null;
+  actions: {
+    type: "webhook" | "notification";
+    target: string;
+  }[];
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -135,6 +151,7 @@ export const store = {
   auditLogs: [] as DBAuditLog[],
   fieldDefinitions: [] as DBFieldDefinition[],
   layoutDefinitions: [] as DBLayoutDefinition[],
+  workflows: [] as DBWorkflow[],
 };
 
 export const dbStore = {
@@ -317,6 +334,24 @@ export const dbStore = {
       return newLayout;
     },
   },
+  workflows: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.workflows.filter((w) => w.orgId === orgId);
+    },
+    insert: async (w: Omit<DBWorkflow, "id">) => {
+      const orgId = getActiveOrgId();
+      if (w.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newWorkflow: DBWorkflow = {
+        ...w,
+        id: `workflow-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.workflows.push(newWorkflow);
+      return newWorkflow;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -325,5 +360,6 @@ export const dbStore = {
     store.auditLogs = [];
     store.fieldDefinitions = [];
     store.layoutDefinitions = [];
+    store.workflows = [];
   },
 };

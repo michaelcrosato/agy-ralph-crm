@@ -2,6 +2,7 @@ import { type TenantContext, verifySessionToken } from "@crm/auth";
 import { convertLead } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
+import { executeWorkflows } from "@crm/workflow";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
 
@@ -132,6 +133,32 @@ app.get("/api/metadata/layouts/:objectType", tenantAuth, async (c) => {
   return c.json({ success: true, data: compiled });
 });
 
+// Workflow Automation Endpoints
+app.post("/api/workflows", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, triggerEvent, conditions, actions } = body;
+
+  if (!name || !triggerEvent || !actions) {
+    return c.json({ error: "Missing required workflow rules parameters" }, 400);
+  }
+
+  const newRule = await dbStore.workflows.insert({
+    orgId: tenant.orgId,
+    name,
+    triggerEvent,
+    conditions: conditions || null,
+    actions,
+  });
+
+  return c.json({ success: true, data: newRule });
+});
+
+app.get("/api/workflows", tenantAuth, async (c) => {
+  const rules = await dbStore.workflows.findMany();
+  return c.json({ success: true, data: rules });
+});
+
 // Lead operations protected by tenantAuth
 app.post("/api/leads", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
@@ -240,6 +267,10 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
   });
 
   let opportunityId: string | undefined = undefined;
+  let workflowExecution:
+    | { dispatchedWebhooks: string[]; notificationsCreated: string[] }
+    | undefined = undefined;
+
   if (entities.opportunity) {
     const opp = await dbStore.opportunities.insert({
       orgId: tenant.orgId,
@@ -252,6 +283,25 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
       custom: null,
     });
     opportunityId = opp.id;
+
+    // Trigger dynamic automated workflows matching trigger events
+    const rules = await dbStore.workflows.findMany();
+    workflowExecution = await executeWorkflows(
+      {
+        name: "opportunity.stage_changed",
+        payload: {
+          id: opp.id,
+          stage: opp.stage,
+          amount: Number(opp.amount) || 0,
+        },
+      },
+      rules.map((rule) => ({
+        id: rule.id,
+        triggerEvent: rule.triggerEvent,
+        conditions: rule.conditions,
+        actions: rule.actions,
+      })),
+    );
   }
 
   // Mutate Lead status
@@ -278,6 +328,7 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
     accountId: account.id,
     contactId: contact.id,
     opportunityId,
+    workflow: workflowExecution,
   });
 });
 

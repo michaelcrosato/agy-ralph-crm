@@ -13,7 +13,8 @@
     "@crm/core": "workspace:*",
     "@crm/db": "workspace:*",
     "@crm/auth": "workspace:*",
-    "@crm/metadata": "workspace:*"
+    "@crm/metadata": "workspace:*",
+    "@crm/workflow": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
