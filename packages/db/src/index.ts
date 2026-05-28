@@ -171,6 +171,17 @@ export interface DBActivityLink {
   targetId: string;
 }
 
+export interface DBReport {
+  id: string;
+  orgId: string;
+  name: string;
+  objectType: "leads" | "opportunities" | "tickets" | "accounts" | "contacts";
+  groupBy: string;
+  aggregateField: string | null;
+  aggregateFunc: "count" | "sum" | "avg";
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -183,6 +194,7 @@ export const store = {
   tickets: [] as DBTicket[],
   activities: [] as DBActivity[],
   activityLinks: [] as DBActivityLink[],
+  reports: [] as DBReport[],
 };
 
 export const dbStore = {
@@ -485,6 +497,33 @@ export const dbStore = {
       return newLink;
     },
   },
+  reports: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.reports.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const report = store.reports.find((r) => r.id === id);
+      if (report && report.orgId !== orgId) {
+        return null;
+      }
+      return report || null;
+    },
+    insert: async (report: Omit<DBReport, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (report.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newReport: DBReport = {
+        ...report,
+        id: `report-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.reports.push(newReport);
+      return newReport;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -497,5 +536,6 @@ export const dbStore = {
     store.tickets = [];
     store.activities = [];
     store.activityLinks = [];
+    store.reports = [];
   },
 };

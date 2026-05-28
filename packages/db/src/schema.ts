@@ -176,3 +176,16 @@ export const tickets = pgTable("tickets", {
   status: text("status").notNull().default("Open"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const reports = pgTable("reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  objectType: text("object_type").notNull(),
+  groupBy: text("group_by").notNull(),
+  aggregateField: text("aggregate_field"),
+  aggregateFunc: text("aggregate_func").notNull().default("count"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

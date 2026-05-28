@@ -32,6 +32,9 @@ importers:
       '@crm/module-service-lite':
         specifier: workspace:*
         version: link:../../modules/service-lite
+      '@crm/reporting':
+        specifier: workspace:*
+        version: link:../../packages/reporting
       '@crm/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow

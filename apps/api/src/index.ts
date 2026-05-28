@@ -3,6 +3,7 @@ import { convertLead } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { createTicket, resolveTicket } from "@crm/module-service-lite";
+import { runReport } from "@crm/reporting";
 import { executeWorkflows } from "@crm/workflow";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
@@ -641,5 +642,182 @@ app.get(
     return c.json({ success: true, data: filteredActivities });
   },
 );
+
+// Analytical Reporting & Saved Views REST API Endpoints
+app.post("/api/reports", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, objectType, groupBy, aggregateField, aggregateFunc } = body;
+
+  if (!name || !objectType || !groupBy) {
+    return c.json({ error: "Missing required report fields" }, 400);
+  }
+
+  const allowedObjectTypes = [
+    "leads",
+    "opportunities",
+    "tickets",
+    "accounts",
+    "contacts",
+  ];
+  if (!allowedObjectTypes.includes(objectType)) {
+    return c.json(
+      {
+        error: `Invalid object type. Allowed: ${allowedObjectTypes.join(", ")}`,
+      },
+      400,
+    );
+  }
+
+  const allowedFuncs = ["count", "sum", "avg"];
+  const func = aggregateFunc || "count";
+  if (!allowedFuncs.includes(func)) {
+    return c.json(
+      {
+        error: `Invalid aggregate function. Allowed: ${allowedFuncs.join(", ")}`,
+      },
+      400,
+    );
+  }
+
+  const newReport = await dbStore.reports.insert({
+    orgId: tenant.orgId,
+    name,
+    objectType: objectType as
+      | "leads"
+      | "opportunities"
+      | "tickets"
+      | "accounts"
+      | "contacts",
+    groupBy,
+    aggregateField: aggregateField || null,
+    aggregateFunc: func as "count" | "sum" | "avg",
+  });
+
+  return c.json({ success: true, data: newReport });
+});
+
+app.get("/api/reports", tenantAuth, async (c) => {
+  const reports = await dbStore.reports.findMany();
+  return c.json({ success: true, data: reports });
+});
+
+app.post("/api/reports/run", tenantAuth, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { name, objectType, groupBy, aggregateField, aggregateFunc } = body;
+
+  if (!objectType || !groupBy) {
+    return c.json({ error: "Missing required report execution fields" }, 400);
+  }
+
+  const allowedObjectTypes = [
+    "leads",
+    "opportunities",
+    "tickets",
+    "accounts",
+    "contacts",
+  ];
+  if (!allowedObjectTypes.includes(objectType)) {
+    return c.json(
+      {
+        error: `Invalid object type. Allowed: ${allowedObjectTypes.join(", ")}`,
+      },
+      400,
+    );
+  }
+
+  const allowedFuncs = ["count", "sum", "avg"];
+  const func = aggregateFunc || "count";
+  if (!allowedFuncs.includes(func)) {
+    return c.json(
+      {
+        error: `Invalid aggregate function. Allowed: ${allowedFuncs.join(", ")}`,
+      },
+      400,
+    );
+  }
+
+  let records: Record<string, unknown>[] = [];
+  if (objectType === "leads")
+    records = (await dbStore.leads.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+  else if (objectType === "opportunities")
+    records = (await dbStore.opportunities.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+  else if (objectType === "tickets")
+    records = (await dbStore.tickets.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+  else if (objectType === "accounts")
+    records = (await dbStore.accounts.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+  else if (objectType === "contacts")
+    records = (await dbStore.contacts.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+
+  const results = runReport({
+    name: name || "Ad-hoc Report",
+    records,
+    groupBy,
+    aggregateField: aggregateField || null,
+    aggregateFunc: func as "count" | "sum" | "avg",
+  });
+
+  return c.json({ success: true, data: results });
+});
+
+app.get("/api/reports/:id/run", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const report = await dbStore.reports.findOne(id);
+  if (!report) {
+    return c.json({ error: "Report not found" }, 404);
+  }
+
+  let records: Record<string, unknown>[] = [];
+  if (report.objectType === "leads")
+    records = (await dbStore.leads.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+  else if (report.objectType === "opportunities")
+    records = (await dbStore.opportunities.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+  else if (report.objectType === "tickets")
+    records = (await dbStore.tickets.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+  else if (report.objectType === "accounts")
+    records = (await dbStore.accounts.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+  else if (report.objectType === "contacts")
+    records = (await dbStore.contacts.findMany()) as unknown as Record<
+      string,
+      unknown
+    >[];
+
+  const results = runReport({
+    name: report.name,
+    records,
+    groupBy: report.groupBy,
+    aggregateField: report.aggregateField,
+    aggregateFunc: report.aggregateFunc,
+  });
+
+  return c.json({ success: true, data: results });
+});
 
 export default app;
