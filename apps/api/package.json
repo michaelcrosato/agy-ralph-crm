@@ -1,0 +1,24 @@
+{
+  "name": "api",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "verify": "biome check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.0.0",
+    "@crm/core": "workspace:*",
+    "@crm/db": "workspace:*",
+    "@crm/auth": "workspace:*",
+    "@crm/metadata": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "@biomejs/biome": "^1.8.0",
+    "vitest": "^1.6.0"
+  }
+}

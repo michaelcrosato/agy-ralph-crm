@@ -1,0 +1,20 @@
+{
+  "name": "crm-core-monorepo",
+  "private": true,
+  "engines": {
+    "node": "22.0.0"
+  },
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "verify": "turbo run verify",
+    "build": "turbo run build",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "@biomejs/biome": "^1.8.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@biomejs/biome", "es5-ext", "esbuild", "sharp"]
+  }
+}

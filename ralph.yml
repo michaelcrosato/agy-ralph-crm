@@ -1,0 +1,10 @@
+ralph_version: "2.9.3"
+project_type: "typescript-monorepo"
+verification_command: "pnpm verify"
+budgets:
+  max_context_tokens: 32768
+  max_file_lines_standard: 400
+allowlisted_commands:
+  - "pnpm typecheck"
+  - "pnpm lint"
+  - "pnpm test"

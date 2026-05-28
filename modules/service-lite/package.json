@@ -1,0 +1,18 @@
+{
+  "name": "@crm/module-service-lite",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "verify": "biome check .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@crm/core": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@biomejs/biome": "^1.8.0",
+    "vitest": "^1.6.0"
+  }
+}
