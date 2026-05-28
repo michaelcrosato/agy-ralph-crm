@@ -247,9 +247,15 @@ importers:
 
   packages/testing:
     dependencies:
+      '@crm/audit':
+        specifier: workspace:*
+        version: link:../audit
       '@crm/auth':
         specifier: workspace:*
         version: link:../auth
+      '@crm/core':
+        specifier: workspace:*
+        version: link:../core
       '@crm/db':
         specifier: workspace:*
         version: link:../db

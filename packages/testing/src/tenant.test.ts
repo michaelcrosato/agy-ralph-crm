@@ -38,9 +38,13 @@ describe("Phase 1: Multi-Tenant Security & Authentication Tests", () => {
 
     expect(result).toBeDefined();
     // Check that SET LOCAL app.current_org_id was called with the correct org ID first
-    const firstCallArg = executeSpy.mock.calls[0][0] as any;
+    const firstCallArg = executeSpy.mock.calls[0][0] as {
+      queryChunks: Array<{ value: string[] }>;
+    };
     expect(firstCallArg).toBeDefined();
-    expect(firstCallArg.queryChunks[0].value[0]).toContain("SET LOCAL app.current_org_id =");
+    expect(firstCallArg.queryChunks[0].value[0]).toContain(
+      "SET LOCAL app.current_org_id =",
+    );
     expect(executeSpy.mock.calls[0][0]).toBeDefined();
 
     executeSpy.mockRestore();
