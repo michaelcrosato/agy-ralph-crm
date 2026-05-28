@@ -1,5 +1,5 @@
 import { type TenantContext, verifySessionToken } from "@crm/auth";
-import { convertLead } from "@crm/core";
+import { convertLead, rollupOpportunityAmount } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { createTicket, resolveTicket } from "@crm/module-service-lite";
@@ -819,5 +819,228 @@ app.get("/api/reports/:id/run", tenantAuth, async (c) => {
 
   return c.json({ success: true, data: results });
 });
+
+// Product Catalog REST API Routes
+app.post("/api/products", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, sku, description, isActive } = body;
+
+  if (!name) {
+    return c.json({ error: "Missing required product name" }, 400);
+  }
+
+  const product = await dbStore.products.insert({
+    orgId: tenant.orgId,
+    name,
+    sku: sku || null,
+    description: description || null,
+    isActive: isActive !== undefined ? !!isActive : true,
+  });
+
+  return c.json({ success: true, data: product });
+});
+
+app.get("/api/products", tenantAuth, async (c) => {
+  const products = await dbStore.products.findMany();
+  return c.json({ success: true, data: products });
+});
+
+// Pricebook Catalog REST API Routes
+app.post("/api/pricebooks", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, description, isActive, isStandard } = body;
+
+  if (!name) {
+    return c.json({ error: "Missing required pricebook name" }, 400);
+  }
+
+  const pricebook = await dbStore.pricebooks.insert({
+    orgId: tenant.orgId,
+    name,
+    description: description || null,
+    isActive: isActive !== undefined ? !!isActive : true,
+    isStandard: isStandard !== undefined ? !!isStandard : false,
+  });
+
+  return c.json({ success: true, data: pricebook });
+});
+
+app.get("/api/pricebooks", tenantAuth, async (c) => {
+  const pricebooks = await dbStore.pricebooks.findMany();
+  return c.json({ success: true, data: pricebooks });
+});
+
+app.post("/api/pricebooks/entries", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { pricebookId, productId, unitPrice, isActive } = body;
+
+  if (!pricebookId || !productId || unitPrice === undefined) {
+    return c.json({ error: "Missing required pricebook entry fields" }, 400);
+  }
+
+  const product = await dbStore.products.findOne(productId);
+  if (!product) {
+    return c.json({ error: "Product not found" }, 404);
+  }
+
+  const pricebook = await dbStore.pricebooks.findOne(pricebookId);
+  if (!pricebook) {
+    return c.json({ error: "Pricebook not found" }, 404);
+  }
+
+  const entry = await dbStore.pricebookEntries.insert({
+    orgId: tenant.orgId,
+    pricebookId,
+    productId,
+    unitPrice: String(unitPrice),
+    isActive: isActive !== undefined ? !!isActive : true,
+  });
+
+  return c.json({ success: true, data: entry });
+});
+
+// Opportunity Line Items REST API Routes with Automatic Amount Rollup
+app.post("/api/opportunities/:oppId/products", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const oppId = c.req.param("oppId");
+  const body = await c.req.json().catch(() => ({}));
+  const { pricebookEntryId, quantity, unitPrice } = body;
+
+  if (!pricebookEntryId || quantity === undefined) {
+    return c.json({ error: "Missing required line item parameters" }, 400);
+  }
+
+  const opportunity = await dbStore.opportunities.findOne(oppId);
+  if (!opportunity) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  const entry = await dbStore.pricebookEntries.findOne(pricebookEntryId);
+  if (!entry) {
+    return c.json({ error: "Pricebook entry not found" }, 404);
+  }
+
+  const finalUnitPrice =
+    unitPrice !== undefined ? String(unitPrice) : entry.unitPrice;
+  const finalQuantity = Number(quantity);
+  const totalPrice = String(finalQuantity * Number.parseFloat(finalUnitPrice));
+
+  const lineItem = await dbStore.opportunityProducts.insert({
+    orgId: tenant.orgId,
+    opportunityId: oppId,
+    pricebookEntryId,
+    quantity: finalQuantity,
+    unitPrice: finalUnitPrice,
+    totalPrice,
+  });
+
+  // Calculate Rollup
+  const allLines = await dbStore.opportunityProducts.findMany();
+  const oppLines = allLines.filter((x) => x.opportunityId === oppId);
+  const newAmount = rollupOpportunityAmount(oppLines);
+
+  await dbStore.opportunities.update(oppId, { amount: newAmount });
+
+  return c.json({
+    success: true,
+    data: lineItem,
+    opportunityAmount: newAmount,
+  });
+});
+
+app.get("/api/opportunities/:oppId/products", tenantAuth, async (c) => {
+  const oppId = c.req.param("oppId");
+
+  const opportunity = await dbStore.opportunities.findOne(oppId);
+  if (!opportunity) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  const allLines = await dbStore.opportunityProducts.findMany();
+  const oppLines = allLines.filter((x) => x.opportunityId === oppId);
+
+  return c.json({ success: true, data: oppLines });
+});
+
+app.patch(
+  "/api/opportunities/:oppId/products/:lineItemId",
+  tenantAuth,
+  async (c) => {
+    const oppId = c.req.param("oppId");
+    const lineItemId = c.req.param("lineItemId");
+    const body = await c.req.json().catch(() => ({}));
+    const { quantity, unitPrice } = body;
+
+    const opportunity = await dbStore.opportunities.findOne(oppId);
+    if (!opportunity) {
+      return c.json({ error: "Opportunity not found" }, 404);
+    }
+
+    const existingLine = await dbStore.opportunityProducts.findOne(lineItemId);
+    if (!existingLine || existingLine.opportunityId !== oppId) {
+      return c.json({ error: "Opportunity product not found" }, 404);
+    }
+
+    const finalQuantity =
+      quantity !== undefined ? Number(quantity) : existingLine.quantity;
+    const finalUnitPrice =
+      unitPrice !== undefined ? String(unitPrice) : existingLine.unitPrice;
+    const totalPrice = String(
+      finalQuantity * Number.parseFloat(finalUnitPrice),
+    );
+
+    const updatedLine = await dbStore.opportunityProducts.update(lineItemId, {
+      quantity: finalQuantity,
+      unitPrice: finalUnitPrice,
+      totalPrice,
+    });
+
+    // Recalculate Rollup
+    const allLines = await dbStore.opportunityProducts.findMany();
+    const oppLines = allLines.filter((x) => x.opportunityId === oppId);
+    const newAmount = rollupOpportunityAmount(oppLines);
+
+    await dbStore.opportunities.update(oppId, { amount: newAmount });
+
+    return c.json({
+      success: true,
+      data: updatedLine,
+      opportunityAmount: newAmount,
+    });
+  },
+);
+
+app.delete(
+  "/api/opportunities/:oppId/products/:lineItemId",
+  tenantAuth,
+  async (c) => {
+    const oppId = c.req.param("oppId");
+    const lineItemId = c.req.param("lineItemId");
+
+    const opportunity = await dbStore.opportunities.findOne(oppId);
+    if (!opportunity) {
+      return c.json({ error: "Opportunity not found" }, 404);
+    }
+
+    const existingLine = await dbStore.opportunityProducts.findOne(lineItemId);
+    if (!existingLine || existingLine.opportunityId !== oppId) {
+      return c.json({ error: "Opportunity product not found" }, 404);
+    }
+
+    await dbStore.opportunityProducts.delete(lineItemId);
+
+    // Recalculate Rollup
+    const allLines = await dbStore.opportunityProducts.findMany();
+    const oppLines = allLines.filter((x) => x.opportunityId === oppId);
+    const newAmount = rollupOpportunityAmount(oppLines);
+
+    await dbStore.opportunities.update(oppId, { amount: newAmount });
+
+    return c.json({ success: true, opportunityAmount: newAmount });
+  },
+);
 
 export default app;

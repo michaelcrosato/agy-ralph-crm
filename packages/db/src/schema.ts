@@ -189,3 +189,56 @@ export const reports = pgTable("reports", {
   aggregateFunc: text("aggregate_func").notNull().default("count"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const products = pgTable("products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  sku: text("sku"),
+  description: text("description"),
+  isActive: integer("is_active").notNull().default(1),
+});
+
+export const pricebooks = pgTable("pricebooks", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  isActive: integer("is_active").notNull().default(1),
+  isStandard: integer("is_standard").notNull().default(0),
+});
+
+export const pricebookEntries = pgTable("pricebook_entries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  pricebookId: uuid("pricebook_id")
+    .notNull()
+    .references(() => pricebooks.id, { onDelete: "cascade" }),
+  productId: uuid("product_id")
+    .notNull()
+    .references(() => products.id, { onDelete: "cascade" }),
+  unitPrice: text("unit_price").notNull(),
+  isActive: integer("is_active").notNull().default(1),
+});
+
+export const opportunityProducts = pgTable("opportunity_products", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  opportunityId: uuid("opportunity_id")
+    .notNull()
+    .references(() => opportunities.id, { onDelete: "cascade" }),
+  pricebookEntryId: uuid("pricebook_entry_id")
+    .notNull()
+    .references(() => pricebookEntries.id, { onDelete: "cascade" }),
+  quantity: integer("quantity").notNull(),
+  unitPrice: text("unit_price").notNull(),
+  totalPrice: text("total_price").notNull(),
+});

@@ -88,3 +88,15 @@ export function convertLead(input: LeadConversionInput): ConvertedEntities {
 
   return entities;
 }
+
+export interface LineItemInput {
+  totalPrice: string;
+}
+
+export function rollupOpportunityAmount(items: LineItemInput[]): string {
+  const sum = items.reduce(
+    (acc, item) => acc + (Number.parseFloat(item.totalPrice) || 0),
+    0,
+  );
+  return String(sum);
+}

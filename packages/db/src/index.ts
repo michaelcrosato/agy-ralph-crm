@@ -182,6 +182,43 @@ export interface DBReport {
   createdAt: Date;
 }
 
+export interface DBProduct {
+  id: string;
+  orgId: string;
+  name: string;
+  sku: string | null;
+  description: string | null;
+  isActive: boolean;
+}
+
+export interface DBPricebook {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  isActive: boolean;
+  isStandard: boolean;
+}
+
+export interface DBPricebookEntry {
+  id: string;
+  orgId: string;
+  pricebookId: string;
+  productId: string;
+  unitPrice: string;
+  isActive: boolean;
+}
+
+export interface DBOpportunityProduct {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  pricebookEntryId: string;
+  quantity: number;
+  unitPrice: string;
+  totalPrice: string;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -195,6 +232,10 @@ export const store = {
   activities: [] as DBActivity[],
   activityLinks: [] as DBActivityLink[],
   reports: [] as DBReport[],
+  products: [] as DBProduct[],
+  pricebooks: [] as DBPricebook[],
+  pricebookEntries: [] as DBPricebookEntry[],
+  opportunityProducts: [] as DBOpportunityProduct[],
 };
 
 export const dbStore = {
@@ -524,6 +565,133 @@ export const dbStore = {
       return newReport;
     },
   },
+  products: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.products.filter((p) => p.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const p = store.products.find((x) => x.id === id);
+      if (p && p.orgId !== orgId) return null;
+      return p || null;
+    },
+    insert: async (p: Omit<DBProduct, "id">) => {
+      const orgId = getActiveOrgId();
+      if (p.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newProduct: DBProduct = {
+        ...p,
+        id: `product-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.products.push(newProduct);
+      return newProduct;
+    },
+  },
+  pricebooks: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.pricebooks.filter((pb) => pb.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const pb = store.pricebooks.find((x) => x.id === id);
+      if (pb && pb.orgId !== orgId) return null;
+      return pb || null;
+    },
+    insert: async (pb: Omit<DBPricebook, "id">) => {
+      const orgId = getActiveOrgId();
+      if (pb.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newPb: DBPricebook = {
+        ...pb,
+        id: `pricebook-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.pricebooks.push(newPb);
+      return newPb;
+    },
+  },
+  pricebookEntries: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.pricebookEntries.filter((pbe) => pbe.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const pbe = store.pricebookEntries.find((x) => x.id === id);
+      if (pbe && pbe.orgId !== orgId) return null;
+      return pbe || null;
+    },
+    insert: async (pbe: Omit<DBPricebookEntry, "id">) => {
+      const orgId = getActiveOrgId();
+      if (pbe.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newPbe: DBPricebookEntry = {
+        ...pbe,
+        id: `pbe-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.pricebookEntries.push(newPbe);
+      return newPbe;
+    },
+  },
+  opportunityProducts: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityProducts.filter((op) => op.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const op = store.opportunityProducts.find((x) => x.id === id);
+      if (op && op.orgId !== orgId) return null;
+      return op || null;
+    },
+    insert: async (op: Omit<DBOpportunityProduct, "id">) => {
+      const orgId = getActiveOrgId();
+      if (op.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newOp: DBOpportunityProduct = {
+        ...op,
+        id: `line-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.opportunityProducts.push(newOp);
+      return newOp;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<
+          DBOpportunityProduct,
+          "id" | "orgId" | "opportunityId" | "pricebookEntryId"
+        >
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityProducts.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      if (store.opportunityProducts[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityProducts[index] = {
+        ...store.opportunityProducts[index],
+        ...updates,
+      };
+      return store.opportunityProducts[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityProducts.findIndex((x) => x.id === id);
+      if (index === -1) return false;
+      if (store.opportunityProducts[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityProducts.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -537,5 +705,9 @@ export const dbStore = {
     store.activities = [];
     store.activityLinks = [];
     store.reports = [];
+    store.products = [];
+    store.pricebooks = [];
+    store.pricebookEntries = [];
+    store.opportunityProducts = [];
   },
 };
