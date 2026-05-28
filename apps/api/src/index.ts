@@ -543,4 +543,103 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
   });
 });
 
+// Activities & Chronological Task Timelines REST API Endpoints
+app.post("/api/activities", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { type, subject, body: noteBody, dueDate, links } = body;
+
+  if (!type || !subject) {
+    return c.json({ error: "Missing required activity parameters" }, 400);
+  }
+
+  const allowedTypes = ["task", "call", "note", "email"];
+  if (!allowedTypes.includes(type)) {
+    return c.json(
+      { error: `Invalid activity type. Allowed: ${allowedTypes.join(", ")}` },
+      400,
+    );
+  }
+
+  const activity = await dbStore.activities.insert({
+    orgId: tenant.orgId,
+    creatorId: tenant.userId,
+    type,
+    subject,
+    body: noteBody !== undefined ? noteBody : null,
+    dueDate: dueDate ? new Date(dueDate) : null,
+  });
+
+  const insertedLinks = [];
+  if (links && Array.isArray(links)) {
+    const allowedTargetTypes = ["Account", "Contact", "Lead", "Opportunity"];
+    for (const link of links) {
+      const { targetType, targetId } = link;
+      if (targetType && targetId && allowedTargetTypes.includes(targetType)) {
+        const linkRecord = await dbStore.activityLinks.insert({
+          orgId: tenant.orgId,
+          activityId: activity.id,
+          targetType,
+          targetId,
+        });
+        insertedLinks.push(linkRecord);
+      }
+    }
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      ...activity,
+      links: insertedLinks,
+    },
+  });
+});
+
+app.get("/api/activities/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const activity = await dbStore.activities.findOne(id);
+  if (!activity) {
+    return c.json({ error: "Activity not found" }, 404);
+  }
+  return c.json({ success: true, data: activity });
+});
+
+app.get(
+  "/api/activities/timeline/:targetType/:targetId",
+  tenantAuth,
+  async (c) => {
+    const targetType = c.req.param("targetType");
+    const targetId = c.req.param("targetId");
+
+    const allowedTargetTypes = ["Account", "Contact", "Lead", "Opportunity"];
+    if (!allowedTargetTypes.includes(targetType)) {
+      return c.json(
+        {
+          error: `Invalid target type. Allowed: ${allowedTargetTypes.join(", ")}`,
+        },
+        400,
+      );
+    }
+
+    const allLinks = await dbStore.activityLinks.findMany();
+    const matchedLinks = allLinks.filter(
+      (l) => l.targetType === targetType && l.targetId === targetId,
+    );
+
+    const matchedActivityIds = new Set(matchedLinks.map((l) => l.activityId));
+    const activities = await dbStore.activities.findMany();
+    const filteredActivities = activities.filter((act) =>
+      matchedActivityIds.has(act.id),
+    );
+
+    filteredActivities.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    return c.json({ success: true, data: filteredActivities });
+  },
+);
+
 export default app;

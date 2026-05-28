@@ -152,6 +152,25 @@ export interface DBTicket {
   createdAt: Date;
 }
 
+export interface DBActivity {
+  id: string;
+  orgId: string;
+  creatorId: string;
+  type: "task" | "call" | "note" | "email";
+  subject: string;
+  body: string | null;
+  dueDate: Date | null;
+  createdAt: Date;
+}
+
+export interface DBActivityLink {
+  id: string;
+  orgId: string;
+  activityId: string;
+  targetType: "Account" | "Contact" | "Lead" | "Opportunity";
+  targetId: string;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -162,6 +181,8 @@ export const store = {
   layoutDefinitions: [] as DBLayoutDefinition[],
   workflows: [] as DBWorkflow[],
   tickets: [] as DBTicket[],
+  activities: [] as DBActivity[],
+  activityLinks: [] as DBActivityLink[],
 };
 
 export const dbStore = {
@@ -419,6 +440,51 @@ export const dbStore = {
       return store.tickets[index];
     },
   },
+  activities: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.activities.filter((act) => act.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const act = store.activities.find((a) => a.id === id);
+      if (act && act.orgId !== orgId) {
+        return null;
+      }
+      return act || null;
+    },
+    insert: async (act: Omit<DBActivity, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (act.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newAct: DBActivity = {
+        ...act,
+        id: `activity-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.activities.push(newAct);
+      return newAct;
+    },
+  },
+  activityLinks: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.activityLinks.filter((link) => link.orgId === orgId);
+    },
+    insert: async (link: Omit<DBActivityLink, "id">) => {
+      const orgId = getActiveOrgId();
+      if (link.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newLink: DBActivityLink = {
+        ...link,
+        id: `link-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.activityLinks.push(newLink);
+      return newLink;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -429,5 +495,7 @@ export const dbStore = {
     store.layoutDefinitions = [];
     store.workflows = [];
     store.tickets = [];
+    store.activities = [];
+    store.activityLinks = [];
   },
 };
