@@ -8689,3 +8689,114 @@ export async function resumeMarketingSequence(
 
   return updatedSequence;
 }
+
+export async function reorderMarketingSequenceSteps(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  dbStore: any,
+  sequenceId: string,
+  stepId: string,
+  newStepNumber: number,
+  orgId: string,
+  // biome-ignore lint/suspicious/noExplicitAny: returned updated steps
+): Promise<any[]> {
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    throw new Error("Sequence not found");
+  }
+  if (sequence.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+  const stepToMove = steps.find((s: { id: string }) => s.id === stepId);
+  if (!stepToMove) {
+    throw new Error("Step not found");
+  }
+  for (const s of steps) {
+    if (s.orgId !== orgId) {
+      throw new Error("RLS Isolation Violation: Tenant mismatch.");
+    }
+  }
+
+  steps.sort(
+    (a: { stepNumber: number }, b: { stepNumber: number }) =>
+      a.stepNumber - b.stepNumber,
+  );
+
+  const N = steps.length;
+  if (newStepNumber < 1 || newStepNumber > N) {
+    throw new Error(`Invalid newStepNumber. Must be between 1 and ${N}`);
+  }
+
+  const oldNum = stepToMove.stepNumber;
+  if (oldNum === newStepNumber) {
+    return steps;
+  }
+
+  const oldNumToNewNum = new Map<number, number>();
+  const idToNewNum = new Map<string, number>();
+
+  for (const step of steps) {
+    let newNum = step.stepNumber;
+    if (step.id === stepId) {
+      newNum = newStepNumber;
+    } else if (oldNum > newStepNumber) {
+      // Moving up/earlier
+      if (step.stepNumber >= newStepNumber && step.stepNumber < oldNum) {
+        newNum = step.stepNumber + 1;
+      }
+    } else if (oldNum < newStepNumber) {
+      // Moving down/later
+      if (step.stepNumber > oldNum && step.stepNumber <= newStepNumber) {
+        newNum = step.stepNumber - 1;
+      }
+    }
+    oldNumToNewNum.set(step.stepNumber, newNum);
+    idToNewNum.set(step.id, newNum);
+  }
+
+  // Update step_number and reply_to_step_number
+  for (const step of steps) {
+    const updatedStepNumber = idToNewNum.get(step.id) || step.stepNumber;
+    let updatedReplyTo = step.replyToStepNumber;
+    if (step.replyToStepNumber) {
+      updatedReplyTo =
+        oldNumToNewNum.get(step.replyToStepNumber) || step.replyToStepNumber;
+    }
+
+    await dbStore.marketingSequenceSteps.update(step.id, {
+      stepNumber: updatedStepNumber,
+      replyToStepNumber: updatedReplyTo || null,
+    });
+  }
+
+  // Update step branches if they exist
+  if (dbStore.marketingSequenceStepBranches) {
+    for (const step of steps) {
+      const branch = await dbStore.marketingSequenceStepBranches.findForStep(
+        step.id,
+      );
+      if (branch) {
+        const updatedTrue =
+          oldNumToNewNum.get(branch.trueNextStepNumber) ||
+          branch.trueNextStepNumber;
+        const updatedFalse =
+          oldNumToNewNum.get(branch.falseNextStepNumber) ||
+          branch.falseNextStepNumber;
+        await dbStore.marketingSequenceStepBranches.update(branch.id, {
+          trueNextStepNumber: updatedTrue,
+          falseNextStepNumber: updatedFalse,
+        });
+      }
+    }
+  }
+
+  const updatedSteps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+  updatedSteps.sort(
+    (a: { stepNumber: number }, b: { stepNumber: number }) =>
+      a.stepNumber - b.stepNumber,
+  );
+  return updatedSteps;
+}

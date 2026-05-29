@@ -5515,6 +5515,30 @@ export const dbStore = {
       store.marketingSequenceStepBranches.push(newItem);
       return newItem;
     },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<
+          DBMarketingSequenceStepBranch,
+          "id" | "orgId" | "createdAt" | "updatedAt"
+        >
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceStepBranches.findIndex(
+        (c) => c.id === id,
+      );
+      if (index === -1) return null;
+      if (store.marketingSequenceStepBranches[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceStepBranches[index] = {
+        ...store.marketingSequenceStepBranches[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.marketingSequenceStepBranches[index];
+    },
     delete: async (id: string) => {
       const orgId = getActiveOrgId();
       const index = store.marketingSequenceStepBranches.findIndex(
