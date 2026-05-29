@@ -3887,3 +3887,281 @@ export function compileEmailTemplate(
     body: replacePlaceholders(template.body),
   };
 }
+
+interface CoreSequenceStep {
+  id: string;
+  orgId: string;
+  sequenceId: string;
+  stepNumber: number;
+  delayDays: number;
+  templateId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface CoreSequenceMembership {
+  id: string;
+  orgId: string;
+  sequenceId: string;
+  recordType: "lead" | "contact";
+  recordId: string;
+  status: string;
+  currentStepNumber: number;
+  lastExecutedAt: Date | null;
+  nextExecutionAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface CoreConsentPreference {
+  id: string;
+  orgId: string;
+  recordType: string;
+  recordId: string;
+  channel: string;
+  status: string;
+  source: string;
+  updatedById: string;
+}
+
+export async function enrollInSequence(
+  dbStore: {
+    marketingSequenceSteps: {
+      findForSequence: (sequenceId: string) => Promise<CoreSequenceStep[]>;
+    };
+    marketingSequenceMemberships: {
+      insert: (
+        item: Omit<CoreSequenceMembership, "id" | "createdAt" | "updatedAt">,
+      ) => Promise<CoreSequenceMembership>;
+    };
+  },
+  orgId: string,
+  sequenceId: string,
+  recordType: "lead" | "contact",
+  recordId: string,
+): Promise<CoreSequenceMembership> {
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+  const firstStep = steps.find((s) => s.stepNumber === 1);
+  const delay = firstStep ? firstStep.delayDays : 0;
+
+  // Compute nextExecutionAt: delay represented in days
+  const nextExecutionAt = new Date(Date.now() + delay * 24 * 60 * 60 * 1000);
+
+  const membership = await dbStore.marketingSequenceMemberships.insert({
+    orgId,
+    sequenceId,
+    recordType,
+    recordId,
+    status: "active",
+    currentStepNumber: 0,
+    lastExecutedAt: null,
+    nextExecutionAt,
+  });
+
+  return membership;
+}
+
+export async function executePendingSequenceSteps(
+  dbStore: {
+    marketingSequenceMemberships: {
+      findMany: () => Promise<CoreSequenceMembership[]>;
+      update: (
+        id: string,
+        updates: Partial<
+          Omit<
+            CoreSequenceMembership,
+            "id" | "orgId" | "createdAt" | "updatedAt"
+          >
+        >,
+      ) => Promise<CoreSequenceMembership | null>;
+    };
+    marketingSequenceSteps: {
+      findForSequence: (sequenceId: string) => Promise<CoreSequenceStep[]>;
+    };
+    leads: {
+      findOne: (id: string) => Promise<unknown | null>;
+    };
+    contacts: {
+      findOne: (id: string) => Promise<unknown | null>;
+    };
+    contactConsentPreferences: {
+      findMany: () => Promise<CoreConsentPreference[]>;
+    };
+    emailTemplates: {
+      findOne: (id: string) => Promise<{
+        id: string;
+        orgId: string;
+        name: string;
+        subject: string;
+        body: string;
+      } | null>;
+    };
+    activities: {
+      insert: (item: {
+        orgId: string;
+        creatorId: string;
+        type: "email" | "task" | "call" | "note";
+        subject: string;
+        body: string;
+        dueDate: Date | null;
+      }) => Promise<{ id: string }>;
+    };
+    activityLinks: {
+      insert: (item: {
+        orgId: string;
+        activityId: string;
+        targetType: "Lead" | "Account" | "Contact" | "Opportunity" | "Campaign";
+        targetId: string;
+      }) => Promise<unknown>;
+    };
+    auditLogs: {
+      insert: (item: {
+        orgId: string;
+        recordId: string;
+        recordType: string;
+        action: string;
+        userId: string;
+        changes: Record<string, { before: unknown; after: unknown }>;
+      }) => Promise<unknown>;
+    };
+  },
+  currentTime: Date = new Date(),
+): Promise<number> {
+  const memberships = await dbStore.marketingSequenceMemberships.findMany();
+  const pendingMemberships = memberships.filter(
+    (m) => m.status === "active" && new Date(m.nextExecutionAt) <= currentTime,
+  );
+
+  let processedCount = 0;
+
+  for (const membership of pendingMemberships) {
+    const orgId = membership.orgId;
+    const nextStepNumber = membership.currentStepNumber + 1;
+
+    const steps = await dbStore.marketingSequenceSteps.findForSequence(
+      membership.sequenceId,
+    );
+    const step = steps.find((s) => s.stepNumber === nextStepNumber);
+
+    if (!step) {
+      await dbStore.marketingSequenceMemberships.update(membership.id, {
+        status: "completed",
+        currentStepNumber: membership.currentStepNumber,
+      });
+      processedCount++;
+      continue;
+    }
+
+    let recipientContext: {
+      lead?: Record<string, unknown> | null;
+      contact?: Record<string, unknown> | null;
+    } = {};
+
+    if (membership.recordType === "lead") {
+      const lead = await dbStore.leads.findOne(membership.recordId);
+      if (lead) {
+        recipientContext = { lead: lead as Record<string, unknown> };
+      }
+    } else if (membership.recordType === "contact") {
+      const contact = await dbStore.contacts.findOne(membership.recordId);
+      if (contact) {
+        recipientContext = { contact: contact as Record<string, unknown> };
+      }
+    }
+
+    const allPrefs = await dbStore.contactConsentPreferences.findMany();
+    const existingPref = allPrefs.find(
+      (p) =>
+        p.recordType === membership.recordType &&
+        p.recordId === membership.recordId &&
+        p.channel === "email" &&
+        p.status === "opt_out",
+    );
+
+    if (existingPref) {
+      await dbStore.marketingSequenceMemberships.update(membership.id, {
+        status: "unsubscribed",
+      });
+
+      await dbStore.auditLogs.insert({
+        orgId,
+        recordId: membership.recordId,
+        recordType: "marketing_sequence_memberships",
+        action: "unsubscribe_skip",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          status: { before: "active", after: "unsubscribed" },
+        },
+      });
+
+      processedCount++;
+      continue;
+    }
+
+    const template = await dbStore.emailTemplates.findOne(step.templateId);
+    if (!template) {
+      await dbStore.marketingSequenceMemberships.update(membership.id, {
+        status: "error",
+      });
+      processedCount++;
+      continue;
+    }
+
+    const compiled = compileEmailTemplate(template, recipientContext);
+
+    const activity = await dbStore.activities.insert({
+      orgId,
+      creatorId: "00000000-0000-0000-0000-000000000000",
+      type: "email",
+      subject: compiled.subject,
+      body: compiled.body,
+      dueDate: null,
+    });
+
+    await dbStore.activityLinks.insert({
+      orgId,
+      activityId: activity.id,
+      targetType: membership.recordType === "lead" ? "Lead" : "Contact",
+      targetId: membership.recordId,
+    });
+
+    const nextStep = steps.find((s) => s.stepNumber === nextStepNumber + 1);
+    let nextStatus = "active";
+    let nextExecTime = new Date();
+
+    if (!nextStep) {
+      nextStatus = "completed";
+    } else {
+      nextExecTime = new Date(
+        currentTime.getTime() + nextStep.delayDays * 24 * 60 * 60 * 1000,
+      );
+    }
+
+    await dbStore.marketingSequenceMemberships.update(membership.id, {
+      status: nextStatus,
+      currentStepNumber: nextStepNumber,
+      lastExecutedAt: currentTime,
+      nextExecutionAt: nextExecTime,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId,
+      recordId: membership.id,
+      recordType: "marketing_sequence_memberships",
+      action: "execute_step",
+      userId: "00000000-0000-0000-0000-000000000000",
+      changes: {
+        stepNumber: {
+          before: membership.currentStepNumber,
+          after: nextStepNumber,
+        },
+        status: { before: membership.status, after: nextStatus },
+      },
+    });
+
+    processedCount++;
+  }
+
+  return processedCount;
+}

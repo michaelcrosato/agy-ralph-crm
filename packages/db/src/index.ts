@@ -546,6 +546,41 @@ export interface DBCampaignInfluence {
   createdAt: Date;
 }
 
+export interface DBMarketingSequence {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string;
+  status: string; // "active" | "draft"
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DBMarketingSequenceStep {
+  id: string;
+  orgId: string;
+  sequenceId: string;
+  stepNumber: number;
+  delayDays: number;
+  templateId: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DBMarketingSequenceMembership {
+  id: string;
+  orgId: string;
+  sequenceId: string;
+  recordType: "lead" | "contact";
+  recordId: string;
+  status: string; // "active" | "completed" | "unsubscribed" | "error"
+  currentStepNumber: number;
+  lastExecutedAt: Date | null;
+  nextExecutionAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBContract {
   id: string;
   orgId: string;
@@ -980,6 +1015,9 @@ export const store = {
   opportunityStageHistory: [] as DBOpportunityStageHistory[],
   opportunityContactRoles: [] as DBOpportunityContactRole[],
   campaignInfluence: [] as DBCampaignInfluence[],
+  marketingSequences: [] as DBMarketingSequence[],
+  marketingSequenceSteps: [] as DBMarketingSequenceStep[],
+  marketingSequenceMemberships: [] as DBMarketingSequenceMembership[],
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
   leadSlaTrackers: [] as DBLeadSlaTracker[],
@@ -4466,7 +4504,168 @@ export const dbStore = {
       return true;
     },
   },
+  marketingSequences: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequences.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const c = store.marketingSequences.find((x) => x.id === id);
+      if (c && c.orgId !== orgId) return null;
+      return c || null;
+    },
+    insert: async (
+      item: Omit<DBMarketingSequence, "id" | "createdAt" | "updatedAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSequence = {
+        ...item,
+        id: `seq-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSequences.push(newItem);
+      return newItem;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBMarketingSequence, "id" | "orgId" | "createdAt" | "updatedAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequences.findIndex((c) => c.id === id);
+      if (index === -1) return null;
+      if (store.marketingSequences[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequences[index] = {
+        ...store.marketingSequences[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.marketingSequences[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequences.findIndex((c) => c.id === id);
+      if (index === -1) return false;
+      if (store.marketingSequences[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequences.splice(index, 1);
+      return true;
+    },
+  },
+  marketingSequenceSteps: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceSteps.filter((c) => c.orgId === orgId);
+    },
+    findForSequence: async (sequenceId: string) => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceSteps.filter(
+        (s) => s.sequenceId === sequenceId && s.orgId === orgId,
+      );
+    },
+    insert: async (
+      item: Omit<DBMarketingSequenceStep, "id" | "createdAt" | "updatedAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSequenceStep = {
+        ...item,
+        id: `step-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSequenceSteps.push(newItem);
+      return newItem;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceSteps.findIndex((c) => c.id === id);
+      if (index === -1) return false;
+      if (store.marketingSequenceSteps[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceSteps.splice(index, 1);
+      return true;
+    },
+  },
+  marketingSequenceMemberships: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceMemberships.filter(
+        (c) => c.orgId === orgId,
+      );
+    },
+    findForSequence: async (sequenceId: string) => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceMemberships.filter(
+        (m) => m.sequenceId === sequenceId && m.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.marketingSequenceMemberships.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (
+      item: Omit<
+        DBMarketingSequenceMembership,
+        "id" | "createdAt" | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSequenceMembership = {
+        ...item,
+        id: `memb-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSequenceMemberships.push(newItem);
+      return newItem;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<
+          DBMarketingSequenceMembership,
+          "id" | "orgId" | "createdAt" | "updatedAt"
+        >
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceMemberships.findIndex(
+        (c) => c.id === id,
+      );
+      if (index === -1) return null;
+      if (store.marketingSequenceMemberships[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceMemberships[index] = {
+        ...store.marketingSequenceMemberships[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.marketingSequenceMemberships[index];
+    },
+  },
   clear: () => {
+    store.marketingSequences = [];
+    store.marketingSequenceSteps = [];
+    store.marketingSequenceMemberships = [];
     store.emailTemplates = [];
     store.emailTrackers = [];
     store.picklistDependencies = [];

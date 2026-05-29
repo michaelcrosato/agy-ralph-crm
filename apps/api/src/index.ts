@@ -37,12 +37,14 @@ import {
   convertLeadWithMappings,
   detectCircularAccountRelation,
   detectCircularContactRelation,
+  enrollInSequence,
   evaluateLeadAssignment,
   evaluateLeadAutoConversion,
   evaluateMilestoneCompletion,
   evaluateTerritoryRouting,
   evaluateTicketAssignment,
   evaluateTicketEscalation,
+  executePendingSequenceSteps,
   generateRenewalOpportunity,
   generateStraightLineSchedules,
   incrementArticleViewCount,
@@ -9815,6 +9817,125 @@ app.get("/api/public/emails/unsubscribe/:token", async (c) => {
 
   c.header("Content-Type", "text/html");
   return c.body(html);
+});
+
+// Marketing Sequences & Drip Journeys Endpoints
+
+app.post("/api/sequences", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, description, status } = body;
+
+  if (!name) {
+    return c.json({ success: false, error: "Sequence name is required" }, 400);
+  }
+
+  const seq = await dbStore.marketingSequences.insert({
+    orgId: tenant.orgId,
+    name,
+    description: description || "",
+    status: status || "draft",
+  });
+
+  return c.json({ success: true, sequence: seq });
+});
+
+app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { stepNumber, delayDays, templateId } = body;
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  if (stepNumber === undefined || templateId === undefined) {
+    return c.json(
+      { success: false, error: "stepNumber and templateId are required" },
+      400,
+    );
+  }
+
+  const template = await dbStore.emailTemplates.findOne(templateId);
+  if (!template) {
+    return c.json({ success: false, error: "Email Template not found" }, 404);
+  }
+
+  const step = await dbStore.marketingSequenceSteps.insert({
+    orgId: tenant.orgId,
+    sequenceId,
+    stepNumber: Number(stepNumber),
+    delayDays: delayDays !== undefined ? Number(delayDays) : 0,
+    templateId,
+  });
+
+  return c.json({ success: true, step });
+});
+
+app.post("/api/sequences/:id/enroll", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { recordType, recordId } = body;
+
+  if (!recordType || !recordId) {
+    return c.json(
+      { success: false, error: "recordType and recordId are required" },
+      400,
+    );
+  }
+
+  if (recordType !== "lead" && recordType !== "contact") {
+    return c.json(
+      { success: false, error: "recordType must be lead or contact" },
+      400,
+    );
+  }
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  if (recordType === "lead") {
+    const lead = await dbStore.leads.findOne(recordId);
+    if (!lead) {
+      return c.json({ success: false, error: "Lead not found" }, 404);
+    }
+  } else {
+    const contact = await dbStore.contacts.findOne(recordId);
+    if (!contact) {
+      return c.json({ success: false, error: "Contact not found" }, 404);
+    }
+  }
+
+  const membership = await enrollInSequence(
+    dbStore,
+    tenant.orgId,
+    sequenceId,
+    recordType,
+    recordId,
+  );
+  return c.json({ success: true, membership });
+});
+
+app.post("/api/sequences/execute", tenantAuth, async (c) => {
+  const processed = await executePendingSequenceSteps(dbStore, new Date());
+  return c.json({ success: true, processedCount: processed });
+});
+
+app.get("/api/sequences/:id/members", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const members =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+  return c.json({ success: true, data: members });
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)

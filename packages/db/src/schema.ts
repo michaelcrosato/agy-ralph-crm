@@ -1185,3 +1185,53 @@ export const emailTrackers = pgTable("email_trackers", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const marketingSequences = pgTable("marketing_sequences", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  status: text("status").notNull().default("draft"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const marketingSequenceSteps = pgTable("marketing_sequence_steps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  sequenceId: uuid("sequence_id")
+    .notNull()
+    .references(() => marketingSequences.id, { onDelete: "cascade" }),
+  stepNumber: integer("step_number").notNull(),
+  delayDays: integer("delay_days").notNull().default(0),
+  templateId: uuid("template_id")
+    .notNull()
+    .references(() => emailTemplates.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const marketingSequenceMemberships = pgTable(
+  "marketing_sequence_memberships",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => marketingSequences.id, { onDelete: "cascade" }),
+    recordType: text("record_type").notNull(), // "lead" | "contact"
+    recordId: uuid("record_id").notNull(),
+    status: text("status").notNull().default("active"), // "active" | "completed" | "unsubscribed" | "error"
+    currentStepNumber: integer("current_step_number").notNull().default(0),
+    lastExecutedAt: timestamp("last_executed_at"),
+    nextExecutionAt: timestamp("next_execution_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);
