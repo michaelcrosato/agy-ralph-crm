@@ -48,6 +48,21 @@ export function getActiveOrgId(): string {
   return context.orgId;
 }
 
+export interface DBUser {
+  id: string;
+  email: string;
+  passwordHash: string;
+  status: string;
+  createdAt: Date;
+}
+
+export interface DBMembership {
+  id: string;
+  orgId: string;
+  userId: string;
+  roleId: string;
+}
+
 export interface DBLead {
   id: string;
   orgId: string;
@@ -843,6 +858,8 @@ export interface DBScheduledReportRun {
 }
 
 export const store = {
+  users: [] as DBUser[],
+  memberships: [] as DBMembership[],
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
   contacts: [] as DBContact[],
@@ -920,6 +937,43 @@ export const store = {
 };
 
 export const dbStore = {
+  users: {
+    findMany: async () => {
+      return store.users;
+    },
+    findOne: async (id: string) => {
+      return store.users.find((u) => u.id === id) || null;
+    },
+    insert: async (
+      user: Omit<DBUser, "id" | "createdAt"> & { id?: string },
+    ) => {
+      const newUser: DBUser = {
+        ...user,
+        id: user.id || `user-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.users.push(newUser);
+      return newUser;
+    },
+  },
+  memberships: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.memberships.filter((m) => m.orgId === orgId);
+    },
+    insert: async (membership: Omit<DBMembership, "id">) => {
+      const orgId = getActiveOrgId();
+      if (membership.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMembership: DBMembership = {
+        ...membership,
+        id: `membership-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.memberships.push(newMembership);
+      return newMembership;
+    },
+  },
   leads: {
     findMany: async () => {
       const orgId = getActiveOrgId();
@@ -4018,6 +4072,8 @@ export const dbStore = {
     },
   },
   clear: () => {
+    store.users = [];
+    store.memberships = [];
     store.leads = [];
 
     store.accounts = [];

@@ -3415,3 +3415,121 @@ function runReportInline(params: {
     data: results,
   };
 }
+
+export interface LeaderboardRepInput {
+  userId: string;
+  userName: string;
+}
+
+export interface LeaderboardOpportunityInput {
+  id: string;
+  ownerId: string;
+  stage: string;
+  amount: string | null;
+  closeDate: Date | null;
+}
+
+export interface LeaderboardQuotaInput {
+  userId: string;
+  period: string;
+  targetAmount: string;
+}
+
+export interface LeaderboardRepResult {
+  userId: string;
+  userName: string;
+  totalClosedWon: number;
+  quotaTarget: number;
+  attainmentPercentage: number;
+  rank: number;
+}
+
+export interface LeaderboardResult {
+  period: string;
+  leaderboard: LeaderboardRepResult[];
+}
+
+export function isDateInPeriod(date: Date, period: string): boolean {
+  if (!date || Number.isNaN(date.getTime())) return false;
+  const iso = date.toISOString();
+  const year = iso.substring(0, 4);
+  const monthStr = iso.substring(5, 7);
+  const month = Number.parseInt(monthStr, 10);
+
+  if (period.includes("-Q")) {
+    const [qYear, qStr] = period.split("-Q");
+    if (year !== qYear) return false;
+    const quarter = Math.ceil(month / 3);
+    return quarter.toString() === qStr;
+  }
+  return iso.substring(0, 7) === period;
+}
+
+export function calculateSalesLeaderboard(params: {
+  period: string;
+  users: LeaderboardRepInput[];
+  opportunities: LeaderboardOpportunityInput[];
+  quotas: LeaderboardQuotaInput[];
+}): LeaderboardResult {
+  const { period, users, opportunities, quotas } = params;
+
+  const closedWonOpps = opportunities.filter((opp) => {
+    if (opp.stage !== "Closed Won") return false;
+    if (!opp.closeDate) return false;
+    const date = new Date(opp.closeDate);
+    return isDateInPeriod(date, period);
+  });
+
+  const totalsByUserId: Record<string, number> = {};
+  for (const opp of closedWonOpps) {
+    const amount = Number.parseFloat(opp.amount || "0");
+    const parsedAmount = Number.isNaN(amount) ? 0 : amount;
+    totalsByUserId[opp.ownerId] =
+      (totalsByUserId[opp.ownerId] || 0) + parsedAmount;
+  }
+
+  const quotasByUserId: Record<string, number> = {};
+  for (const q of quotas) {
+    if (q.period === period) {
+      const amount = Number.parseFloat(q.targetAmount);
+      quotasByUserId[q.userId] = Number.isNaN(amount) ? 0 : amount;
+    }
+  }
+
+  const leaderboard: LeaderboardRepResult[] = users.map((u) => {
+    const totalClosedWon =
+      Math.round((totalsByUserId[u.userId] || 0) * 100) / 100;
+    const quotaTarget = Math.round((quotasByUserId[u.userId] || 0) * 100) / 100;
+
+    let attainmentPercentage = 0;
+    if (quotaTarget > 0) {
+      attainmentPercentage =
+        Math.round((totalClosedWon / quotaTarget) * 10000) / 100;
+    }
+
+    return {
+      userId: u.userId,
+      userName: u.userName,
+      totalClosedWon,
+      quotaTarget,
+      attainmentPercentage,
+      rank: 0,
+    };
+  });
+
+  leaderboard.sort((a, b) => {
+    if (b.attainmentPercentage !== a.attainmentPercentage) {
+      return b.attainmentPercentage - a.attainmentPercentage;
+    }
+    return b.totalClosedWon - a.totalClosedWon;
+  });
+
+  for (let i = 0; i < leaderboard.length; i++) {
+    leaderboard[i].rank = i + 1;
+  }
+
+  return {
+    period,
+    leaderboard,
+  };
+}
