@@ -2512,3 +2512,98 @@ export function validateTicketTagInput(input: TicketTagInput): {
   }
   return { success: true };
 }
+
+export interface TicketAssignmentRuleEntryInput {
+  id: string;
+  sortOrder: number;
+  routingMethod: string;
+  routingUserIds: string[];
+  lastAssignedIndex: number;
+  criteria: CriteriaCondition[];
+}
+
+export interface TicketRoutingMatchResult {
+  matchedEntryId: string;
+  newAssignedToId: string;
+  newLastAssignedIndex: number;
+}
+
+export function evaluateTicketAssignment(
+  ticket: Record<string, unknown>,
+  entries: TicketAssignmentRuleEntryInput[],
+): TicketRoutingMatchResult | null {
+  const sortedEntries = [...entries].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  for (const entry of sortedEntries) {
+    let match = true;
+    for (const cond of entry.criteria) {
+      let ticketValue: unknown = undefined;
+      if (cond.field.startsWith("custom.")) {
+        const customField = cond.field.substring("custom.".length);
+        ticketValue = (ticket.custom as Record<string, unknown> | null)?.[
+          customField
+        ];
+      } else {
+        ticketValue = ticket[cond.field];
+      }
+
+      if (ticketValue === undefined || ticketValue === null) {
+        match = false;
+        break;
+      }
+
+      const tStr = String(ticketValue).toLowerCase();
+      const cStr = String(cond.value).toLowerCase();
+
+      if (cond.operator === "equals") {
+        if (tStr !== cStr) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "contains") {
+        if (!tStr.includes(cStr)) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "greater_than") {
+        const tNum = Number.parseFloat(tStr);
+        const cNum = Number.parseFloat(cStr);
+        if (Number.isNaN(tNum) || Number.isNaN(cNum) || tNum <= cNum) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "less_than") {
+        const tNum = Number.parseFloat(tStr);
+        const cNum = Number.parseFloat(cStr);
+        if (Number.isNaN(tNum) || Number.isNaN(cNum) || tNum >= cNum) {
+          match = false;
+          break;
+        }
+      } else {
+        match = false;
+        break;
+      }
+    }
+
+    if (match && entry.routingUserIds.length > 0) {
+      if (entry.routingMethod === "direct") {
+        return {
+          matchedEntryId: entry.id,
+          newAssignedToId: entry.routingUserIds[0],
+          newLastAssignedIndex: -1,
+        };
+      }
+      if (entry.routingMethod === "round_robin") {
+        const nextIndex =
+          (entry.lastAssignedIndex + 1) % entry.routingUserIds.length;
+        return {
+          matchedEntryId: entry.id,
+          newAssignedToId: entry.routingUserIds[nextIndex],
+          newLastAssignedIndex: nextIndex,
+        };
+      }
+    }
+  }
+
+  return null;
+}

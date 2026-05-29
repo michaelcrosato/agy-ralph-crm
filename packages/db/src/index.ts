@@ -154,7 +154,27 @@ export interface DBTicket {
   contactId: string;
   subject: string;
   status: "Open" | "In Progress" | "Resolved";
+  assignedToId?: string | null;
   createdAt: Date;
+}
+
+export interface DBTicketAssignmentRule {
+  id: string;
+  orgId: string;
+  name: string;
+  isActive: number;
+  createdAt: Date;
+}
+
+export interface DBTicketAssignmentRuleEntry {
+  id: string;
+  orgId: string;
+  ruleId: string;
+  sortOrder: number;
+  routingMethod: string; // "direct" | "round_robin"
+  routingUserIds: string[];
+  lastAssignedIndex: number;
+  criteria: DBCriteriaCondition[];
 }
 
 export interface DBActivity {
@@ -823,6 +843,8 @@ export const store = {
   ticketComments: [] as DBTicketComment[],
   ticketTags: [] as DBTicketTag[],
   ticketTagLinks: [] as DBTicketTagLink[],
+  ticketAssignmentRules: [] as DBTicketAssignmentRule[],
+  ticketAssignmentRuleEntries: [] as DBTicketAssignmentRuleEntry[],
 };
 
 export const dbStore = {
@@ -3584,6 +3606,101 @@ export const dbStore = {
       return true;
     },
   },
+  ticketAssignmentRules: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketAssignmentRules.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const rule = store.ticketAssignmentRules.find((r) => r.id === id);
+      if (rule && rule.orgId !== orgId) {
+        return null;
+      }
+      return rule || null;
+    },
+    insert: async (
+      rule: Omit<DBTicketAssignmentRule, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (rule.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRule: DBTicketAssignmentRule = {
+        ...rule,
+        id: `trule-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: rule.createdAt || new Date(),
+      };
+      store.ticketAssignmentRules.push(newRule);
+      return newRule;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBTicketAssignmentRule, "id" | "orgId" | "createdAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.ticketAssignmentRules.findIndex((r) => r.id === id);
+      if (index === -1) return null;
+      if (store.ticketAssignmentRules[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.ticketAssignmentRules[index] = {
+        ...store.ticketAssignmentRules[index],
+        ...updates,
+      };
+      return store.ticketAssignmentRules[index];
+    },
+  },
+  ticketAssignmentRuleEntries: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketAssignmentRuleEntries.filter((e) => e.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const entry = store.ticketAssignmentRuleEntries.find((e) => e.id === id);
+      if (entry && entry.orgId !== orgId) {
+        return null;
+      }
+      return entry || null;
+    },
+    insert: async (entry: Omit<DBTicketAssignmentRuleEntry, "id">) => {
+      const orgId = getActiveOrgId();
+      if (entry.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newEntry: DBTicketAssignmentRuleEntry = {
+        ...entry,
+        id: `trent-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.ticketAssignmentRuleEntries.push(newEntry);
+      return newEntry;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBTicketAssignmentRuleEntry, "id" | "orgId" | "ruleId">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.ticketAssignmentRuleEntries.findIndex(
+        (e) => e.id === id,
+      );
+      if (index === -1) return null;
+      if (store.ticketAssignmentRuleEntries[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.ticketAssignmentRuleEntries[index] = {
+        ...store.ticketAssignmentRuleEntries[index],
+        ...updates,
+      };
+      return store.ticketAssignmentRuleEntries[index];
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3652,5 +3769,7 @@ export const dbStore = {
     store.ticketComments = [];
     store.ticketTags = [];
     store.ticketTagLinks = [];
+    store.ticketAssignmentRules = [];
+    store.ticketAssignmentRuleEntries = [];
   },
 };

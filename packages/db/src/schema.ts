@@ -206,6 +206,9 @@ export const tickets = pgTable("tickets", {
     .references(() => contacts.id, { onDelete: "cascade" }),
   subject: text("subject").notNull(),
   status: text("status").notNull().default("Open"),
+  assignedToId: uuid("assigned_to_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -975,3 +978,31 @@ export const ticketTagLinks = pgTable("ticket_tag_links", {
     .references(() => ticketTags.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const ticketAssignmentRules = pgTable("ticket_assignment_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  isActive: integer("is_active").notNull().default(0),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const ticketAssignmentRuleEntries = pgTable(
+  "ticket_assignment_rule_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => ticketAssignmentRules.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
+    routingMethod: text("routing_method").notNull(), // "direct" | "round_robin"
+    routingUserIds: jsonb("routing_user_ids").notNull(), // string[]
+    lastAssignedIndex: integer("last_assigned_index").notNull().default(-1),
+    criteria: jsonb("criteria").notNull(), // CriteriaCondition[]
+  },
+);
