@@ -3924,6 +3924,55 @@ interface CoreConsentPreference {
   updatedById: string;
 }
 
+export interface CoreExitTrigger {
+  id: string;
+  orgId: string;
+  sequenceId: string;
+  triggerType: string;
+  criteria: Record<string, unknown>;
+  isActive: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export function shouldExitSequence(params: {
+  recordType: "lead" | "contact";
+  lead: Record<string, unknown> | null | undefined;
+  opportunities: Record<string, unknown>[];
+  triggers: CoreExitTrigger[];
+}): boolean {
+  for (const trigger of params.triggers) {
+    if (trigger.isActive !== 1) continue;
+
+    if (
+      trigger.triggerType === "lead_status_changed" &&
+      params.recordType === "lead" &&
+      params.lead
+    ) {
+      const targetStatus = trigger.criteria?.status;
+      if (targetStatus && params.lead.status === targetStatus) {
+        return true;
+      }
+    }
+
+    if (
+      trigger.triggerType === "opportunity_stage_changed" &&
+      params.recordType === "contact"
+    ) {
+      const targetStage = trigger.criteria?.stage;
+      if (targetStage) {
+        const hasMatchingOpp = params.opportunities.some(
+          (opp) => opp.stage === targetStage,
+        );
+        if (hasMatchingOpp) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 export async function enrollInSequence(
   dbStore: {
     marketingSequenceSteps: {
@@ -4025,6 +4074,12 @@ export async function executePendingSequenceSteps(
         changes: Record<string, { before: unknown; after: unknown }>;
       }) => Promise<unknown>;
     };
+    marketingSequenceExitTriggers?: {
+      findForSequence: (sequenceId: string) => Promise<CoreExitTrigger[]>;
+    };
+    opportunities?: {
+      findMany: () => Promise<Record<string, unknown>[]>;
+    };
   },
   currentTime: Date = new Date(),
 ): Promise<number> {
@@ -4067,6 +4122,53 @@ export async function executePendingSequenceSteps(
       const contact = await dbStore.contacts.findOne(membership.recordId);
       if (contact) {
         recipientContext = { contact: contact as Record<string, unknown> };
+      }
+    }
+
+    // Evaluate Exit Triggers if the stores are provided
+    if (dbStore.marketingSequenceExitTriggers && dbStore.opportunities) {
+      const triggers =
+        await dbStore.marketingSequenceExitTriggers.findForSequence(
+          membership.sequenceId,
+        );
+      const allOpps = await dbStore.opportunities.findMany();
+      let relevantOpps: Record<string, unknown>[] = [];
+      if (membership.recordType === "contact" && recipientContext.contact) {
+        const contactAccountId = (
+          recipientContext.contact as Record<string, unknown>
+        ).accountId as string | undefined;
+        if (contactAccountId) {
+          relevantOpps = allOpps.filter(
+            (opp) => opp.accountId === contactAccountId,
+          );
+        }
+      }
+
+      if (
+        shouldExitSequence({
+          recordType: membership.recordType,
+          lead: recipientContext.lead,
+          opportunities: relevantOpps,
+          triggers,
+        })
+      ) {
+        await dbStore.marketingSequenceMemberships.update(membership.id, {
+          status: "completed",
+        });
+
+        await dbStore.auditLogs.insert({
+          orgId,
+          recordId: membership.id,
+          recordType: "marketing_sequence_memberships",
+          action: "exit_trigger_fired",
+          userId: "00000000-0000-0000-0000-000000000000",
+          changes: {
+            status: { before: "active", after: "completed" },
+          },
+        });
+
+        processedCount++;
+        continue;
       }
     }
 

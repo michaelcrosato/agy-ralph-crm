@@ -9968,6 +9968,84 @@ app.get("/api/sequences/:id/analytics", tenantAuth, async (c) => {
   return c.json({ success: true, data: analytics });
 });
 
+app.get("/api/sequences/:id/exit-triggers", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+  const triggers =
+    await dbStore.marketingSequenceExitTriggers.findForSequence(sequenceId);
+  return c.json({ success: true, data: triggers });
+});
+
+app.post("/api/sequences/:id/exit-triggers", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const { triggerType, criteria } = body;
+
+  if (
+    !triggerType ||
+    (triggerType !== "lead_status_changed" &&
+      triggerType !== "opportunity_stage_changed")
+  ) {
+    return c.json(
+      { success: false, error: "Invalid or missing triggerType" },
+      400,
+    );
+  }
+
+  if (!criteria) {
+    return c.json({ success: false, error: "Missing trigger criteria" }, 400);
+  }
+
+  const trigger = await dbStore.marketingSequenceExitTriggers.insert({
+    orgId: tenant.orgId,
+    sequenceId,
+    triggerType,
+    criteria,
+    isActive: 1,
+  });
+
+  return c.json({ success: true, data: trigger });
+});
+
+app.delete(
+  "/api/sequences/:id/exit-triggers/:triggerId",
+  tenantAuth,
+  async (c) => {
+    const sequenceId = c.req.param("id");
+    const triggerId = c.req.param("triggerId");
+
+    const seq = await dbStore.marketingSequences.findOne(sequenceId);
+    if (!seq) {
+      return c.json({ success: false, error: "Sequence not found" }, 404);
+    }
+
+    const trigger =
+      await dbStore.marketingSequenceExitTriggers.findOne(triggerId);
+    if (!trigger) {
+      return c.json({ success: false, error: "Exit trigger not found" }, 404);
+    }
+
+    if (trigger.sequenceId !== sequenceId) {
+      return c.json(
+        { success: false, error: "Exit trigger sequence mismatch" },
+        400,
+      );
+    }
+
+    await dbStore.marketingSequenceExitTriggers.delete(triggerId);
+    return c.json({ success: true });
+  },
+);
+
 // Marketing Segments & Dynamic Lists Endpoints
 
 app.post("/api/segments", tenantAuth, async (c) => {

@@ -1248,3 +1248,21 @@ export const marketingSegments = pgTable("marketing_segments", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const marketingSequenceExitTriggers = pgTable(
+  "marketing_sequence_exit_triggers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => marketingSequences.id, { onDelete: "cascade" }),
+    triggerType: text("trigger_type").notNull(), // "lead_status_changed" | "opportunity_stage_changed"
+    criteria: jsonb("criteria").notNull(),
+    isActive: integer("is_active").notNull().default(1), // 0 = inactive, 1 = active
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);
