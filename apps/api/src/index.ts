@@ -6235,7 +6235,7 @@ app.post("/api/campaigns/:id/email-blast", tenantAuth, async (c) => {
         orgId: tenant.orgId,
         activityId: act.id,
         targetType: "Account",
-        targetId: context.account.id,
+        targetId: context.account.id as string,
       });
     }
 
@@ -6245,7 +6245,7 @@ app.post("/api/campaigns/:id/email-blast", tenantAuth, async (c) => {
         orgId: tenant.orgId,
         activityId: act.id,
         targetType: "Opportunity",
-        targetId: context.opportunity.id,
+        targetId: context.opportunity.id as string,
       });
     }
 
