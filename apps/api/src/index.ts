@@ -8,6 +8,7 @@ import {
   calculateProRatedAmount,
   convertLead,
   rollupOpportunityAmount,
+  validateEmailLogInput,
 } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { compileTemplate } from "@crm/documents";
@@ -1715,6 +1716,113 @@ app.get("/api/opportunities/:oppId/quote", tenantAuth, async (c) => {
   return c.json({
     success: true,
     data: opportunityQuotes[0],
+  });
+});
+
+// Outbound Email Logging Endpoints
+app.post("/api/emails/log", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { from, to, cc, bcc, subject, body: emailBody, links } = body;
+
+  // Validate standard RFC-compliant email inputs
+  const validation = validateEmailLogInput({
+    from,
+    to,
+    cc: cc || [],
+    bcc: bcc || [],
+    subject: subject || "",
+    body: emailBody || "",
+  });
+
+  if (!validation.success) {
+    return c.json({ error: validation.error }, 400);
+  }
+
+  // Verify that all linked entities exist and belong to the active tenant
+  if (links && Array.isArray(links)) {
+    for (const link of links) {
+      const { targetType, targetId } = link;
+      let exists = false;
+      if (targetType === "Account") {
+        const found = await dbStore.accounts.findOne(targetId);
+        if (found) exists = true;
+      } else if (targetType === "Contact") {
+        const found = await dbStore.contacts.findOne(targetId);
+        if (found) exists = true;
+      } else if (targetType === "Lead") {
+        const found = await dbStore.leads.findOne(targetId);
+        if (found) exists = true;
+      } else if (targetType === "Opportunity") {
+        const found = await dbStore.opportunities.findOne(targetId);
+        if (found) exists = true;
+      }
+
+      if (!exists) {
+        return c.json(
+          {
+            error: `Linked target not found or tenant mismatched: ${targetType} (${targetId})`,
+          },
+          400,
+        );
+      }
+    }
+  }
+
+  // Insert a new activity record of type: "email"
+  const newActivity = await dbStore.activities.insert({
+    orgId: tenant.orgId,
+    creatorId: tenant.userId,
+    type: "email",
+    subject,
+    body: emailBody,
+    dueDate: null,
+    custom: { from, to, cc: cc || [], bcc: bcc || [] },
+  });
+
+  // Insert activity links if provided
+  if (links && Array.isArray(links)) {
+    for (const link of links) {
+      await dbStore.activityLinks.insert({
+        orgId: tenant.orgId,
+        activityId: newActivity.id,
+        targetType: link.targetType,
+        targetId: link.targetId,
+      });
+    }
+  }
+
+  // Log audit trail
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: newActivity.id,
+    recordType: "EmailLog",
+    action: "create",
+    userId: tenant.userId,
+    changes: null,
+  });
+
+  return c.json({ success: true, data: newActivity });
+});
+
+app.get("/api/emails/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const activity = await dbStore.activities.findOne(id);
+
+  if (!activity || activity.type !== "email") {
+    return c.json({ error: "Email log not found" }, 404);
+  }
+
+  // Get associated links
+  const allLinks = await dbStore.activityLinks.findMany();
+  const linked = allLinks.filter((link) => link.activityId === id);
+
+  return c.json({
+    success: true,
+    data: {
+      ...activity,
+      links: linked,
+    },
   });
 });
 

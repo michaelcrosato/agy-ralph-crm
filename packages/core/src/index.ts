@@ -169,3 +169,57 @@ export function calculateCPQPrice(
     totalPrice: totalVal.toFixed(2),
   };
 }
+
+export interface EmailLogInput {
+  from: string;
+  to: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject: string;
+  body: string;
+}
+
+export function validateEmailLogInput(input: EmailLogInput): {
+  success: boolean;
+  error?: string;
+} {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!input.from || !emailRegex.test(input.from)) {
+    return { success: false, error: "Invalid 'from' email format." };
+  }
+  if (!Array.isArray(input.to) || input.to.length === 0) {
+    return { success: false, error: "'to' must be a non-empty array." };
+  }
+  for (const email of input.to) {
+    if (!email || !emailRegex.test(email)) {
+      return { success: false, error: `Invalid 'to' email address: ${email}` };
+    }
+  }
+  if (input.cc) {
+    for (const email of input.cc) {
+      if (!email || !emailRegex.test(email)) {
+        return {
+          success: false,
+          error: `Invalid 'cc' email address: ${email}`,
+        };
+      }
+    }
+  }
+  if (input.bcc) {
+    for (const email of input.bcc) {
+      if (!email || !emailRegex.test(email)) {
+        return {
+          success: false,
+          error: `Invalid 'bcc' email address: ${email}`,
+        };
+      }
+    }
+  }
+  if (!input.subject || input.subject.trim() === "") {
+    return { success: false, error: "'subject' is required." };
+  }
+  if (!input.body || input.body.trim() === "") {
+    return { success: false, error: "'body' is required." };
+  }
+  return { success: true };
+}

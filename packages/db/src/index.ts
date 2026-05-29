@@ -161,6 +161,7 @@ export interface DBActivity {
   body: string | null;
   dueDate: Date | null;
   createdAt: Date;
+  custom?: Record<string, unknown> | null;
 }
 
 export interface DBActivityLink {
