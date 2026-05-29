@@ -1235,3 +1235,16 @@ export const marketingSequenceMemberships = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
 );
+
+export const marketingSegments = pgTable("marketing_segments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  objectType: text("object_type").notNull(), // "lead" | "contact"
+  criteria: jsonb("criteria").notNull(), // CriteriaCondition[]
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

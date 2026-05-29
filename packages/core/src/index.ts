@@ -4165,3 +4165,73 @@ export async function executePendingSequenceSteps(
 
   return processedCount;
 }
+
+export function evaluateSegmentCriteria(
+  record: Record<string, unknown>,
+  criteria: { field: string; operator: string; value: string }[],
+): boolean {
+  for (const cond of criteria) {
+    let val: unknown = undefined;
+    if (cond.field.startsWith("custom.")) {
+      const customField = cond.field.substring("custom.".length);
+      val = (record.custom as Record<string, unknown> | null)?.[customField];
+    } else {
+      val = record[cond.field];
+    }
+
+    if (val === undefined || val === null) {
+      return false;
+    }
+
+    const valStr = String(val).toLowerCase();
+    const condStr = String(cond.value).toLowerCase();
+
+    if (cond.operator === "equals") {
+      if (valStr !== condStr) return false;
+    } else if (cond.operator === "not_equal") {
+      if (valStr === condStr) return false;
+    } else if (cond.operator === "contains") {
+      if (!valStr.includes(condStr)) return false;
+    } else if (cond.operator === "greater_than") {
+      const vNum = Number.parseFloat(valStr);
+      const cNum = Number.parseFloat(condStr);
+      if (Number.isNaN(vNum) || Number.isNaN(cNum) || vNum <= cNum)
+        return false;
+    } else if (cond.operator === "less_than") {
+      const vNum = Number.parseFloat(valStr);
+      const cNum = Number.parseFloat(condStr);
+      if (Number.isNaN(vNum) || Number.isNaN(cNum) || vNum >= cNum)
+        return false;
+    } else {
+      return false;
+    }
+  }
+  return true;
+}
+
+export async function resolveSegmentMembers(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  db: any,
+  tenantOrgId: string,
+  segmentId: string,
+  // biome-ignore lint/suspicious/noExplicitAny: dynamic return
+): Promise<any[]> {
+  const segment = await db.marketingSegments.findOne(segmentId);
+  if (!segment) {
+    throw new Error("Segment not found");
+  }
+
+  if (segment.objectType === "lead") {
+    const leads = await db.leads.findMany();
+    // biome-ignore lint/suspicious/noExplicitAny: lead typecast
+    return leads.filter((l: any) =>
+      evaluateSegmentCriteria(l, segment.criteria),
+    );
+  }
+
+  const contacts = await db.contacts.findMany();
+  // biome-ignore lint/suspicious/noExplicitAny: contact typecast
+  return contacts.filter((c: any) =>
+    evaluateSegmentCriteria(c, segment.criteria),
+  );
+}

@@ -546,6 +546,26 @@ export interface DBCampaignInfluence {
   createdAt: Date;
 }
 
+export interface DBMarketingSegment {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string;
+  objectType: "lead" | "contact";
+  criteria: {
+    field: string;
+    operator:
+      | "equals"
+      | "not_equal"
+      | "contains"
+      | "greater_than"
+      | "less_than";
+    value: string;
+  }[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBMarketingSequence {
   id: string;
   orgId: string;
@@ -1015,6 +1035,7 @@ export const store = {
   opportunityStageHistory: [] as DBOpportunityStageHistory[],
   opportunityContactRoles: [] as DBOpportunityContactRole[],
   campaignInfluence: [] as DBCampaignInfluence[],
+  marketingSegments: [] as DBMarketingSegment[],
   marketingSequences: [] as DBMarketingSequence[],
   marketingSequenceSteps: [] as DBMarketingSequenceStep[],
   marketingSequenceMemberships: [] as DBMarketingSequenceMembership[],
@@ -4504,6 +4525,63 @@ export const dbStore = {
       return true;
     },
   },
+  marketingSegments: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSegments.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const c = store.marketingSegments.find((x) => x.id === id);
+      if (c && c.orgId !== orgId) return null;
+      return c || null;
+    },
+    insert: async (
+      item: Omit<DBMarketingSegment, "id" | "createdAt" | "updatedAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSegment = {
+        ...item,
+        id: `seg-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSegments.push(newItem);
+      return newItem;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBMarketingSegment, "id" | "orgId" | "createdAt" | "updatedAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSegments.findIndex((c) => c.id === id);
+      if (index === -1) return null;
+      if (store.marketingSegments[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSegments[index] = {
+        ...store.marketingSegments[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.marketingSegments[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSegments.findIndex((c) => c.id === id);
+      if (index === -1) return false;
+      if (store.marketingSegments[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSegments.splice(index, 1);
+      return true;
+    },
+  },
   marketingSequences: {
     findMany: async () => {
       const orgId = getActiveOrgId();
@@ -4663,6 +4741,7 @@ export const dbStore = {
     },
   },
   clear: () => {
+    store.marketingSegments = [];
     store.marketingSequences = [];
     store.marketingSequenceSteps = [];
     store.marketingSequenceMemberships = [];

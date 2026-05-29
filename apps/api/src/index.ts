@@ -55,6 +55,7 @@ import {
   parseCSV,
   processCSVImport,
   processESignatureTransition,
+  resolveSegmentMembers,
   rollbackStoreMigrations,
   rollupHierarchyPipeline,
   rollupOpportunityAmount,
@@ -9936,6 +9937,91 @@ app.get("/api/sequences/:id/members", tenantAuth, async (c) => {
   const members =
     await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
   return c.json({ success: true, data: members });
+});
+
+// Marketing Segments & Dynamic Lists Endpoints
+
+app.post("/api/segments", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, description, objectType, criteria } = body;
+
+  if (!name) {
+    return c.json({ success: false, error: "Segment name is required" }, 400);
+  }
+
+  if (!objectType || (objectType !== "lead" && objectType !== "contact")) {
+    return c.json(
+      { success: false, error: "objectType must be lead or contact" },
+      400,
+    );
+  }
+
+  if (!criteria || !Array.isArray(criteria)) {
+    return c.json(
+      { success: false, error: "criteria is required and must be an array" },
+      400,
+    );
+  }
+
+  const segment = await dbStore.marketingSegments.insert({
+    orgId: tenant.orgId,
+    name,
+    description: description || "",
+    objectType,
+    criteria,
+  });
+
+  return c.json({ success: true, segment });
+});
+
+app.get("/api/segments", tenantAuth, async (c) => {
+  const segments = await dbStore.marketingSegments.findMany();
+  return c.json({ success: true, data: segments });
+});
+
+app.get("/api/segments/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const segment = await dbStore.marketingSegments.findOne(id);
+  if (!segment) {
+    return c.json({ success: false, error: "Segment not found" }, 404);
+  }
+  return c.json({ success: true, segment });
+});
+
+app.delete("/api/segments/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const success = await dbStore.marketingSegments.delete(id);
+  if (!success) {
+    return c.json(
+      { success: false, error: "Segment not found or delete failed" },
+      404,
+    );
+  }
+  return c.json({ success: true });
+});
+
+app.get("/api/segments/:id/members", tenantAuth, async (c) => {
+  const segmentId = c.req.param("id");
+  const tenant = c.get("tenant");
+
+  try {
+    const members = await resolveSegmentMembers(
+      dbStore,
+      tenant.orgId,
+      segmentId,
+    );
+    return c.json({ success: true, data: members });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json(
+      {
+        success: false,
+        error: msg || "Failed to resolve segment members",
+      },
+      404,
+    );
+  }
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)
