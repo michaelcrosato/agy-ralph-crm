@@ -857,6 +857,13 @@ export interface DBScheduledReportRun {
   runAt: Date;
 }
 
+export interface DBStageForecastMapping {
+  id: string;
+  orgId: string;
+  stage: string;
+  forecastCategory: string; // "Omitted" | "Pipeline" | "Best Case" | "Commit" | "Closed"
+}
+
 export interface DBForecastAdjustment {
   id: string;
   orgId: string;
@@ -870,6 +877,7 @@ export interface DBForecastAdjustment {
 }
 
 export const store = {
+  stageForecastMappings: [] as DBStageForecastMapping[],
   forecastAdjustments: [] as DBForecastAdjustment[],
   users: [] as DBUser[],
   memberships: [] as DBMembership[],
@@ -1578,6 +1586,32 @@ export const dbStore = {
       };
       store.quotas.push(newQuota);
       return newQuota;
+    },
+  },
+  stageForecastMappings: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.stageForecastMappings.filter((m) => m.orgId === orgId);
+    },
+    upsert: async (m: Omit<DBStageForecastMapping, "id">) => {
+      const orgId = getActiveOrgId();
+      if (m.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const existingIndex = store.stageForecastMappings.findIndex(
+        (x) => x.orgId === orgId && x.stage === m.stage,
+      );
+      if (existingIndex !== -1) {
+        store.stageForecastMappings[existingIndex].forecastCategory =
+          m.forecastCategory;
+        return store.stageForecastMappings[existingIndex];
+      }
+      const newMapping: DBStageForecastMapping = {
+        ...m,
+        id: `sfm-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.stageForecastMappings.push(newMapping);
+      return newMapping;
     },
   },
   forecastAdjustments: {
@@ -4104,6 +4138,7 @@ export const dbStore = {
     },
   },
   clear: () => {
+    store.stageForecastMappings = [];
     store.forecastAdjustments = [];
     store.users = [];
     store.memberships = [];

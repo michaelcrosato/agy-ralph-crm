@@ -76,6 +76,7 @@ import {
   type DBCurrency,
   type DBForecastAdjustment,
   type DBOpportunityStageGate,
+  type DBStageForecastMapping,
   type DBStageGuidance,
   dbStore,
   mockDb,
@@ -83,7 +84,10 @@ import {
   withTenant,
 } from "@crm/db";
 import { compileTemplate } from "@crm/documents";
-import { compileForecastSummary } from "@crm/forecasting";
+import {
+  compileForecastCategorySummary,
+  compileForecastSummary,
+} from "@crm/forecasting";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { createTicket, resolveTicket } from "@crm/module-service-lite";
 import { runReport } from "@crm/reporting";
@@ -3907,6 +3911,97 @@ app.get("/api/forecasting/summary", tenantAuth, async (c) => {
   const summary = compileForecastSummary({
     opportunities: filteredOpps,
     targetQuota: totalQuota,
+    customProbabilities,
+  });
+
+  return c.json({ success: true, data: summary });
+});
+
+// Stage-to-Forecast-Category Mapping Configuration REST API Routes
+app.post("/api/forecasting/stage-mappings", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { stage, forecastCategory } = body;
+
+  if (!stage || !forecastCategory) {
+    return c.json({ error: "Missing required mapping fields" }, 400);
+  }
+
+  const validCategories = [
+    "Omitted",
+    "Pipeline",
+    "Best Case",
+    "Commit",
+    "Closed",
+  ];
+  if (!validCategories.includes(forecastCategory)) {
+    return c.json(
+      {
+        error:
+          "Invalid forecastCategory. Must be one of: Omitted, Pipeline, Best Case, Commit, Closed",
+      },
+      400,
+    );
+  }
+
+  const mapping = await dbStore.stageForecastMappings.upsert({
+    orgId: tenant.orgId,
+    stage,
+    forecastCategory,
+  });
+
+  return c.json({ success: true, data: mapping });
+});
+
+app.get("/api/forecasting/stage-mappings", tenantAuth, async (c) => {
+  const mappings = await dbStore.stageForecastMappings.findMany();
+  return c.json({ success: true, data: mappings });
+});
+
+// Category-Based Forecast Summary REST API Route
+app.get("/api/forecasting/categories-summary", tenantAuth, async (c) => {
+  const periodParam = c.req.query("period"); // e.g. ?period=2026-05
+
+  const opportunities = await dbStore.opportunities.findMany();
+  const dbProbs = await dbStore.stageProbabilities.findMany();
+  const dbMappings = await dbStore.stageForecastMappings.findMany();
+
+  const customProbabilities: Record<string, number> = {};
+  for (const p of dbProbs) {
+    customProbabilities[p.stage] = p.probability;
+  }
+
+  const stageMappings: Record<string, string> = {};
+  for (const m of dbMappings) {
+    stageMappings[m.stage] = m.forecastCategory;
+  }
+
+  const oppInputs = opportunities.map((opp) => ({
+    id: opp.id,
+    stage: opp.stage,
+    amount: opp.amount,
+    closeDate: opp.closeDate,
+  }));
+
+  let filteredOpps = oppInputs;
+  if (periodParam) {
+    filteredOpps = oppInputs.filter((opp) => {
+      if (!opp.closeDate) return false;
+      try {
+        const d = new Date(opp.closeDate);
+        return (
+          !Number.isNaN(d.getTime()) &&
+          d.toISOString().substring(0, 7) === periodParam
+        );
+      } catch (e) {
+        return false;
+      }
+    });
+  }
+
+  const summary = compileForecastCategorySummary({
+    opportunities: filteredOpps,
+    stageMappings,
     customProbabilities,
   });
 

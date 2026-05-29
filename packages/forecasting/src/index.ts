@@ -142,3 +142,70 @@ export function compileForecastSummary(params: {
     byPeriod,
   };
 }
+
+export const DEFAULT_STAGE_CATEGORIES: Record<string, string> = {
+  Prospecting: "Pipeline",
+  Qualification: "Pipeline",
+  "Needs Analysis": "Pipeline",
+  Proposal: "Best Case",
+  Negotiation: "Commit",
+  "Closed Won": "Closed",
+  "Closed Lost": "Omitted",
+};
+
+export interface ForecastCategorySummary {
+  category: string;
+  actualAmount: number;
+  weightedAmount: number;
+  count: number;
+}
+
+export function compileForecastCategorySummary(params: {
+  opportunities: OpportunityInput[];
+  stageMappings: Record<string, string>;
+  customProbabilities?: Record<string, number>;
+}): ForecastCategorySummary[] {
+  const { opportunities, stageMappings, customProbabilities = {} } = params;
+
+  const categoryGroups: Record<
+    string,
+    { actual: number; weighted: number; count: number }
+  > = {
+    Omitted: { actual: 0, weighted: 0, count: 0 },
+    Pipeline: { actual: 0, weighted: 0, count: 0 },
+    "Best Case": { actual: 0, weighted: 0, count: 0 },
+    Commit: { actual: 0, weighted: 0, count: 0 },
+    Closed: { actual: 0, weighted: 0, count: 0 },
+  };
+
+  for (const opp of opportunities) {
+    const stage = opp.stage;
+    let category = stageMappings[stage];
+    if (!category) {
+      category = DEFAULT_STAGE_CATEGORIES[stage] || "Pipeline";
+    }
+
+    if (!categoryGroups[category]) {
+      category = "Pipeline";
+    }
+
+    const amount = Number.parseFloat(opp.amount || "0");
+    const parsedAmount = Number.isNaN(amount) ? 0 : amount;
+    const weighted = calculateWeightedAmount(
+      opp.amount,
+      opp.stage,
+      customProbabilities,
+    );
+
+    categoryGroups[category].actual += parsedAmount;
+    categoryGroups[category].weighted += weighted;
+    categoryGroups[category].count += 1;
+  }
+
+  return Object.entries(categoryGroups).map(([category, metrics]) => ({
+    category,
+    actualAmount: Math.round(metrics.actual * 100) / 100,
+    weightedAmount: Math.round(metrics.weighted * 100) / 100,
+    count: metrics.count,
+  }));
+}

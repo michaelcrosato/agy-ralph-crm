@@ -1121,3 +1121,12 @@ export const forecastAdjustments = pgTable("forecast_adjustments", {
   comments: text("comments"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const stageForecastMappings = pgTable("stage_forecast_mappings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  stage: text("stage").notNull(),
+  forecastCategory: text("forecast_category").notNull(), // "Omitted" | "Pipeline" | "Best Case" | "Commit" | "Closed"
+});
