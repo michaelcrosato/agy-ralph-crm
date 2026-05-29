@@ -1,6 +1,9 @@
 import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, withTenant } from "@crm/db";
-import { simulateWebhookDispatch, enqueueOutboundWebhooks } from "@crm/webhooks";
+import {
+  enqueueOutboundWebhooks,
+  simulateWebhookDispatch,
+} from "@crm/webhooks";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -42,7 +45,11 @@ describe("Outbound Webhooks Outbox & Dead Letter Queue (DLQ) Integration Tests",
       webhookId = webhook.id;
 
       // 2. Directly call enqueueOutboundWebhooks
-      const payload = { email: "alice@test.com", company: "Test Corp", status: "New" };
+      const payload = {
+        email: "alice@test.com",
+        company: "Test Corp",
+        status: "New",
+      };
       await enqueueOutboundWebhooks(orgA, "lead.created", payload, dbStore);
     });
 

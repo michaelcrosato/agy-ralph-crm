@@ -434,6 +434,11 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
         conditions: rule.conditions,
         actions: rule.actions,
       })),
+      {
+        dbStore,
+        userId: tenant.userId,
+        orgId: tenant.orgId,
+      },
     );
   }
 
@@ -541,6 +546,7 @@ app.post("/api/opportunities", tenantAuth, async (c) => {
 });
 
 app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
   const { name, stage, amount, closeDate } = body;
@@ -584,6 +590,11 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
         conditions: rule.conditions,
         actions: rule.actions,
       })),
+      {
+        dbStore,
+        userId: tenant.userId,
+        orgId: tenant.orgId,
+      },
     );
 
     // Trigger Outbound Webhook
