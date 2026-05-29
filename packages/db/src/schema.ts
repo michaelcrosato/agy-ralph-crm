@@ -1192,6 +1192,19 @@ export const emailTrackers = pgTable("email_trackers", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const marketingSequenceFolders = pgTable("marketing_sequence_folders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  parentFolderId: uuid("parent_folder_id").references(
+    (): AnyPgColumn => marketingSequenceFolders.id,
+    { onDelete: "set null" },
+  ),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const marketingSequences = pgTable("marketing_sequences", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
@@ -1208,6 +1221,9 @@ export const marketingSequences = pgTable("marketing_sequences", {
   dailySendLimit: integer("daily_send_limit"),
   senderType: text("sender_type").notNull().default("system"),
   senderUserId: uuid("sender_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  folderId: uuid("folder_id").references(() => marketingSequenceFolders.id, {
     onDelete: "set null",
   }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -1588,5 +1604,31 @@ export const marketingSequenceGlobalVariables = pgTable(
     value: text("value").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);
+
+export const marketingSequenceTags = pgTable("marketing_sequence_tags", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#cccccc"), // Hex color code
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const marketingSequenceTagMappings = pgTable(
+  "marketing_sequence_tag_mappings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => marketingSequences.id, { onDelete: "cascade" }),
+    tagId: uuid("tag_id")
+      .notNull()
+      .references(() => marketingSequenceTags.id, { onDelete: "cascade" }),
   },
 );

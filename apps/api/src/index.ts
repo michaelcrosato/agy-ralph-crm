@@ -45,6 +45,7 @@ import {
   convertLeadWithMappings,
   detectCircularAccountRelation,
   detectCircularContactRelation,
+  detectFolderLoop,
   enrollInSequence,
   enrollSegmentInSequence,
   evaluateLeadAssignment,
@@ -84,6 +85,7 @@ import {
   validateCSATFeedbackInput,
   validateCustomValidationRules,
   validateEmailLogInput,
+  validateHexColor,
   validateInfluencePercentageTotal,
   validateOpportunityApprovalSubmission,
   validateOpportunityProductSchedule,
@@ -100,7 +102,10 @@ import {
   type DBEmailOpenEvent,
   type DBForecastAdjustment,
   type DBMarketingSequence,
+  type DBMarketingSequenceFolder,
   type DBMarketingSequenceScoreTrigger,
+  type DBMarketingSequenceTag,
+  type DBMarketingSequenceTagMapping,
   type DBOpportunityStageGate,
   type DBStageForecastMapping,
   type DBStageGuidance,
@@ -10256,10 +10261,18 @@ app.post("/api/sequences", tenantAuth, async (c) => {
     dailySendLimit,
     senderType,
     senderUserId,
+    folderId,
   } = body;
 
   if (!name) {
     return c.json({ success: false, error: "Sequence name is required" }, 400);
+  }
+
+  if (folderId) {
+    const folder = await dbStore.marketingSequenceFolders.findOne(folderId);
+    if (!folder) {
+      return c.json({ success: false, error: "Folder not found" }, 400);
+    }
   }
 
   let parsedLimit: number | null = null;
@@ -10330,6 +10343,7 @@ app.post("/api/sequences", tenantAuth, async (c) => {
     dailySendLimit: parsedLimit,
     senderType: resolvedSenderType,
     senderUserId: resolvedSenderUserId,
+    folderId: folderId || null,
   });
 
   return c.json({ success: true, sequence: seq });
@@ -10348,6 +10362,7 @@ app.patch("/api/sequences/:id", tenantAuth, async (c) => {
     dailySendLimit,
     senderType,
     senderUserId,
+    folderId,
   } = body;
 
   const seq = await dbStore.marketingSequences.findOne(sequenceId);
@@ -10359,6 +10374,18 @@ app.patch("/api/sequences/:id", tenantAuth, async (c) => {
   if (name !== undefined) updates.name = name;
   if (description !== undefined) updates.description = description;
   if (status !== undefined) updates.status = status;
+  if (folderId !== undefined) {
+    if (folderId !== null) {
+      const folder = await dbStore.marketingSequenceFolders.findOne(folderId);
+      if (!folder) {
+        return c.json({ success: false, error: "Folder not found" }, 400);
+      }
+      updates.folderId = folderId;
+    } else {
+      updates.folderId = null;
+    }
+  }
+
   if (allowReenrollment !== undefined)
     updates.allowReenrollment = allowReenrollment === true;
   if (reenrollmentMinDays !== undefined) {
@@ -12360,6 +12387,283 @@ app.delete("/api/sequences/triggers/:id", tenantAuth, async (c) => {
   return c.json({
     success: true,
     message: "Score trigger deleted successfully",
+  });
+});
+
+// Folder & Tag Categorization Endpoints
+
+app.post("/api/sequences/folders", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, parentFolderId } = body;
+
+  if (!name) {
+    return c.json({ success: false, error: "Folder name is required" }, 400);
+  }
+
+  // 1. Verify parent folder if provided
+  if (parentFolderId) {
+    const parentFolder =
+      await dbStore.marketingSequenceFolders.findOne(parentFolderId);
+    if (!parentFolder) {
+      return c.json({ success: false, error: "Parent folder not found" }, 400);
+    }
+  }
+
+  // 2. Check for unique name under same parent
+  const allFolders = await dbStore.marketingSequenceFolders.findMany();
+  const duplicateName = allFolders.some(
+    (f) =>
+      f.name.toLowerCase() === name.toLowerCase() &&
+      f.parentFolderId === (parentFolderId || null),
+  );
+  if (duplicateName) {
+    return c.json(
+      {
+        success: false,
+        error: "A folder with this name already exists in this location",
+      },
+      400,
+    );
+  }
+
+  const folder = await dbStore.marketingSequenceFolders.insert({
+    orgId: tenant.orgId,
+    name,
+    parentFolderId: parentFolderId || null,
+  });
+
+  return c.json({ success: true, folder });
+});
+
+app.patch("/api/sequences/folders/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, parentFolderId } = body;
+
+  const folder = await dbStore.marketingSequenceFolders.findOne(id);
+  if (!folder) {
+    return c.json({ success: false, error: "Folder not found" }, 404);
+  }
+
+  const updates: Record<string, unknown> = {};
+
+  if (parentFolderId !== undefined) {
+    if (parentFolderId !== null) {
+      // a. Verify parent exists
+      const parentFolder =
+        await dbStore.marketingSequenceFolders.findOne(parentFolderId);
+      if (!parentFolder) {
+        return c.json(
+          { success: false, error: "Parent folder not found" },
+          400,
+        );
+      }
+      // b. Detect loops using core function
+      const allFolders = await dbStore.marketingSequenceFolders.findMany();
+      const hasLoop = detectFolderLoop(
+        id,
+        parentFolderId,
+        allFolders.map((f) => ({
+          id: f.id,
+          parentFolderId: f.parentFolderId,
+        })),
+      );
+      if (hasLoop) {
+        return c.json(
+          { success: false, error: "Recursive folder loop detected" },
+          400,
+        );
+      }
+      updates.parentFolderId = parentFolderId;
+    } else {
+      updates.parentFolderId = null;
+    }
+  }
+
+  if (name) {
+    // Check uniqueness
+    const parentIdToCheck =
+      parentFolderId !== undefined ? parentFolderId : folder.parentFolderId;
+    const allFolders = await dbStore.marketingSequenceFolders.findMany();
+    const duplicateName = allFolders.some(
+      (f) =>
+        f.id !== id &&
+        f.name.toLowerCase() === name.toLowerCase() &&
+        f.parentFolderId === (parentIdToCheck || null),
+    );
+    if (duplicateName) {
+      return c.json(
+        {
+          success: false,
+          error: "A folder with this name already exists in this location",
+        },
+        400,
+      );
+    }
+    updates.name = name;
+  }
+
+  const updated = await dbStore.marketingSequenceFolders.update(id, updates);
+  return c.json({ success: true, folder: updated });
+});
+
+app.get("/api/sequences/folders", tenantAuth, async (c) => {
+  const folders = await dbStore.marketingSequenceFolders.findMany();
+  return c.json({ success: true, data: folders });
+});
+
+app.post("/api/sequences/tags", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, color } = body;
+
+  if (!name || !color) {
+    return c.json(
+      { success: false, error: "Name and color are required" },
+      400,
+    );
+  }
+
+  if (!validateHexColor(color)) {
+    return c.json(
+      { success: false, error: "Invalid hex color code format" },
+      400,
+    );
+  }
+
+  const allTags = await dbStore.marketingSequenceTags.findMany();
+  const duplicate = allTags.some(
+    (t) => t.name.toLowerCase() === name.toLowerCase(),
+  );
+  if (duplicate) {
+    return c.json({ success: false, error: "Tag already exists" }, 400);
+  }
+
+  const tag = await dbStore.marketingSequenceTags.insert({
+    orgId: tenant.orgId,
+    name,
+    color,
+  });
+
+  return c.json({ success: true, tag });
+});
+
+app.get("/api/sequences/tags", tenantAuth, async (c) => {
+  const tags = await dbStore.marketingSequenceTags.findMany();
+  return c.json({ success: true, data: tags });
+});
+
+app.post("/api/sequences/:id/tags", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { tagId } = body;
+
+  if (!tagId) {
+    return c.json({ success: false, error: "tagId is required" }, 400);
+  }
+
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const tag = await dbStore.marketingSequenceTags.findOne(tagId);
+  if (!tag) {
+    return c.json({ success: false, error: "Tag not found" }, 404);
+  }
+
+  const existingMappings =
+    await dbStore.marketingSequenceTagMappings.findForSequence(sequenceId);
+  const alreadyMapped = existingMappings.some((m) => m.tagId === tagId);
+  if (alreadyMapped) {
+    return c.json({
+      success: true,
+      message: "Tag already mapped to sequence",
+    });
+  }
+
+  const mapping = await dbStore.marketingSequenceTagMappings.insert({
+    orgId: tenant.orgId,
+    sequenceId,
+    tagId,
+  });
+
+  return c.json({ success: true, mapping });
+});
+
+app.delete("/api/sequences/:id/tags/:tagId", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tagId = c.req.param("tagId");
+
+  const deleted =
+    await dbStore.marketingSequenceTagMappings.deleteForSequenceAndTag(
+      sequenceId,
+      tagId,
+    );
+  if (!deleted) {
+    return c.json({ success: false, error: "Mapping not found" }, 404);
+  }
+
+  return c.json({
+    success: true,
+    message: "Tag detached from sequence successfully",
+  });
+});
+
+app.get("/api/sequences", tenantAuth, async (c) => {
+  const folderId = c.req.query("folderId");
+  const tagId = c.req.query("tagId");
+
+  let sequences = await dbStore.marketingSequences.findMany();
+
+  if (folderId) {
+    sequences = sequences.filter((s) => s.folderId === folderId);
+  }
+
+  if (tagId) {
+    const mappings = await dbStore.marketingSequenceTagMappings.findMany();
+    const sequenceIdsWithTag = mappings
+      .filter((m) => m.tagId === tagId)
+      .map((m) => m.sequenceId);
+    sequences = sequences.filter((s) => sequenceIdsWithTag.includes(s.id));
+  }
+
+  return c.json({ success: true, data: sequences });
+});
+
+app.get("/api/sequences/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const sequence = await dbStore.marketingSequences.findOne(id);
+  if (!sequence) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const mappings =
+    await dbStore.marketingSequenceTagMappings.findForSequence(id);
+  const tags = [];
+  for (const m of mappings) {
+    const tag = await dbStore.marketingSequenceTags.findOne(m.tagId);
+    if (tag) tags.push(tag);
+  }
+
+  let folderName = null;
+  if (sequence.folderId) {
+    const folder = await dbStore.marketingSequenceFolders.findOne(
+      sequence.folderId,
+    );
+    if (folder) folderName = folder.name;
+  }
+
+  return c.json({
+    success: true,
+    data: {
+      ...sequence,
+      folderName,
+      tags,
+    },
   });
 });
 

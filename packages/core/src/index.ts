@@ -8303,3 +8303,37 @@ export async function processSequenceMembershipScoreTriggers(
 
   return { triggeredCount, executedActions };
 }
+
+export function validateHexColor(color: string): boolean {
+  return /^#[0-9A-Fa-f]{6}$/.test(color);
+}
+
+export interface FolderNode {
+  id: string;
+  parentFolderId: string | null;
+}
+
+export function detectFolderLoop(
+  folderId: string,
+  newParentId: string | null,
+  allFolders: FolderNode[],
+): boolean {
+  if (!newParentId) return false;
+  if (folderId === newParentId) return true;
+
+  let currentId: string | null = newParentId;
+  const visited = new Set<string>();
+
+  while (currentId) {
+    if (visited.has(currentId)) {
+      return true; // Loop detected
+    }
+    visited.add(currentId);
+    if (currentId === folderId) {
+      return true; // Loop through ancestor/descendant detected
+    }
+    const parentNode = allFolders.find((f) => f.id === currentId);
+    currentId = parentNode ? parentNode.parentFolderId : null;
+  }
+  return false;
+}
