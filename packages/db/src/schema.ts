@@ -877,3 +877,34 @@ export const surveyResponses = pgTable("survey_responses", {
   comment: text("comment"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const slaPolicies = pgTable("sla_policies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  priority: text("priority").notNull(), // "high" | "medium" | "low"
+  responseTimeLimitMinutes: integer("response_time_limit_minutes").notNull(),
+  resolutionTimeLimitMinutes: integer(
+    "resolution_time_limit_minutes",
+  ).notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const ticketMilestones = pgTable("ticket_milestones", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  ticketId: uuid("ticket_id")
+    .notNull()
+    .references(() => tickets.id, { onDelete: "cascade" }),
+  milestoneType: text("milestone_type").notNull(), // "first_response" | "resolution"
+  targetTime: timestamp("target_time").notNull(),
+  completedAt: timestamp("completed_at"),
+  status: text("status").notNull().default("pending"), // "pending" | "completed" | "breached"
+  isMet: boolean("is_met"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

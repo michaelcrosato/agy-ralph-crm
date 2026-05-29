@@ -15,6 +15,7 @@ import {
   calculateGlobalCompetitorAnalytics,
   calculateLeadDuplicates,
   calculateLeadScore,
+  calculateMilestoneDueDate,
   calculateOpportunityCommission,
   calculateOpportunityCompetitorStats,
   calculateOpportunitySplits,
@@ -30,6 +31,7 @@ import {
   detectCircularContactRelation,
   evaluateLeadAssignment,
   evaluateLeadAutoConversion,
+  evaluateMilestoneCompletion,
   evaluateTerritoryRouting,
   generateRenewalOpportunity,
   generateStraightLineSchedules,
@@ -6609,6 +6611,213 @@ app.get("/api/sales/surveys/:id/metrics", tenantAuth, async (c) => {
 
   return c.json({ success: true, data: metrics });
 });
+
+app.post("/api/service/sla-policies", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const {
+    name,
+    priority,
+    responseTimeLimitMinutes,
+    resolutionTimeLimitMinutes,
+  } = body;
+
+  if (
+    !name ||
+    !priority ||
+    responseTimeLimitMinutes === undefined ||
+    resolutionTimeLimitMinutes === undefined
+  ) {
+    return c.json(
+      {
+        error:
+          "Missing required fields: 'name', 'priority', 'responseTimeLimitMinutes', or 'resolutionTimeLimitMinutes'",
+      },
+      400,
+    );
+  }
+
+  if (priority !== "high" && priority !== "medium" && priority !== "low") {
+    return c.json(
+      { error: "Invalid priority. Must be 'high', 'medium', or 'low'" },
+      400,
+    );
+  }
+
+  const newPolicy = await dbStore.slaPolicies.insert({
+    orgId: tenant.orgId,
+    name,
+    priority: priority as "high" | "medium" | "low",
+    responseTimeLimitMinutes: Number(responseTimeLimitMinutes),
+    resolutionTimeLimitMinutes: Number(resolutionTimeLimitMinutes),
+    isActive: true,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: newPolicy.id,
+    recordType: "sla_policies",
+    action: "create",
+    userId: tenant.userId,
+    changes: {
+      name: { before: null, after: name },
+      priority: { before: null, after: priority },
+    },
+  });
+
+  return c.json({ success: true, data: newPolicy }, 201);
+});
+
+app.get("/api/service/sla-policies", tenantAuth, async (c) => {
+  const policies = await dbStore.slaPolicies.findMany();
+  return c.json({ success: true, data: policies });
+});
+
+app.post("/api/service/tickets/:id/milestones", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const ticketId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { priority } = body;
+
+  if (!priority) {
+    return c.json({ error: "Missing required field: 'priority'" }, 400);
+  }
+
+  if (priority !== "high" && priority !== "medium" && priority !== "low") {
+    return c.json(
+      { error: "Invalid priority. Must be 'high', 'medium', or 'low'" },
+      400,
+    );
+  }
+
+  const ticket = await dbStore.tickets.findOne(ticketId);
+  if (!ticket) {
+    return c.json({ error: "Ticket not found" }, 404);
+  }
+
+  // Overwrite check
+  const existing = await dbStore.ticketMilestones.findByTicket(ticketId);
+  if (existing.length > 0) {
+    return c.json(
+      { error: "Ticket is already enrolled in an SLA policy" },
+      400,
+    );
+  }
+
+  const policies = await dbStore.slaPolicies.findMany();
+  const matchedPolicy = policies.find(
+    (p) => p.priority === priority && p.isActive,
+  );
+
+  if (!matchedPolicy) {
+    return c.json(
+      { error: `No active SLA Policy found for priority '${priority}'` },
+      400,
+    );
+  }
+
+  const firstResponseDueDate = calculateMilestoneDueDate(
+    ticket.createdAt,
+    matchedPolicy.responseTimeLimitMinutes,
+  );
+  const resolutionDueDate = calculateMilestoneDueDate(
+    ticket.createdAt,
+    matchedPolicy.resolutionTimeLimitMinutes,
+  );
+
+  const m1 = await dbStore.ticketMilestones.insert({
+    orgId: tenant.orgId,
+    ticketId,
+    milestoneType: "first_response",
+    targetTime: firstResponseDueDate,
+    completedAt: null,
+    status: "pending",
+    isMet: null,
+  });
+
+  const m2 = await dbStore.ticketMilestones.insert({
+    orgId: tenant.orgId,
+    ticketId,
+    milestoneType: "resolution",
+    targetTime: resolutionDueDate,
+    completedAt: null,
+    status: "pending",
+    isMet: null,
+  });
+
+  return c.json({ success: true, data: [m1, m2] }, 201);
+});
+
+app.get("/api/service/tickets/:id/milestones", tenantAuth, async (c) => {
+  const ticketId = c.req.param("id");
+  const ticket = await dbStore.tickets.findOne(ticketId);
+  if (!ticket) {
+    return c.json({ error: "Ticket not found" }, 404);
+  }
+
+  const milestones = await dbStore.ticketMilestones.findByTicket(ticketId);
+  return c.json({ success: true, data: milestones });
+});
+
+app.put(
+  "/api/service/tickets/:id/milestones/:milestoneId",
+  tenantAuth,
+  async (c) => {
+    const tenant = c.get("tenant");
+    const { milestoneId } = c.req.param();
+    const body = await c.req.json().catch(() => ({}));
+    const { action } = body;
+
+    if (action !== "complete") {
+      return c.json(
+        { error: "Invalid action. Supported action: 'complete'" },
+        400,
+      );
+    }
+
+    const milestone = await dbStore.ticketMilestones.findOne(milestoneId);
+    if (!milestone) {
+      return c.json({ error: "Milestone not found" }, 404);
+    }
+
+    if (milestone.status !== "pending") {
+      return c.json(
+        { error: "Milestone is already completed or breached" },
+        400,
+      );
+    }
+
+    const now = new Date();
+    const evaluation = evaluateMilestoneCompletion(milestone.targetTime, now);
+
+    const updated = await dbStore.ticketMilestones.update(milestoneId, {
+      completedAt: now,
+      status: evaluation.status,
+      isMet: evaluation.isMet,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: milestoneId,
+      recordType: "ticket_milestones",
+      action: "update",
+      userId: tenant.userId,
+      changes: {
+        status: { before: "pending", after: evaluation.status },
+        isMet: { before: null, after: evaluation.isMet },
+      },
+    });
+
+    await triggerOutboundWebhooks(tenant.orgId, "service.milestone_updated", {
+      milestoneId,
+      ticketId: milestone.ticketId,
+      status: evaluation.status,
+      isMet: evaluation.isMet,
+    });
+
+    return c.json({ success: true, data: updated });
+  },
+);
 
 // Start Hono Node Server if run directly (excluding test execution environment)
 

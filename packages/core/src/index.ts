@@ -2445,3 +2445,21 @@ export function calculateSurveyMetrics(
     scorePercentage,
   };
 }
+
+export function calculateMilestoneDueDate(
+  createdAt: Date,
+  limitMinutes: number,
+): Date {
+  return new Date(createdAt.getTime() + limitMinutes * 60 * 1000);
+}
+
+export function evaluateMilestoneCompletion(
+  targetTime: Date,
+  completedAt: Date,
+): { isMet: boolean; status: "completed" | "breached" } {
+  const isMet = completedAt.getTime() <= targetTime.getTime();
+  return {
+    isMet,
+    status: isMet ? "completed" : "breached",
+  };
+}

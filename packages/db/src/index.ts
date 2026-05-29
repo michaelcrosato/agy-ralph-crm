@@ -688,6 +688,29 @@ export interface DBSurveyResponse {
   createdAt: Date;
 }
 
+export interface DBSlaPolicy {
+  id: string;
+  orgId: string;
+  name: string;
+  priority: "high" | "medium" | "low";
+  responseTimeLimitMinutes: number;
+  resolutionTimeLimitMinutes: number;
+  isActive: boolean;
+  createdAt: Date;
+}
+
+export interface DBTicketMilestone {
+  id: string;
+  orgId: string;
+  ticketId: string;
+  milestoneType: "first_response" | "resolution";
+  targetTime: Date;
+  completedAt: Date | null;
+  status: "pending" | "completed" | "breached";
+  isMet: boolean | null;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -748,6 +771,8 @@ export const store = {
   esignatureRequests: [] as DBEsignatureRequest[],
   surveys: [] as DBSurvey[],
   surveyResponses: [] as DBSurveyResponse[],
+  slaPolicies: [] as DBSlaPolicy[],
+  ticketMilestones: [] as DBTicketMilestone[],
 };
 
 export const dbStore = {
@@ -3226,6 +3251,106 @@ export const dbStore = {
       return newRes;
     },
   },
+  slaPolicies: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.slaPolicies.filter((p) => p.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const policy = store.slaPolicies.find((p) => p.id === id);
+      if (policy && policy.orgId !== orgId) {
+        return null;
+      }
+      return policy || null;
+    },
+    insert: async (
+      policy: Omit<DBSlaPolicy, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (policy.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newPolicy: DBSlaPolicy = {
+        ...policy,
+        id: `sla-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: policy.createdAt || new Date(),
+      };
+      store.slaPolicies.push(newPolicy);
+      return newPolicy;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBSlaPolicy, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.slaPolicies.findIndex((p) => p.id === id);
+      if (index === -1) return null;
+      if (store.slaPolicies[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.slaPolicies[index] = {
+        ...store.slaPolicies[index],
+        ...updates,
+      };
+      return store.slaPolicies[index];
+    },
+  },
+  ticketMilestones: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketMilestones.filter((m) => m.orgId === orgId);
+    },
+    findByTicket: async (ticketId: string) => {
+      const orgId = getActiveOrgId();
+      return store.ticketMilestones.filter(
+        (m) => m.ticketId === ticketId && m.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const milestone = store.ticketMilestones.find((m) => m.id === id);
+      if (milestone && milestone.orgId !== orgId) {
+        return null;
+      }
+      return milestone || null;
+    },
+    insert: async (
+      milestone: Omit<DBTicketMilestone, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (milestone.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMilestone: DBTicketMilestone = {
+        ...milestone,
+        id: `milestone-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: milestone.createdAt || new Date(),
+      };
+      store.ticketMilestones.push(newMilestone);
+      return newMilestone;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBTicketMilestone, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.ticketMilestones.findIndex((m) => m.id === id);
+      if (index === -1) return null;
+      if (store.ticketMilestones[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.ticketMilestones[index] = {
+        ...store.ticketMilestones[index],
+        ...updates,
+      };
+      return store.ticketMilestones[index];
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3287,5 +3412,7 @@ export const dbStore = {
     store.esignatureRequests = [];
     store.surveys = [];
     store.surveyResponses = [];
+    store.slaPolicies = [];
+    store.ticketMilestones = [];
   },
 };
