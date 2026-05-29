@@ -44,6 +44,7 @@ export interface ConvertedEntities {
     stage: string;
     name: string;
     amount: string | null;
+    custom: Record<string, unknown> | null;
   };
 }
 
@@ -83,6 +84,7 @@ export function convertLead(input: LeadConversionInput): ConvertedEntities {
       stage: "Qualification",
       name: opportunityName,
       amount: opportunityAmount || null,
+      custom: null,
     };
   }
 
@@ -1505,4 +1507,65 @@ export function calculateOpportunityCompetitorStats(
     pendingCount,
     competitorList,
   };
+}
+
+export interface LeadConversionMappingInput {
+  sourceLeadField: string;
+  targetObjectType: "accounts" | "contacts" | "opportunities";
+  targetField: string;
+}
+
+export interface ConvertLeadWithMappingsInput {
+  lead: LeadRecord;
+  opportunityName?: string;
+  opportunityAmount?: string;
+  mappings: LeadConversionMappingInput[];
+}
+
+export function convertLeadWithMappings(
+  input: ConvertLeadWithMappingsInput,
+): ConvertedEntities {
+  const { lead, opportunityName, opportunityAmount, mappings } = input;
+  const entities = convertLead({ lead, opportunityName, opportunityAmount });
+
+  for (const mapping of mappings) {
+    const { sourceLeadField, targetObjectType, targetField } = mapping;
+
+    let value: unknown = undefined;
+    if (sourceLeadField.startsWith("custom.")) {
+      const fieldKey = sourceLeadField.substring("custom.".length);
+      value = (lead.custom as Record<string, unknown> | null)?.[fieldKey];
+    } else {
+      value = (lead as unknown as Record<string, unknown>)[sourceLeadField];
+    }
+
+    if (value === undefined || value === null) {
+      continue;
+    }
+
+    const entityKey =
+      targetObjectType === "accounts"
+        ? "account"
+        : targetObjectType === "contacts"
+          ? "contact"
+          : "opportunity";
+
+    const targetEntity = entities[entityKey];
+    if (!targetEntity) {
+      continue;
+    }
+
+    if (targetField.startsWith("custom.")) {
+      const fieldKey = targetField.substring("custom.".length);
+      if (!targetEntity.custom) {
+        targetEntity.custom = {};
+      }
+      (targetEntity.custom as Record<string, unknown>)[fieldKey] = value;
+    } else {
+      (targetEntity as unknown as Record<string, unknown>)[targetField] =
+        String(value);
+    }
+  }
+
+  return entities;
 }

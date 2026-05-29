@@ -19,6 +19,7 @@ import {
   calculateSlaStatus,
   calculateStageVelocity,
   convertLead,
+  convertLeadWithMappings,
   detectCircularAccountRelation,
   detectCircularContactRelation,
   evaluateLeadAssignment,
@@ -329,6 +330,69 @@ app.post("/api/tickets/:id/resolve", tenantAuth, async (c) => {
   }
 
   return c.json({ success: true, data: updated });
+});
+
+// Lead Conversion Mapping Endpoints protected by tenantAuth
+app.get("/api/lead-conversions/mappings", tenantAuth, async (c) => {
+  const mappings = await dbStore.leadConversionMappings.findMany();
+  return c.json({ success: true, data: mappings });
+});
+
+app.post("/api/lead-conversions/mappings", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { sourceLeadField, targetObjectType, targetField } = body;
+
+  if (!sourceLeadField || !targetObjectType || !targetField) {
+    return c.json({ error: "Missing required mapping parameters" }, 400);
+  }
+
+  if (!["accounts", "contacts", "opportunities"].includes(targetObjectType)) {
+    return c.json({ error: "Invalid targetObjectType" }, 400);
+  }
+
+  const mapping = await dbStore.leadConversionMappings.insert({
+    orgId: tenant.orgId,
+    sourceLeadField,
+    targetObjectType,
+    targetField,
+  });
+
+  // Audit Log
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: mapping.id,
+    recordType: "lead_conversion_mappings",
+    action: "create",
+    userId: tenant.userId,
+    changes: null,
+  });
+
+  return c.json({ success: true, data: mapping }, 201);
+});
+
+app.delete("/api/lead-conversions/mappings/:id", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+
+  const mapping = await dbStore.leadConversionMappings.findOne(id);
+  if (!mapping) {
+    return c.json({ error: "Mapping not found" }, 404);
+  }
+
+  await dbStore.leadConversionMappings.delete(id);
+
+  // Audit Log
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "lead_conversion_mappings",
+    action: "delete",
+    userId: tenant.userId,
+    changes: null,
+  });
+
+  return c.json({ success: true });
 });
 
 // Lead operations protected by tenantAuth
@@ -686,11 +750,15 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
     return c.json({ error: "Lead is already converted" }, 400);
   }
 
+  // Fetch active conversion mappings
+  const mappings = await dbStore.leadConversionMappings.findMany();
+
   // Pure mapping via @crm/core
-  const entities = convertLead({
+  const entities = convertLeadWithMappings({
     lead,
     opportunityName,
     opportunityAmount,
+    mappings,
   });
 
   // DB inserts with correct tenant active context
@@ -698,7 +766,8 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
     orgId: tenant.orgId,
     ownerId: tenant.userId,
     name: entities.account.name,
-    domain: null,
+    // biome-ignore lint/suspicious/noExplicitAny: dynamic field access
+    domain: (entities.account as any).domain || null,
     custom: entities.account.custom,
   });
 
@@ -725,8 +794,12 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
       name: entities.opportunity.name,
       stage: entities.opportunity.stage,
       amount: entities.opportunity.amount,
-      closeDate: null,
-      custom: null,
+      // biome-ignore lint/suspicious/noExplicitAny: dynamic field access
+      closeDate: (entities.opportunity as any).closeDate
+        ? // biome-ignore lint/suspicious/noExplicitAny: dynamic field access
+          new Date((entities.opportunity as any).closeDate)
+        : null,
+      custom: entities.opportunity.custom || null,
     });
     opportunityId = opp.id;
 

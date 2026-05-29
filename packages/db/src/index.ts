@@ -526,6 +526,15 @@ export interface DBOpportunityCompetitor {
   createdAt: Date;
 }
 
+export interface DBLeadConversionMapping {
+  id: string;
+  orgId: string;
+  sourceLeadField: string;
+  targetObjectType: "accounts" | "contacts" | "opportunities";
+  targetField: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -572,6 +581,7 @@ export const store = {
   accountTeams: [] as DBAccountTeamMember[],
   leadScoringRules: [] as DBLeadScoringRule[],
   opportunityCompetitors: [] as DBOpportunityCompetitor[],
+  leadConversionMappings: [] as DBLeadConversionMapping[],
 };
 
 export const dbStore = {
@@ -2355,6 +2365,45 @@ export const dbStore = {
       return true;
     },
   },
+  leadConversionMappings: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.leadConversionMappings.filter((m) => m.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const mapping = store.leadConversionMappings.find((m) => m.id === id);
+      if (mapping && mapping.orgId !== orgId) {
+        return null;
+      }
+      return mapping || null;
+    },
+    insert: async (
+      mapping: Omit<DBLeadConversionMapping, "id" | "createdAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (mapping.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMapping: DBLeadConversionMapping = {
+        ...mapping,
+        id: `mapping-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.leadConversionMappings.push(newMapping);
+      return newMapping;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.leadConversionMappings.findIndex((m) => m.id === id);
+      if (index === -1) return false;
+      if (store.leadConversionMappings[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.leadConversionMappings.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -2401,5 +2450,6 @@ export const dbStore = {
     store.accountTeams = [];
     store.leadScoringRules = [];
     store.opportunityCompetitors = [];
+    store.leadConversionMappings = [];
   },
 };

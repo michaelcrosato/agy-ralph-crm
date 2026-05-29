@@ -656,3 +656,14 @@ export const opportunityCompetitors = pgTable("opportunity_competitors", {
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const leadConversionMappings = pgTable("lead_conversion_mappings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  sourceLeadField: text("source_lead_field").notNull(),
+  targetObjectType: text("target_object_type").notNull(), // "accounts" | "contacts" | "opportunities"
+  targetField: text("target_field").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
