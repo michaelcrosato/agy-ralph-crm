@@ -45,6 +45,7 @@ import {
   convertCurrency,
   convertLead,
   convertLeadWithMappings,
+  deleteMarketingSequenceStep,
   detectCircularAccountRelation,
   detectCircularContactRelation,
   detectFolderLoop,
@@ -12760,6 +12761,34 @@ app.post("/api/sequences/:id/steps/:stepId/reorder", tenantAuth, async (c) => {
       sequenceId,
       stepId,
       newStepNumber,
+      tenant.orgId,
+    );
+    return c.json({ success: true, steps: updatedSteps });
+  } catch (err) {
+    const error = err as Error;
+    if (
+      error.message.includes("RLS Isolation Violation") ||
+      error.message.includes("Tenant mismatch")
+    ) {
+      return c.json({ success: false, error: error.message }, 403);
+    }
+    if (error.message.includes("not found")) {
+      return c.json({ success: false, error: error.message }, 404);
+    }
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.delete("/api/sequences/:id/steps/:stepId", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const stepId = c.req.param("stepId");
+  const tenant = c.get("tenant");
+
+  try {
+    const updatedSteps = await deleteMarketingSequenceStep(
+      dbStore,
+      sequenceId,
+      stepId,
       tenant.orgId,
     );
     return c.json({ success: true, steps: updatedSteps });

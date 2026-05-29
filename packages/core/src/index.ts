@@ -8800,3 +8800,112 @@ export async function reorderMarketingSequenceSteps(
   );
   return updatedSteps;
 }
+
+export async function deleteMarketingSequenceStep(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  dbStore: any,
+  sequenceId: string,
+  stepId: string,
+  orgId: string,
+  // biome-ignore lint/suspicious/noExplicitAny: returned updated steps
+): Promise<any[]> {
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    throw new Error("Sequence not found");
+  }
+  if (sequence.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+  const stepToDelete = steps.find((s: { id: string }) => s.id === stepId);
+  if (!stepToDelete) {
+    throw new Error("Step not found");
+  }
+  for (const s of steps) {
+    if (s.orgId !== orgId) {
+      throw new Error("RLS Isolation Violation: Tenant mismatch.");
+    }
+  }
+
+  const deletedNum = stepToDelete.stepNumber;
+
+  // 1. Delete step branches configuration if it exists
+  if (dbStore.marketingSequenceStepBranches) {
+    const branch =
+      await dbStore.marketingSequenceStepBranches.findForStep(stepId);
+    if (branch) {
+      await dbStore.marketingSequenceStepBranches.delete(branch.id);
+    }
+  }
+
+  // 2. Delete the step record
+  await dbStore.marketingSequenceSteps.delete(stepId);
+
+  // Remaining steps
+  const remainingSteps = steps.filter((s: { id: string }) => s.id !== stepId);
+
+  // 3. Shift remaining steps stepNumber and replyToStepNumber
+  for (const step of remainingSteps) {
+    let updatedStepNumber = step.stepNumber;
+    if (step.stepNumber > deletedNum) {
+      updatedStepNumber = step.stepNumber - 1;
+    }
+
+    let updatedReplyTo = step.replyToStepNumber;
+    if (step.replyToStepNumber) {
+      if (step.replyToStepNumber === deletedNum) {
+        updatedReplyTo = null;
+      } else if (step.replyToStepNumber > deletedNum) {
+        updatedReplyTo = step.replyToStepNumber - 1;
+      }
+    }
+
+    await dbStore.marketingSequenceSteps.update(step.id, {
+      stepNumber: updatedStepNumber,
+      replyToStepNumber: updatedReplyTo || null,
+    });
+  }
+
+  // 4. Shift branch next step numbers on other steps
+  if (dbStore.marketingSequenceStepBranches) {
+    for (const step of remainingSteps) {
+      const branch = await dbStore.marketingSequenceStepBranches.findForStep(
+        step.id,
+      );
+      if (branch) {
+        let updatedTrue = branch.trueNextStepNumber;
+        if (branch.trueNextStepNumber) {
+          if (branch.trueNextStepNumber === deletedNum) {
+            updatedTrue = null;
+          } else if (branch.trueNextStepNumber > deletedNum) {
+            updatedTrue = branch.trueNextStepNumber - 1;
+          }
+        }
+
+        let updatedFalse = branch.falseNextStepNumber;
+        if (branch.falseNextStepNumber) {
+          if (branch.falseNextStepNumber === deletedNum) {
+            updatedFalse = null;
+          } else if (branch.falseNextStepNumber > deletedNum) {
+            updatedFalse = branch.falseNextStepNumber - 1;
+          }
+        }
+
+        await dbStore.marketingSequenceStepBranches.update(branch.id, {
+          trueNextStepNumber: updatedTrue,
+          falseNextStepNumber: updatedFalse,
+        });
+      }
+    }
+  }
+
+  const updatedSteps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+  updatedSteps.sort(
+    (a: { stepNumber: number }, b: { stepNumber: number }) =>
+      a.stepNumber - b.stepNumber,
+  );
+  return updatedSteps;
+}
