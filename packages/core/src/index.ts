@@ -6913,3 +6913,109 @@ export function parseUtmParams(urlStr: string) {
     };
   }
 }
+
+export interface UnsubscribeAnalyticsInput {
+  unsubscribes: {
+    id: string;
+    reason: string;
+    trackerId: string;
+    orgId: string;
+  }[];
+  trackers: { id: string; activityId: string; orgId: string }[];
+  links: { activityId: string; targetId: string; orgId: string }[];
+  memberships: {
+    sequenceId: string;
+    recordId: string;
+    status: string;
+    orgId: string;
+  }[];
+  sequences: { id: string; name: string; orgId: string }[];
+}
+
+export interface UnsubscribeAnalyticsResult {
+  totalUnsubscribes: number;
+  reasonBreakdown: { reason: string; count: number; percentage: string }[];
+  sequenceBreakdown: {
+    sequenceId: string;
+    sequenceName: string;
+    count: number;
+    percentage: string;
+  }[];
+}
+
+export function calculateUnsubscribeAnalytics(
+  params: UnsubscribeAnalyticsInput,
+): UnsubscribeAnalyticsResult {
+  const { unsubscribes, trackers, links, memberships, sequences } = params;
+
+  const trackerMap = new Map(trackers.map((t) => [t.id, t.activityId]));
+  const linkMap = new Map(links.map((l) => [l.activityId, l.targetId]));
+  const sequenceMap = new Map(sequences.map((s) => [s.id, s.name]));
+
+  const reasonCounts: Record<string, number> = {
+    frequency: 0,
+    relevance: 0,
+    not_requested: 0,
+    other: 0,
+  };
+
+  const sequenceCounts = new Map<string, number>();
+
+  for (const unsub of unsubscribes) {
+    if (unsub.reason in reasonCounts) {
+      reasonCounts[unsub.reason]++;
+    } else {
+      reasonCounts.other++;
+    }
+
+    const activityId = trackerMap.get(unsub.trackerId);
+    if (activityId) {
+      const targetId = linkMap.get(activityId);
+      if (targetId) {
+        const matchingMemberships = memberships.filter(
+          (m) => m.recordId === targetId,
+        );
+        let selectedSeqId = "";
+        const unsubMembership = matchingMemberships.find(
+          (m) => m.status === "unsubscribed",
+        );
+        if (unsubMembership) {
+          selectedSeqId = unsubMembership.sequenceId;
+        } else if (matchingMemberships.length > 0) {
+          selectedSeqId = matchingMemberships[0].sequenceId;
+        }
+
+        if (selectedSeqId) {
+          sequenceCounts.set(
+            selectedSeqId,
+            (sequenceCounts.get(selectedSeqId) || 0) + 1,
+          );
+        }
+      }
+    }
+  }
+
+  const total = unsubscribes.length;
+  const reasonBreakdown = Object.entries(reasonCounts).map(
+    ([reason, count]) => ({
+      reason,
+      count,
+      percentage: total > 0 ? `${((count / total) * 100).toFixed(1)}%` : "0.0%",
+    }),
+  );
+
+  const sequenceBreakdown = Array.from(sequenceCounts.entries()).map(
+    ([seqId, count]) => ({
+      sequenceId: seqId,
+      sequenceName: sequenceMap.get(seqId) || "Unknown Sequence",
+      count,
+      percentage: total > 0 ? `${((count / total) * 100).toFixed(1)}%` : "0.0%",
+    }),
+  );
+
+  return {
+    totalUnsubscribes: total,
+    reasonBreakdown,
+    sequenceBreakdown,
+  };
+}

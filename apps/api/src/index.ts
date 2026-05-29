@@ -31,6 +31,7 @@ import {
   calculateStageVelocity,
   calculateStalledOpportunities,
   calculateSurveyMetrics,
+  calculateUnsubscribeAnalytics,
   compileEmailTemplate,
   compileKanbanPipeline,
   convertCurrency,
@@ -9990,6 +9991,24 @@ app.get("/api/unsubscribes", tenantAuth, async (c) => {
     (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
   );
   return c.json({ success: true, data: sorted });
+});
+
+app.get("/api/unsubscribes/analytics", tenantAuth, async (c) => {
+  const unsubscribes = await dbStore.emailUnsubscribes.findMany();
+  const trackers = await dbStore.emailTrackers.findMany();
+  const links = await dbStore.activityLinks.findMany();
+  const memberships = await dbStore.marketingSequenceMemberships.findMany();
+  const sequences = await dbStore.marketingSequences.findMany();
+
+  const analytics = calculateUnsubscribeAnalytics({
+    unsubscribes,
+    trackers,
+    links,
+    memberships,
+    sequences,
+  });
+
+  return c.json({ success: true, data: analytics });
 });
 
 // Marketing Sequences & Drip Journeys Endpoints
