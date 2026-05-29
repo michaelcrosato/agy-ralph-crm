@@ -2209,3 +2209,143 @@ export function validateCommunicationConsent(
   if (!matchingRule) return false;
   return matchingRule.status === "opt_in";
 }
+
+export interface ExternalEmail {
+  externalId: string;
+  sender: string;
+  recipient: string;
+  subject: string;
+  body: string;
+  receivedAt: Date;
+}
+
+export interface ExternalCalendarEvent {
+  externalId: string;
+  title: string;
+  description: string;
+  attendees: string[]; // List of attendee email addresses
+  eventDate: Date;
+}
+
+export interface SyncSimulationInput {
+  settings: {
+    syncEmails: boolean;
+    syncCalendar: boolean;
+  };
+  externalEmails: ExternalEmail[];
+  externalCalendarEvents: ExternalCalendarEvent[];
+  existingLeads: { id: string; email: string | null }[];
+  existingContacts: { id: string; email: string | null }[];
+  existingActivityExternalIds: string[]; // Avoid importing duplicates
+}
+
+export function syncExternalItems(input: SyncSimulationInput) {
+  const syncedEmails: {
+    externalId: string;
+    subject: string;
+    body: string;
+    receivedAt: Date;
+    targetType: "Lead" | "Contact";
+    targetId: string;
+  }[] = [];
+
+  const syncedEvents: {
+    externalId: string;
+    title: string;
+    description: string;
+    eventDate: Date;
+    targetType: "Lead" | "Contact";
+    targetId: string;
+  }[] = [];
+
+  // Match and sync emails
+  if (input.settings.syncEmails) {
+    for (const email of input.externalEmails) {
+      if (input.existingActivityExternalIds.includes(email.externalId))
+        continue;
+
+      // Check contacts first
+      const contact = input.existingContacts.find(
+        (c) =>
+          c.email?.toLowerCase() === email.sender.toLowerCase() ||
+          c.email?.toLowerCase() === email.recipient.toLowerCase(),
+      );
+      if (contact) {
+        syncedEmails.push({
+          externalId: email.externalId,
+          subject: email.subject,
+          body: email.body,
+          receivedAt: email.receivedAt,
+          targetType: "Contact",
+          targetId: contact.id,
+        });
+        continue;
+      }
+
+      // Check leads next
+      const lead = input.existingLeads.find(
+        (l) =>
+          l.email?.toLowerCase() === email.sender.toLowerCase() ||
+          l.email?.toLowerCase() === email.recipient.toLowerCase(),
+      );
+      if (lead) {
+        syncedEmails.push({
+          externalId: email.externalId,
+          subject: email.subject,
+          body: email.body,
+          receivedAt: email.receivedAt,
+          targetType: "Lead",
+          targetId: lead.id,
+        });
+      }
+    }
+  }
+
+  // Match and sync calendar events
+  if (input.settings.syncCalendar) {
+    for (const event of input.externalCalendarEvents) {
+      if (input.existingActivityExternalIds.includes(event.externalId))
+        continue;
+
+      let matched = false;
+      for (const attendee of event.attendees) {
+        const contact = input.existingContacts.find(
+          (c) => c.email?.toLowerCase() === attendee.toLowerCase(),
+        );
+        if (contact) {
+          syncedEvents.push({
+            externalId: event.externalId,
+            title: event.title,
+            description: event.description,
+            eventDate: event.eventDate,
+            targetType: "Contact",
+            targetId: contact.id,
+          });
+          matched = true;
+          break; // Avoid linking the same event multiple times if there are multiple attendees
+        }
+      }
+
+      if (matched) continue;
+
+      for (const attendee of event.attendees) {
+        const lead = input.existingLeads.find(
+          (l) => l.email?.toLowerCase() === attendee.toLowerCase(),
+        );
+        if (lead) {
+          syncedEvents.push({
+            externalId: event.externalId,
+            title: event.title,
+            description: event.description,
+            eventDate: event.eventDate,
+            targetType: "Lead",
+            targetId: lead.id,
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return { syncedEmails, syncedEvents };
+}

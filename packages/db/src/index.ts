@@ -632,6 +632,31 @@ export interface DBContactConsentPreference {
   updatedAt: Date;
 }
 
+export interface DBEmailCalendarSyncSettings {
+  id: string;
+  orgId: string;
+  userId: string;
+  provider: string;
+  isActive: boolean;
+  syncEmails: boolean;
+  syncCalendar: boolean;
+  lastSyncedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DBEmailCalendarSyncRun {
+  id: string;
+  orgId: string;
+  settingsId: string;
+  status: "success" | "failed";
+  emailsSyncedCount: number;
+  eventsSyncedCount: number;
+  errorMessage: string | null;
+  startedAt: Date;
+  completedAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -687,6 +712,8 @@ export const store = {
   leadAutoConversionRules: [] as DBLeadAutoConversionRule[],
   opportunityStageDurationRules: [] as DBOpportunityStageDurationRule[],
   contactConsentPreferences: [] as DBContactConsentPreference[],
+  emailCalendarSyncSettings: [] as DBEmailCalendarSyncSettings[],
+  emailCalendarSyncRuns: [] as DBEmailCalendarSyncRun[],
 };
 
 export const dbStore = {
@@ -2962,6 +2989,82 @@ export const dbStore = {
       return newPref;
     },
   },
+  emailCalendarSyncSettings: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.emailCalendarSyncSettings.filter((s) => s.orgId === orgId);
+    },
+    findByUser: async (userId: string) => {
+      const orgId = getActiveOrgId();
+      return (
+        store.emailCalendarSyncSettings.find(
+          (s) => s.userId === userId && s.orgId === orgId,
+        ) || null
+      );
+    },
+    insert: async (
+      settings: Omit<
+        DBEmailCalendarSyncSettings,
+        "id" | "createdAt" | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (settings.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const now = new Date();
+      const newSettings: DBEmailCalendarSyncSettings = {
+        ...settings,
+        id: `settings-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: now,
+        updatedAt: now,
+      };
+      store.emailCalendarSyncSettings.push(newSettings);
+      return newSettings;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<
+          DBEmailCalendarSyncSettings,
+          "id" | "orgId" | "userId" | "createdAt" | "updatedAt"
+        >
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.emailCalendarSyncSettings.findIndex(
+        (s) => s.id === id,
+      );
+      if (index === -1) return null;
+      if (store.emailCalendarSyncSettings[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.emailCalendarSyncSettings[index] = {
+        ...store.emailCalendarSyncSettings[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.emailCalendarSyncSettings[index];
+    },
+  },
+  emailCalendarSyncRuns: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.emailCalendarSyncRuns.filter((r) => r.orgId === orgId);
+    },
+    insert: async (run: Omit<DBEmailCalendarSyncRun, "id">) => {
+      const orgId = getActiveOrgId();
+      if (run.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRun: DBEmailCalendarSyncRun = {
+        ...run,
+        id: `run-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.emailCalendarSyncRuns.push(newRun);
+      return newRun;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3018,5 +3121,7 @@ export const dbStore = {
     store.leadAutoConversionRules = [];
     store.opportunityStageDurationRules = [];
     store.contactConsentPreferences = [];
+    store.emailCalendarSyncSettings = [];
+    store.emailCalendarSyncRuns = [];
   },
 };

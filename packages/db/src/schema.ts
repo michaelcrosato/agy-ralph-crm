@@ -796,3 +796,39 @@ export const contactConsentPreferences = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
 );
+
+export const emailCalendarSyncSettings = pgTable(
+  "email_calendar_sync_settings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    provider: text("provider").notNull(), // "google" | "outlook" | "mock"
+    isActive: boolean("is_active").notNull().default(true),
+    syncEmails: boolean("sync_emails").notNull().default(true),
+    syncCalendar: boolean("sync_calendar").notNull().default(true),
+    lastSyncedAt: timestamp("last_synced_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);
+
+export const emailCalendarSyncRuns = pgTable("email_calendar_sync_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  settingsId: uuid("settings_id")
+    .notNull()
+    .references(() => emailCalendarSyncSettings.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("success"), // "success" | "failed"
+  emailsSyncedCount: integer("emails_synced_count").notNull().default(0),
+  eventsSyncedCount: integer("events_synced_count").notNull().default(0),
+  errorMessage: text("error_message"),
+  startedAt: timestamp("started_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at").notNull().defaultNow(),
+});
