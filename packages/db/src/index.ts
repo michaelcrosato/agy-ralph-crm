@@ -351,6 +351,31 @@ export interface DBCommission {
   createdAt: Date;
 }
 
+export interface DBCriteriaCondition {
+  field: string;
+  operator: "equals" | "contains" | "greater_than" | "less_than";
+  value: string;
+}
+
+export interface DBLeadAssignmentRule {
+  id: string;
+  orgId: string;
+  name: string;
+  isActive: number; // 0 or 1
+  createdAt: Date;
+}
+
+export interface DBLeadAssignmentRuleEntry {
+  id: string;
+  orgId: string;
+  ruleId: string;
+  sortOrder: number;
+  routingMethod: string; // "direct" | "round_robin"
+  routingUserIds: string[];
+  lastAssignedIndex: number;
+  criteria: DBCriteriaCondition[];
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -381,6 +406,8 @@ export const store = {
   opportunityApprovals: [] as DBOpportunityApproval[],
   opportunityApprovalSteps: [] as DBOpportunityApprovalStep[],
   commissions: [] as DBCommission[],
+  leadAssignmentRules: [] as DBLeadAssignmentRule[],
+  leadAssignmentRuleEntries: [] as DBLeadAssignmentRuleEntry[],
 };
 
 export const dbStore = {
@@ -1243,6 +1270,91 @@ export const dbStore = {
       return store.commissions[index];
     },
   },
+  leadAssignmentRules: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.leadAssignmentRules.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const r = store.leadAssignmentRules.find((x) => x.id === id);
+      if (r && r.orgId !== orgId) return null;
+      return r || null;
+    },
+    insert: async (rule: Omit<DBLeadAssignmentRule, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (rule.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRule: DBLeadAssignmentRule = {
+        ...rule,
+        id: `rule-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.leadAssignmentRules.push(newRule);
+      return newRule;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBLeadAssignmentRule, "id" | "orgId" | "createdAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.leadAssignmentRules.findIndex((r) => r.id === id);
+      if (index === -1) return null;
+      if (store.leadAssignmentRules[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.leadAssignmentRules[index] = {
+        ...store.leadAssignmentRules[index],
+        ...updates,
+      };
+      return store.leadAssignmentRules[index];
+    },
+  },
+  leadAssignmentRuleEntries: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.leadAssignmentRuleEntries.filter((e) => e.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const e = store.leadAssignmentRuleEntries.find((x) => x.id === id);
+      if (e && e.orgId !== orgId) return null;
+      return e || null;
+    },
+    insert: async (entry: Omit<DBLeadAssignmentRuleEntry, "id">) => {
+      const orgId = getActiveOrgId();
+      if (entry.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newEntry: DBLeadAssignmentRuleEntry = {
+        ...entry,
+        id: `entry-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.leadAssignmentRuleEntries.push(newEntry);
+      return newEntry;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBLeadAssignmentRuleEntry, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.leadAssignmentRuleEntries.findIndex(
+        (e) => e.id === id,
+      );
+      if (index === -1) return null;
+      if (store.leadAssignmentRuleEntries[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.leadAssignmentRuleEntries[index] = {
+        ...store.leadAssignmentRuleEntries[index],
+        ...updates,
+      };
+      return store.leadAssignmentRuleEntries[index];
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1273,5 +1385,7 @@ export const dbStore = {
     store.opportunityApprovals = [];
     store.opportunityApprovalSteps = [];
     store.commissions = [];
+    store.leadAssignmentRules = [];
+    store.leadAssignmentRuleEntries = [];
   },
 };

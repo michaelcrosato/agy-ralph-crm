@@ -309,3 +309,104 @@ export function calculateOpportunityCommission(
     multiplierApplied: multiplier,
   };
 }
+
+export interface CriteriaCondition {
+  field: string;
+  operator: "equals" | "contains" | "greater_than" | "less_than";
+  value: string;
+}
+
+export interface RuleEntryInput {
+  id: string;
+  sortOrder: number;
+  routingMethod: string;
+  routingUserIds: string[];
+  lastAssignedIndex: number;
+  criteria: CriteriaCondition[];
+}
+
+export interface RoutingMatchResult {
+  matchedEntryId: string;
+  newOwnerId: string;
+  newLastAssignedIndex: number;
+}
+
+export function evaluateLeadAssignment(
+  lead: Record<string, unknown>,
+  entries: RuleEntryInput[],
+): RoutingMatchResult | null {
+  const sortedEntries = [...entries].sort((a, b) => a.sortOrder - b.sortOrder);
+
+  for (const entry of sortedEntries) {
+    let match = true;
+    for (const cond of entry.criteria) {
+      let leadValue: unknown = undefined;
+      if (cond.field.startsWith("custom.")) {
+        const customField = cond.field.substring("custom.".length);
+        leadValue = (lead.custom as Record<string, unknown> | null)?.[
+          customField
+        ];
+      } else {
+        leadValue = lead[cond.field];
+      }
+
+      if (leadValue === undefined || leadValue === null) {
+        match = false;
+        break;
+      }
+
+      const lStr = String(leadValue).toLowerCase();
+      const cStr = String(cond.value).toLowerCase();
+
+      if (cond.operator === "equals") {
+        if (lStr !== cStr) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "contains") {
+        if (!lStr.includes(cStr)) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "greater_than") {
+        const lNum = Number.parseFloat(lStr);
+        const cNum = Number.parseFloat(cStr);
+        if (Number.isNaN(lNum) || Number.isNaN(cNum) || lNum <= cNum) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "less_than") {
+        const lNum = Number.parseFloat(lStr);
+        const cNum = Number.parseFloat(cStr);
+        if (Number.isNaN(lNum) || Number.isNaN(cNum) || lNum >= cNum) {
+          match = false;
+          break;
+        }
+      } else {
+        match = false;
+        break;
+      }
+    }
+
+    if (match && entry.routingUserIds.length > 0) {
+      if (entry.routingMethod === "direct") {
+        return {
+          matchedEntryId: entry.id,
+          newOwnerId: entry.routingUserIds[0],
+          newLastAssignedIndex: -1,
+        };
+      }
+      if (entry.routingMethod === "round_robin") {
+        const nextIndex =
+          (entry.lastAssignedIndex + 1) % entry.routingUserIds.length;
+        return {
+          matchedEntryId: entry.id,
+          newOwnerId: entry.routingUserIds[nextIndex],
+          newLastAssignedIndex: nextIndex,
+        };
+      }
+    }
+  }
+
+  return null;
+}

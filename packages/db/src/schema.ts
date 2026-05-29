@@ -417,3 +417,31 @@ export const commissions = pgTable("commissions", {
   status: text("status").notNull().default("Pending"), // "Pending" | "Approved" | "Paid"
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const leadAssignmentRules = pgTable("lead_assignment_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  isActive: integer("is_active").notNull().default(0), // 0 = inactive, 1 = active
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const leadAssignmentRuleEntries = pgTable(
+  "lead_assignment_rule_entries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ruleId: uuid("rule_id")
+      .notNull()
+      .references(() => leadAssignmentRules.id, { onDelete: "cascade" }),
+    sortOrder: integer("sort_order").notNull(),
+    routingMethod: text("routing_method").notNull(), // "direct" | "round_robin"
+    routingUserIds: jsonb("routing_user_ids").notNull(), // string[] (array of User UUIDs)
+    lastAssignedIndex: integer("last_assigned_index").notNull().default(-1),
+    criteria: jsonb("criteria").notNull(), // CriteriaCondition[]
+  },
+);
