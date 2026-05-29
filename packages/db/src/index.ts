@@ -1145,6 +1145,16 @@ export interface DBEmailUnsubscribe {
   createdAt: Date;
 }
 
+export interface DBEmailOpenEvent {
+  id: string;
+  orgId: string;
+  trackerId: string;
+  ipAddress: string;
+  userAgent: string;
+  deviceType: string;
+  createdAt: Date;
+}
+
 export interface DBForecastAdjustment {
   id: string;
   orgId: string;
@@ -1223,6 +1233,7 @@ export const store = {
   marketingSequenceReplyActions: [] as DBMarketingSequenceReplyAction[],
   emailClickEvents: [] as DBEmailClickEvent[],
   emailUnsubscribes: [] as DBEmailUnsubscribe[],
+  emailOpenEvents: [] as DBEmailOpenEvent[],
 
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
@@ -5638,6 +5649,38 @@ export const dbStore = {
     },
   },
 
+  emailOpenEvents: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.emailOpenEvents.filter((c) => c.orgId === orgId);
+    },
+    findForTracker: async (trackerId: string) => {
+      const orgId = getActiveOrgId();
+      return store.emailOpenEvents.filter(
+        (c) => c.trackerId === trackerId && c.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.emailOpenEvents.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (item: Omit<DBEmailOpenEvent, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBEmailOpenEvent = {
+        ...item,
+        id: `op-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.emailOpenEvents.push(newItem);
+      return newItem;
+    },
+  },
+
   clear: () => {
     store.marketingSegments = [];
     store.marketingSequences = [];
@@ -5657,6 +5700,7 @@ export const dbStore = {
     store.marketingSequenceReplyActions = [];
     store.emailClickEvents = [];
     store.emailUnsubscribes = [];
+    store.emailOpenEvents = [];
 
     store.emailTemplates = [];
     store.emailTrackers = [];

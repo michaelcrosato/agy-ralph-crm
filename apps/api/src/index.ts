@@ -22,6 +22,7 @@ import {
   calculateLinkEngagementAnalytics,
   calculateMilestoneDueDate,
   calculateNextRunDate,
+  calculateOpenAnalytics,
   calculateOpportunityCommission,
   calculateOpportunityCompetitorStats,
   calculateOpportunitySplits,
@@ -91,6 +92,7 @@ import {
 } from "@crm/core";
 import {
   type DBCurrency,
+  type DBEmailOpenEvent,
   type DBForecastAdjustment,
   type DBMarketingSequence,
   type DBOpportunityStageGate,
@@ -9675,6 +9677,25 @@ app.get("/api/emails/trackers/:trackerId/clicks", tenantAuth, async (c) => {
 
 app.get("/api/public/emails/track/open/:token", async (c) => {
   const { token } = c.req.param();
+  const ipAddress =
+    c.req.header("x-forwarded-for") ||
+    c.req.header("cf-connecting-ip") ||
+    "127.0.0.1";
+  const userAgent = c.req.header("user-agent") || "Unknown";
+
+  let deviceType = "desktop";
+  if (userAgent) {
+    const ua = userAgent.toLowerCase();
+    if (ua.includes("ipad") || ua.includes("tablet")) {
+      deviceType = "tablet";
+    } else if (
+      ua.includes("mobi") ||
+      ua.includes("android") ||
+      ua.includes("iphone")
+    ) {
+      deviceType = "mobile";
+    }
+  }
 
   const tracker = await dbStore.emailTrackers.findByToken(token);
   if (tracker) {
@@ -9683,6 +9704,15 @@ app.get("/api/public/emails/track/open/:token", async (c) => {
       await dbStore.emailTrackers.updatePublic(tracker.id, {
         openCount: tracker.openCount + 1,
         lastOpenedAt: new Date(),
+      });
+
+      // Record granular open event
+      await dbStore.emailOpenEvents.insert({
+        orgId: tracker.orgId,
+        trackerId: tracker.id,
+        ipAddress,
+        userAgent,
+        deviceType,
       });
 
       // Record audit log for email tracking event
@@ -11666,6 +11696,35 @@ app.get("/api/sequences/:id/links-analytics", tenantAuth, async (c) => {
 
   const analytics = calculateLinkEngagementAnalytics({
     clicks,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  });
+
+  return c.json({ success: true, data: analytics });
+});
+
+app.get("/api/sequences/:id/opens-analytics", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const opens = await dbStore.emailOpenEvents.findMany();
+  const trackers = await dbStore.emailTrackers.findMany();
+  const activities = await dbStore.activities.findMany();
+  const activityLinks = await dbStore.activityLinks.findMany();
+  const memberships =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+
+  const analytics = calculateOpenAnalytics({
+    opens,
     trackers,
     activities,
     activityLinks,

@@ -1516,3 +1516,17 @@ export const emailUnsubscribes = pgTable("email_unsubscribes", {
   feedback: text("feedback"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const emailOpenEvents = pgTable("email_open_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  trackerId: uuid("tracker_id")
+    .notNull()
+    .references(() => emailTrackers.id, { onDelete: "cascade" }),
+  ipAddress: text("ip_address").notNull(),
+  userAgent: text("user_agent").notNull(),
+  deviceType: text("device_type").notNull().default("desktop"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

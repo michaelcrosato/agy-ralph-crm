@@ -7159,3 +7159,180 @@ export function calculateLinkEngagementAnalytics(
     linkPerformance,
   };
 }
+
+export interface OpenAnalyticsInput {
+  opens: { id: string; trackerId: string; deviceType: string; orgId: string }[];
+  trackers: { id: string; activityId: string; orgId: string }[];
+  activities: { id: string; type: string; orgId: string }[];
+  activityLinks: {
+    id: string;
+    activityId: string;
+    targetId: string;
+    targetType: string;
+    orgId: string;
+  }[];
+  memberships: {
+    id: string;
+    sequenceId: string;
+    recordId: string;
+    orgId: string;
+  }[];
+  steps: {
+    id: string;
+    name?: string;
+    stepNumber: number;
+    sequenceId: string;
+    orgId: string;
+  }[];
+  sequenceId: string;
+}
+
+export interface DevicePerformanceMetric {
+  deviceType: string;
+  openCount: number;
+  percentage: string;
+}
+
+export interface StepOpenRateMetric {
+  stepId: string;
+  stepName: string;
+  totalSent: number;
+  uniqueOpens: number;
+  openRate: string;
+}
+
+export interface OpenAnalyticsResult {
+  totalUniqueOpens: number;
+  totalTrackedOpens: number;
+  devicePerformance: DevicePerformanceMetric[];
+  stepOpenRates: StepOpenRateMetric[];
+}
+
+export function calculateOpenAnalytics(
+  params: OpenAnalyticsInput,
+): OpenAnalyticsResult {
+  const {
+    opens,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  } = params;
+
+  const seqMemberships = memberships.filter((m) => m.sequenceId === sequenceId);
+  const seqSteps = steps.filter((s) => s.sequenceId === sequenceId);
+
+  // 1. Map trackerId -> activityId
+  const trackerToActivity = new Map<string, string>();
+  for (const t of trackers) {
+    trackerToActivity.set(t.id, t.activityId);
+  }
+
+  // 2. Build activityToStep mapping
+  const activityToStep = new Map<string, { id: string; name: string }>();
+  for (const m of seqMemberships) {
+    const linksForRecord = activityLinks.filter(
+      (link) =>
+        link.targetId === m.recordId &&
+        (link.targetType === "Lead" || link.targetType === "Contact"),
+    );
+    const activityIds = linksForRecord.map((l) => l.activityId);
+    const emailActs = activities.filter(
+      (act) => act.type === "email" && activityIds.includes(act.id),
+    );
+    emailActs.sort((a, b) => a.id.localeCompare(b.id));
+
+    emailActs.forEach((act, idx) => {
+      const stepNum = idx + 1;
+      const step = seqSteps.find((s) => s.stepNumber === stepNum);
+      if (step) {
+        activityToStep.set(act.id, {
+          id: step.id,
+          name: step.name || `Step ${step.stepNumber}`,
+        });
+      }
+    });
+  }
+
+  // 3. Count total sent (activities) per step
+  const stepSentCount = new Map<string, number>();
+  for (const step of seqSteps) {
+    stepSentCount.set(step.id, 0);
+  }
+  for (const [actId, stepInfo] of activityToStep.entries()) {
+    stepSentCount.set(stepInfo.id, (stepSentCount.get(stepInfo.id) || 0) + 1);
+  }
+
+  // 4. Group open events by trackerId to calculate unique opens
+  const uniqueTrackerOpens = new Set<string>();
+  const stepUniqueOpens = new Map<string, Set<string>>();
+  for (const step of seqSteps) {
+    stepUniqueOpens.set(step.id, new Set<string>());
+  }
+
+  const deviceCounts = new Map<string, number>();
+  let totalTrackedOpens = 0;
+
+  for (const op of opens) {
+    const activityId = trackerToActivity.get(op.trackerId);
+    if (activityId) {
+      const stepInfo = activityToStep.get(activityId);
+      if (stepInfo) {
+        // Unique opens globally
+        uniqueTrackerOpens.add(op.trackerId);
+
+        // Unique opens per step
+        const stepUnique = stepUniqueOpens.get(stepInfo.id);
+        if (stepUnique) {
+          stepUnique.add(op.trackerId);
+        }
+
+        // Device type counts
+        const devType = op.deviceType || "desktop";
+        deviceCounts.set(devType, (deviceCounts.get(devType) || 0) + 1);
+
+        totalTrackedOpens++;
+      }
+    }
+  }
+
+  const totalUniqueOpens = uniqueTrackerOpens.size;
+
+  // Calculate device performance breakdown
+  const devicePerformance: DevicePerformanceMetric[] = Array.from(
+    deviceCounts.entries(),
+  ).map(([deviceType, count]) => ({
+    deviceType,
+    openCount: count,
+    percentage:
+      totalTrackedOpens > 0
+        ? `${((count / totalTrackedOpens) * 100).toFixed(1)}%`
+        : "0.0%",
+  }));
+  devicePerformance.sort((a, b) => b.openCount - a.openCount);
+
+  // Calculate step open rates
+  const stepOpenRates: StepOpenRateMetric[] = seqSteps.map((step) => {
+    const totalSent = stepSentCount.get(step.id) || 0;
+    const uniqueOpens = stepUniqueOpens.get(step.id)?.size || 0;
+    return {
+      stepId: step.id,
+      stepName: step.name || `Step ${step.stepNumber}`,
+      totalSent,
+      uniqueOpens,
+      openRate:
+        totalSent > 0
+          ? `${((uniqueOpens / totalSent) * 100).toFixed(1)}%`
+          : "0.0%",
+    };
+  });
+
+  return {
+    totalUniqueOpens,
+    totalTrackedOpens,
+    devicePerformance,
+    stepOpenRates,
+  };
+}
