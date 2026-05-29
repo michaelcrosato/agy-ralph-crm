@@ -1412,3 +1412,16 @@ export const marketingSequenceExclusions = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
 );
+
+export const marketingSequenceCaps = pgTable("marketing_sequence_caps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  domainThrottleLimit: integer("domain_throttle_limit").notNull().default(5),
+  recipientFrequencyCap: integer("recipient_frequency_cap")
+    .notNull()
+    .default(3),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

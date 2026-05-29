@@ -4644,6 +4644,7 @@ export interface CoreActivity {
   subject: string;
   body: string | null;
   dueDate: Date | null;
+  createdAt: Date;
 }
 
 export interface CoreActivityLink {
@@ -4710,6 +4711,7 @@ export async function executePendingSequenceSteps(
         subject: string;
         body: string;
         dueDate: Date | null;
+        createdAt?: Date;
       }) => Promise<{ id: string }>;
       findMany?: () => Promise<CoreActivity[]>;
     };
@@ -4953,6 +4955,150 @@ export async function executePendingSequenceSteps(
             continue;
           }
         }
+      }
+    }
+
+    let recipientEmail: string | null = null;
+    if (membership.recordType === "lead" && dbStore.leads) {
+      // biome-ignore lint/suspicious/noExplicitAny: casting is safe
+      const lead: any = await dbStore.leads.findOne(membership.recordId);
+      if (lead?.email) {
+        recipientEmail = lead.email;
+      }
+    } else if (membership.recordType === "contact" && dbStore.contacts) {
+      // biome-ignore lint/suspicious/noExplicitAny: casting is safe
+      const contact: any = await dbStore.contacts.findOne(membership.recordId);
+      if (contact?.email) {
+        recipientEmail = contact.email;
+      }
+    }
+
+    if (recipientEmail) {
+      const domain = recipientEmail.split("@")[1]?.toLowerCase() || "";
+      let domainLimit = 5;
+      let recipientCap = 3;
+      // biome-ignore lint/suspicious/noExplicitAny: casting is safe
+      if ((dbStore as any).marketingSequenceCaps) {
+        const capsList =
+          await // biome-ignore lint/suspicious/noExplicitAny: casting is safe
+          (dbStore as any).marketingSequenceCaps.findMany();
+        if (capsList && capsList.length > 0) {
+          domainLimit = capsList[0].domainThrottleLimit;
+          recipientCap = capsList[0].recipientFrequencyCap;
+        }
+      }
+
+      const activities = dbStore.activities.findMany
+        ? await dbStore.activities.findMany()
+        : [];
+      const links = dbStore.activityLinks.findMany
+        ? await dbStore.activityLinks.findMany()
+        : [];
+
+      const oneDayAgo = new Date(currentTime.getTime() - 24 * 60 * 60 * 1000);
+      const sevenDaysAgo = new Date(
+        currentTime.getTime() - 7 * 24 * 60 * 60 * 1000,
+      );
+
+      let domainSentCount = 0;
+      let recipientSentCount = 0;
+
+      for (const act of activities) {
+        if (act.orgId !== orgId || act.type !== "email") continue;
+        const actTime = new Date(act.createdAt);
+
+        if (actTime >= sevenDaysAgo && actTime <= currentTime) {
+          const hasLink = links.some(
+            (l) =>
+              l.activityId === act.id &&
+              l.targetId === membership.recordId &&
+              l.targetType.toLowerCase() ===
+                membership.recordType.toLowerCase(),
+          );
+          if (hasLink) {
+            recipientSentCount++;
+          }
+        }
+
+        if (actTime >= oneDayAgo && actTime <= currentTime) {
+          const actLinksForActivity = links.filter(
+            (l) => l.activityId === act.id,
+          );
+          for (const link of actLinksForActivity) {
+            let linkedEmail: string | null = null;
+            if (link.targetType === "Lead" && dbStore.leads) {
+              // biome-ignore lint/suspicious/noExplicitAny: casting is safe
+              const lead: any = await dbStore.leads.findOne(link.targetId);
+              if (lead?.email) {
+                linkedEmail = lead.email;
+              }
+            } else if (link.targetType === "Contact" && dbStore.contacts) {
+              // biome-ignore lint/suspicious/noExplicitAny: casting is safe
+              const contact: any = await dbStore.contacts.findOne(
+                link.targetId,
+              );
+              if (contact?.email) {
+                linkedEmail = contact.email;
+              }
+            }
+            if (linkedEmail) {
+              const linkedDomain =
+                linkedEmail.split("@")[1]?.toLowerCase() || "";
+              if (linkedDomain === domain) {
+                domainSentCount++;
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      if (domainSentCount >= domainLimit) {
+        const nextExec = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
+        await dbStore.marketingSequenceMemberships.update(membership.id, {
+          nextExecutionAt: nextExec,
+        });
+        await dbStore.auditLogs.insert({
+          orgId,
+          recordId: membership.id,
+          recordType: "marketing_sequence_memberships",
+          action: "deferred_domain_throttle",
+          userId: "00000000-0000-0000-0000-000000000000",
+          changes: {
+            domain: { before: null, after: domain },
+            sentCount: { before: null, after: domainSentCount },
+            limit: { before: null, after: domainLimit },
+            nextExecutionAt: {
+              before: new Date(membership.nextExecutionAt).toISOString(),
+              after: nextExec.toISOString(),
+            },
+          },
+        });
+        continue;
+      }
+
+      if (recipientSentCount >= recipientCap) {
+        const nextExec = new Date(currentTime.getTime() + 24 * 60 * 60 * 1000);
+        await dbStore.marketingSequenceMemberships.update(membership.id, {
+          nextExecutionAt: nextExec,
+        });
+        await dbStore.auditLogs.insert({
+          orgId,
+          recordId: membership.id,
+          recordType: "marketing_sequence_memberships",
+          action: "deferred_frequency_cap",
+          userId: "00000000-0000-0000-0000-000000000000",
+          changes: {
+            recipient: { before: null, after: recipientEmail },
+            sentCount: { before: null, after: recipientSentCount },
+            limit: { before: null, after: recipientCap },
+            nextExecutionAt: {
+              before: new Date(membership.nextExecutionAt).toISOString(),
+              after: nextExec.toISOString(),
+            },
+          },
+        });
+        continue;
       }
     }
 
@@ -5384,6 +5530,7 @@ export async function executePendingSequenceSteps(
       subject: compiled.subject,
       body: compiled.body,
       dueDate: null,
+      createdAt: currentTime,
     });
 
     await dbStore.activityLinks.insert({

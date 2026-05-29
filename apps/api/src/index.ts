@@ -11006,6 +11006,76 @@ app.post("/api/sequences/email-event", tenantAuth, async (c) => {
   return c.json({ success: true, data: result });
 });
 
+app.get("/api/sequences/settings/caps", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const caps = await dbStore.marketingSequenceCaps.findMany();
+  if (caps.length === 0) {
+    return c.json({
+      success: true,
+      data: {
+        domainThrottleLimit: 5,
+        recipientFrequencyCap: 3,
+      },
+    });
+  }
+  return c.json({ success: true, data: caps[0] });
+});
+
+app.post("/api/sequences/settings/caps", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { domainThrottleLimit, recipientFrequencyCap } = body;
+
+  if (domainThrottleLimit !== undefined) {
+    const num = Number(domainThrottleLimit);
+    if (!Number.isInteger(num) || num <= 0) {
+      return c.json(
+        {
+          success: false,
+          error: "domainThrottleLimit must be a positive integer",
+        },
+        400,
+      );
+    }
+  }
+
+  if (recipientFrequencyCap !== undefined) {
+    const num = Number(recipientFrequencyCap);
+    if (!Number.isInteger(num) || num <= 0) {
+      return c.json(
+        {
+          success: false,
+          error: "recipientFrequencyCap must be a positive integer",
+        },
+        400,
+      );
+    }
+  }
+
+  const caps = await dbStore.marketingSequenceCaps.findMany();
+  if (caps.length === 0) {
+    const inserted = await dbStore.marketingSequenceCaps.insert({
+      orgId: tenant.orgId,
+      domainThrottleLimit:
+        domainThrottleLimit !== undefined ? Number(domainThrottleLimit) : 5,
+      recipientFrequencyCap:
+        recipientFrequencyCap !== undefined ? Number(recipientFrequencyCap) : 3,
+    });
+    return c.json({ success: true, data: inserted });
+  }
+  const updated = await dbStore.marketingSequenceCaps.update(caps[0].id, {
+    domainThrottleLimit:
+      domainThrottleLimit !== undefined
+        ? Number(domainThrottleLimit)
+        : caps[0].domainThrottleLimit,
+    recipientFrequencyCap:
+      recipientFrequencyCap !== undefined
+        ? Number(recipientFrequencyCap)
+        : caps[0].recipientFrequencyCap,
+  });
+  return c.json({ success: true, data: updated });
+});
+
 // Start Hono Node Server if run directly (excluding test execution environment)
 
 if (process.env.NODE_ENV !== "test") {

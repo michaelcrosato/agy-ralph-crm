@@ -702,6 +702,15 @@ export interface DBMarketingSequenceExclusion {
   updatedAt: Date;
 }
 
+export interface DBMarketingSequenceCap {
+  id: string;
+  orgId: string;
+  domainThrottleLimit: number;
+  recipientFrequencyCap: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBContract {
   id: string;
   orgId: string;
@@ -1148,6 +1157,7 @@ export const store = {
   marketingSequenceSuppressions: [] as DBMarketingSequenceSuppression[],
   marketingSequenceExclusions: [] as DBMarketingSequenceExclusion[],
   marketingSequenceAbAllocations: [] as DBMarketingSequenceAbAllocation[],
+  marketingSequenceCaps: [] as DBMarketingSequenceCap[],
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
   leadSlaTrackers: [] as DBLeadSlaTracker[],
@@ -5285,6 +5295,63 @@ export const dbStore = {
       return newItem;
     },
   },
+  marketingSequenceCaps: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceCaps.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.marketingSequenceCaps.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (
+      item: Omit<DBMarketingSequenceCap, "id" | "createdAt" | "updatedAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSequenceCap = {
+        ...item,
+        id: `cap-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSequenceCaps.push(newItem);
+      return newItem;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBMarketingSequenceCap, "id" | "orgId" | "createdAt" | "updatedAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceCaps.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      if (store.marketingSequenceCaps[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceCaps[index] = {
+        ...store.marketingSequenceCaps[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.marketingSequenceCaps[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceCaps.findIndex((c) => c.id === id);
+      if (index === -1) return false;
+      if (store.marketingSequenceCaps[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceCaps.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.marketingSegments = [];
     store.marketingSequences = [];
@@ -5298,6 +5365,7 @@ export const dbStore = {
     store.marketingSequenceSuppressions = [];
     store.marketingSequenceExclusions = [];
     store.marketingSequenceAbAllocations = [];
+    store.marketingSequenceCaps = [];
     store.emailTemplates = [];
     store.emailTrackers = [];
     store.picklistDependencies = [];
