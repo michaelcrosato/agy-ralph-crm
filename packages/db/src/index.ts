@@ -591,13 +591,16 @@ export interface DBMarketingSequenceStep {
   sequenceId: string;
   stepNumber: number;
   delayDays: number;
-  templateId: string;
+  templateId: string | null;
   waitCondition?: {
     waitType: "day_of_week" | "duration";
     daysOfWeek?: number[];
     timeOfDay?: string;
   } | null;
   replyToStepNumber?: number | null;
+  stepType: "email" | "webhook";
+  webhookUrl?: string | null;
+  webhookPayload?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

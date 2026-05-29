@@ -4156,13 +4156,16 @@ interface CoreSequenceStep {
   sequenceId: string;
   stepNumber: number;
   delayDays: number;
-  templateId: string;
+  templateId: string | null;
   waitCondition?: {
     waitType: "day_of_week" | "duration";
     daysOfWeek?: number[];
     timeOfDay?: string;
   } | null;
   replyToStepNumber?: number | null;
+  stepType: "email" | "webhook";
+  webhookUrl?: string | null;
+  webhookPayload?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4876,6 +4879,10 @@ export async function executePendingSequenceSteps(
         recordId: string,
       ) => Promise<{ segmentId: string }[]>;
     };
+    webhookOutbox?: {
+      // biome-ignore lint/suspicious/noExplicitAny: insert parameter type typing bypass
+      insert: (item: any) => Promise<unknown>;
+    };
     marketingSequences?: {
       findOne: (id: string) => Promise<CoreSequence | null>;
     };
@@ -5419,7 +5426,7 @@ export async function executePendingSequenceSteps(
       continue;
     }
 
-    let templateIdToUse = step.templateId;
+    let templateIdToUse = step.templateId || "";
 
     if (
       dbStore.marketingSequenceStepSplitTests &&
@@ -5526,7 +5533,7 @@ export async function executePendingSequenceSteps(
               variantRate = variantSends > 0 ? variantClicks / variantSends : 0;
             }
 
-            let winnerTemplateId = step.templateId;
+            let winnerTemplateId = step.templateId || "";
             let winnerLabel = "base";
 
             if (variantRate > baseRate) {
@@ -5587,7 +5594,7 @@ export async function executePendingSequenceSteps(
             if (roll <= splitTest.splitWeight) {
               templateIdToUse = splitTest.variantTemplateId;
             } else {
-              templateIdToUse = step.templateId;
+              templateIdToUse = step.templateId || "";
             }
             await dbStore.marketingSequenceAbAllocations.insert({
               orgId,
@@ -5600,7 +5607,98 @@ export async function executePendingSequenceSteps(
       }
     }
 
-    const template = await dbStore.emailTemplates.findOne(templateIdToUse);
+    if (step.stepType === "webhook") {
+      if (dbStore.webhookOutbox && step.webhookUrl) {
+        const rawPayload =
+          step.webhookPayload ||
+          JSON.stringify({
+            event: "sequence.step_executed",
+            orgId,
+            sequenceId: membership.sequenceId,
+            membershipId: membership.id,
+            stepNumber: nextStepNumber,
+            recordType: membership.recordType,
+            recordId: membership.recordId,
+            recipientEmail: recipientEmail || null,
+          });
+
+        const payload = personalizeEmailTemplate(
+          { subject: "", body: rawPayload },
+          recipientContext,
+        ).body;
+
+        await dbStore.webhookOutbox.insert({
+          orgId,
+          webhookId: "00000000-0000-0000-0000-000000000000",
+          payload,
+          status: "pending",
+          retryCount: 0,
+        });
+      }
+
+      let nextStatus = "active";
+      let nextExecTime = new Date();
+
+      const stepJustExecuted = steps.find(
+        (s) => s.stepNumber === nextStepNumber,
+      );
+      const branchForExecutedStep =
+        stepJustExecuted && dbStore.marketingSequenceStepBranches
+          ? await dbStore.marketingSequenceStepBranches.findForStep(
+              stepJustExecuted.id,
+            )
+          : null;
+
+      if (branchForExecutedStep) {
+        nextExecTime = new Date(
+          currentTime.getTime() +
+            branchForExecutedStep.evaluationWindowDays * 24 * 60 * 60 * 1000,
+        );
+      } else {
+        const nextStep = steps.find((s) => s.stepNumber === nextStepNumber + 1);
+        if (!nextStep) {
+          nextStatus = "completed";
+        } else {
+          nextExecTime = calculateNextStepExecutionTime(
+            currentTime,
+            nextStep.delayDays,
+            nextStep.waitCondition || undefined,
+          );
+        }
+      }
+
+      await dbStore.marketingSequenceMemberships.update(membership.id, {
+        status: nextStatus,
+        currentStepNumber: nextStepNumber,
+        lastExecutedAt: currentTime,
+        nextExecutionAt: nextExecTime,
+      });
+
+      await dbStore.auditLogs.insert({
+        orgId,
+        recordId: membership.id,
+        recordType: "marketing_sequence_memberships",
+        action: "execute_step",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          stepNumber: {
+            before: membership.currentStepNumber,
+            after: nextStepNumber,
+          },
+          status: { before: membership.status, after: nextStatus },
+        },
+      });
+
+      const count = sequenceSendsToday.get(membership.sequenceId) || 0;
+      sequenceSendsToday.set(membership.sequenceId, count + 1);
+
+      processedCount++;
+      continue;
+    }
+
+    const template = templateIdToUse
+      ? await dbStore.emailTemplates.findOne(templateIdToUse)
+      : null;
     if (!template) {
       await dbStore.marketingSequenceMemberships.update(membership.id, {
         status: "error",
@@ -5900,7 +5998,7 @@ export async function enrollSegmentInSequence(
 
 export interface StepAnalytics {
   stepNumber: number;
-  templateId: string;
+  templateId: string | null;
   sentCount: number;
   openCount: number;
   clickCount: number;
@@ -5924,7 +6022,7 @@ export interface SequenceAnalyticsResult {
 
 export function calculateSequenceAnalytics(params: {
   sequenceId: string;
-  steps: { id: string; stepNumber: number; templateId: string }[];
+  steps: { id: string; stepNumber: number; templateId: string | null }[];
   memberships: {
     sequenceId: string;
     status: string;

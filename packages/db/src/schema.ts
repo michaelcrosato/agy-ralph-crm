@@ -1240,11 +1240,14 @@ export const marketingSequenceSteps = pgTable("marketing_sequence_steps", {
     .references(() => marketingSequences.id, { onDelete: "cascade" }),
   stepNumber: integer("step_number").notNull(),
   delayDays: integer("delay_days").notNull().default(0),
-  templateId: uuid("template_id")
-    .notNull()
-    .references(() => emailTemplates.id, { onDelete: "cascade" }),
+  templateId: uuid("template_id").references(() => emailTemplates.id, {
+    onDelete: "cascade",
+  }),
   waitCondition: jsonb("wait_condition"),
   replyToStepNumber: integer("reply_to_step_number"),
+  stepType: text("step_type").notNull().default("email"),
+  webhookUrl: text("webhook_url"),
+  webhookPayload: text("webhook_payload"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

@@ -10496,6 +10496,9 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     templateId,
     waitCondition,
     replyToStepNumber,
+    stepType = "email",
+    webhookUrl,
+    webhookPayload,
   } = body;
 
   const seq = await dbStore.marketingSequences.findOne(sequenceId);
@@ -10503,11 +10506,43 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     return c.json({ success: false, error: "Sequence not found" }, 404);
   }
 
-  if (stepNumber === undefined || templateId === undefined) {
+  if (stepNumber === undefined) {
+    return c.json({ success: false, error: "stepNumber is required" }, 400);
+  }
+
+  if (stepType !== "email" && stepType !== "webhook") {
     return c.json(
-      { success: false, error: "stepNumber and templateId are required" },
+      { success: false, error: "stepType must be either email or webhook" },
       400,
     );
+  }
+
+  if (stepType === "email") {
+    if (templateId === undefined) {
+      return c.json(
+        { success: false, error: "templateId is required for email steps" },
+        400,
+      );
+    }
+    const template = await dbStore.emailTemplates.findOne(templateId);
+    if (!template) {
+      return c.json({ success: false, error: "Email Template not found" }, 404);
+    }
+  } else if (stepType === "webhook") {
+    if (
+      !webhookUrl ||
+      typeof webhookUrl !== "string" ||
+      !/^https?:\/\//i.test(webhookUrl)
+    ) {
+      return c.json(
+        {
+          success: false,
+          error:
+            "webhookUrl is required and must be a valid HTTP/HTTPS URL for webhook steps",
+        },
+        400,
+      );
+    }
   }
 
   if (replyToStepNumber !== undefined && replyToStepNumber !== null) {
@@ -10550,11 +10585,6 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
         400,
       );
     }
-  }
-
-  const template = await dbStore.emailTemplates.findOne(templateId);
-  if (!template) {
-    return c.json({ success: false, error: "Email Template not found" }, 404);
   }
 
   if (waitCondition) {
@@ -10609,12 +10639,15 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     sequenceId,
     stepNumber: Number(stepNumber),
     delayDays: delayDays !== undefined ? Number(delayDays) : 0,
-    templateId,
+    templateId: stepType === "email" ? templateId : null,
     waitCondition: waitCondition || null,
     replyToStepNumber:
       replyToStepNumber !== undefined && replyToStepNumber !== null
         ? Number(replyToStepNumber)
         : null,
+    stepType,
+    webhookUrl: stepType === "webhook" ? webhookUrl : null,
+    webhookPayload: stepType === "webhook" ? webhookPayload || null : null,
   });
 
   return c.json({ success: true, step });
