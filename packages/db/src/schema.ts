@@ -1484,3 +1484,22 @@ export const marketingSequenceReplyActions = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
 );
+
+export const emailClickEvents = pgTable("email_click_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  trackerId: uuid("tracker_id")
+    .notNull()
+    .references(() => emailTrackers.id, { onDelete: "cascade" }),
+  clickedUrl: text("clicked_url").notNull(),
+  ipAddress: text("ip_address").notNull(),
+  userAgent: text("user_agent").notNull(),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
+  utmTerm: text("utm_term"),
+  utmContent: text("utm_content"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

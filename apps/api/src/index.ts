@@ -56,6 +56,7 @@ import {
   mergeContacts,
   mergeLeads,
   parseCSV,
+  parseUtmParams,
   processCSVImport,
   processESignatureTransition,
   processSequenceEmailOpen,
@@ -9648,6 +9649,28 @@ app.get("/api/emails/:activityId/tracker", tenantAuth, async (c) => {
   return c.json({ success: true, tracker });
 });
 
+app.get("/api/emails/trackers/:trackerId/clicks", tenantAuth, async (c) => {
+  const tenant = c.get("tenant") as {
+    orgId: string;
+    userId: string;
+    roleId: string;
+  };
+  const { trackerId } = c.req.param();
+
+  const tracker = await dbStore.emailTrackers.findOne(trackerId);
+  if (!tracker || tracker.orgId !== tenant.orgId) {
+    return c.json(
+      { success: false, error: "Tracker not found or unauthorized" },
+      404,
+    );
+  }
+
+  const clicks = await dbStore.emailClickEvents.findForTracker(trackerId);
+  clicks.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+  return c.json({ success: true, clicks });
+});
+
 app.get("/api/public/emails/track/open/:token", async (c) => {
   const { token } = c.req.param();
 
@@ -9703,6 +9726,11 @@ app.get("/api/public/emails/track/open/:token", async (c) => {
 app.get("/api/public/emails/track/click/:token", async (c) => {
   const { token } = c.req.param();
   const target = c.req.query("target");
+  const ipAddress =
+    c.req.header("x-forwarded-for") ||
+    c.req.header("cf-connecting-ip") ||
+    "127.0.0.1";
+  const userAgent = c.req.header("user-agent") || "Unknown";
 
   const tracker = await dbStore.emailTrackers.findByToken(token);
   if (tracker) {
@@ -9712,6 +9740,23 @@ app.get("/api/public/emails/track/click/:token", async (c) => {
         clickCount: tracker.clickCount + 1,
         lastClickedAt: new Date(),
       });
+
+      // Record granular click event
+      if (target && dbStore.emailClickEvents) {
+        const utm = parseUtmParams(target);
+        await dbStore.emailClickEvents.insert({
+          orgId: tracker.orgId,
+          trackerId: tracker.id,
+          clickedUrl: target,
+          ipAddress,
+          userAgent,
+          utmSource: utm.utmSource,
+          utmMedium: utm.utmMedium,
+          utmCampaign: utm.utmCampaign,
+          utmTerm: utm.utmTerm,
+          utmContent: utm.utmContent,
+        });
+      }
 
       // Record audit log
       await dbStore.auditLogs.insert({

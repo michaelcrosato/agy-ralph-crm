@@ -6888,3 +6888,28 @@ export async function processSequenceEmailReply(
 
   return executedCount;
 }
+
+export function parseUtmParams(urlStr: string) {
+  try {
+    const url = new URL(urlStr);
+    return {
+      utmSource: url.searchParams.get("utm_source") || null,
+      utmMedium: url.searchParams.get("utm_medium") || null,
+      utmCampaign: url.searchParams.get("utm_campaign") || null,
+      utmTerm: url.searchParams.get("utm_term") || null,
+      utmContent: url.searchParams.get("utm_content") || null,
+    };
+  } catch {
+    const getParam = (name: string) => {
+      const match = urlStr.match(new RegExp(`[?&]${name}=([^&#]*)`));
+      return match ? decodeURIComponent(match[1]) : null;
+    };
+    return {
+      utmSource: getParam("utm_source"),
+      utmMedium: getParam("utm_medium"),
+      utmCampaign: getParam("utm_campaign"),
+      utmTerm: getParam("utm_term"),
+      utmContent: getParam("utm_content"),
+    };
+  }
+}
