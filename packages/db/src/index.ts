@@ -657,6 +657,18 @@ export interface DBEmailCalendarSyncRun {
   completedAt: Date;
 }
 
+export interface DBEsignatureRequest {
+  id: string;
+  orgId: string;
+  documentName: string;
+  signerEmail: string;
+  status: "sent" | "viewed" | "signed" | "declined";
+  opportunityId: string | null;
+  contractId: string | null;
+  sentAt: Date;
+  completedAt: Date | null;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -714,6 +726,7 @@ export const store = {
   contactConsentPreferences: [] as DBContactConsentPreference[],
   emailCalendarSyncSettings: [] as DBEmailCalendarSyncSettings[],
   emailCalendarSyncRuns: [] as DBEmailCalendarSyncRun[],
+  esignatureRequests: [] as DBEsignatureRequest[],
 };
 
 export const dbStore = {
@@ -1103,7 +1116,9 @@ export const dbStore = {
       }
       return act || null;
     },
-    insert: async (act: Omit<DBActivity, "id" | "createdAt">) => {
+    insert: async (
+      act: Omit<DBActivity, "id" | "createdAt"> & { createdAt?: Date },
+    ) => {
       const orgId = getActiveOrgId();
       if (act.orgId !== orgId) {
         throw new Error("RLS Isolation Violation: Tenant mismatch.");
@@ -1111,7 +1126,7 @@ export const dbStore = {
       const newAct: DBActivity = {
         ...act,
         id: `activity-${Math.random().toString(36).substring(2, 11)}`,
-        createdAt: new Date(),
+        createdAt: act.createdAt || new Date(),
       };
       store.activities.push(newAct);
       return newAct;
@@ -3065,6 +3080,55 @@ export const dbStore = {
       return newRun;
     },
   },
+  esignatureRequests: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.esignatureRequests.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const req = store.esignatureRequests.find((r) => r.id === id);
+      if (req && req.orgId !== orgId) {
+        return null;
+      }
+      return req || null;
+    },
+    insert: async (
+      req: Omit<DBEsignatureRequest, "id" | "sentAt" | "completedAt"> & {
+        sentAt?: Date;
+        completedAt?: Date | null;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (req.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newReq: DBEsignatureRequest = {
+        ...req,
+        id: `esign-${Math.random().toString(36).substring(2, 11)}`,
+        sentAt: req.sentAt || new Date(),
+        completedAt: req.completedAt || null,
+      };
+      store.esignatureRequests.push(newReq);
+      return newReq;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBEsignatureRequest, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.esignatureRequests.findIndex((r) => r.id === id);
+      if (index === -1) return null;
+      if (store.esignatureRequests[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.esignatureRequests[index] = {
+        ...store.esignatureRequests[index],
+        ...updates,
+      };
+      return store.esignatureRequests[index];
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3123,5 +3187,6 @@ export const dbStore = {
     store.contactConsentPreferences = [];
     store.emailCalendarSyncSettings = [];
     store.emailCalendarSyncRuns = [];
+    store.esignatureRequests = [];
   },
 };

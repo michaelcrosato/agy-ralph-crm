@@ -832,3 +832,21 @@ export const emailCalendarSyncRuns = pgTable("email_calendar_sync_runs", {
   startedAt: timestamp("started_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at").notNull().defaultNow(),
 });
+
+export const esignatureRequests = pgTable("esignature_requests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  documentName: text("document_name").notNull(),
+  signerEmail: text("signer_email").notNull(),
+  status: text("status").notNull().default("sent"), // "sent" | "viewed" | "signed" | "declined"
+  opportunityId: uuid("opportunity_id").references(() => opportunities.id, {
+    onDelete: "cascade",
+  }),
+  contractId: uuid("contract_id").references(() => contracts.id, {
+    onDelete: "cascade",
+  }),
+  sentAt: timestamp("sent_at").notNull().defaultNow(),
+  completedAt: timestamp("completed_at"),
+});

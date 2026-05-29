@@ -36,6 +36,7 @@ import {
   mergeAccounts,
   mergeContacts,
   mergeLeads,
+  processESignatureTransition,
   rollupHierarchyPipeline,
   rollupOpportunityAmount,
   rollupOpportunityAmountsInBase,
@@ -6372,6 +6373,109 @@ app.post("/api/productivity/sync/trigger", tenantAuth, async (c) => {
 app.get("/api/productivity/sync/runs", tenantAuth, async (c) => {
   const runs = await dbStore.emailCalendarSyncRuns.findMany();
   return c.json({ success: true, data: runs });
+});
+
+app.post("/api/sales/esignature/requests", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { documentName, signerEmail, opportunityId, contractId } = body;
+
+  if (!documentName || !signerEmail) {
+    return c.json({ error: "Missing 'documentName' or 'signerEmail'" }, 400);
+  }
+
+  if (!signerEmail.includes("@")) {
+    return c.json({ error: "Invalid signer email" }, 400);
+  }
+
+  if (!opportunityId && !contractId) {
+    return c.json(
+      {
+        error:
+          "E-Signature request must be linked to an Opportunity or Contract",
+      },
+      400,
+    );
+  }
+
+  const newReq = await dbStore.esignatureRequests.insert({
+    orgId: tenant.orgId,
+    documentName,
+    signerEmail,
+    status: "sent",
+    opportunityId: opportunityId || null,
+    contractId: contractId || null,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: newReq.id,
+    recordType: "esignature_requests",
+    action: "create",
+    userId: tenant.userId,
+    changes: {
+      documentName: { before: null, after: documentName },
+      signerEmail: { before: null, after: signerEmail },
+      status: { before: null, after: "sent" },
+    },
+  });
+
+  return c.json({ success: true, data: newReq });
+});
+
+app.get("/api/sales/esignature/requests", tenantAuth, async (c) => {
+  const requests = await dbStore.esignatureRequests.findMany();
+  return c.json({ success: true, data: requests });
+});
+
+app.post("/api/sales/esignature/simulate", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { requestId, action } = body;
+
+  if (!requestId || !action) {
+    return c.json({ error: "Missing 'requestId' or 'action'" }, 400);
+  }
+
+  const existing = await dbStore.esignatureRequests.findOne(requestId);
+  if (!existing) {
+    return c.json({ error: "E-Signature request not found" }, 404);
+  }
+
+  try {
+    const transitionResult = processESignatureTransition({
+      currentStatus: existing.status,
+      action: action as "view" | "sign" | "decline",
+    });
+
+    const completedAt = transitionResult.isCompleted ? new Date() : null;
+
+    const updated = await dbStore.esignatureRequests.update(requestId, {
+      status: transitionResult.nextStatus,
+      completedAt,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: existing.id,
+      recordType: "esignature_requests",
+      action: "simulate_transition",
+      userId: tenant.userId,
+      changes: {
+        status: { before: existing.status, after: transitionResult.nextStatus },
+      },
+    });
+
+    await triggerOutboundWebhooks(tenant.orgId, "sales.esignature_updated", {
+      requestId: existing.id,
+      status: transitionResult.nextStatus,
+    });
+
+    return c.json({ success: true, data: updated });
+  } catch (error) {
+    const err = error as Error;
+    return c.json({ error: err.message }, 400);
+  }
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)
