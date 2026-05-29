@@ -1,5 +1,6 @@
 import {
   type AnyPgColumn,
+  boolean,
   integer,
   jsonb,
   pgTable,
@@ -134,6 +135,8 @@ export const opportunities = pgTable("opportunities", {
   amount: text("amount"), // Using text or numeric standard for dynamic representation
   closeDate: timestamp("close_date"),
   custom: jsonb("custom"),
+  currencyCode: text("currency_code").notNull().default("USD"),
+  amountCorporate: text("amount_corporate"),
 });
 
 export const auditLogs = pgTable("audit_logs", {
@@ -666,4 +669,19 @@ export const leadConversionMappings = pgTable("lead_conversion_mappings", {
   targetObjectType: text("target_object_type").notNull(), // "accounts" | "contacts" | "opportunities"
   targetField: text("target_field").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const currencies = pgTable("currencies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  isoCode: text("iso_code").notNull(),
+  displayName: text("display_name").notNull(),
+  symbol: text("symbol").notNull(),
+  exchangeRate: text("exchange_rate").notNull(),
+  isCorporate: boolean("is_corporate").notNull().default(false),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

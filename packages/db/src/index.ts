@@ -93,6 +93,8 @@ export interface DBOpportunity {
   amount: string | null;
   closeDate: Date | null;
   custom: Record<string, unknown> | null;
+  currencyCode?: string;
+  amountCorporate?: string | null;
 }
 
 export interface DBFieldDefinition {
@@ -535,6 +537,19 @@ export interface DBLeadConversionMapping {
   createdAt: Date;
 }
 
+export interface DBCurrency {
+  id: string;
+  orgId: string;
+  isoCode: string;
+  displayName: string;
+  symbol: string;
+  exchangeRate: string;
+  isCorporate: boolean;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -582,6 +597,7 @@ export const store = {
   leadScoringRules: [] as DBLeadScoringRule[],
   opportunityCompetitors: [] as DBOpportunityCompetitor[],
   leadConversionMappings: [] as DBLeadConversionMapping[],
+  currencies: [] as DBCurrency[],
 };
 
 export const dbStore = {
@@ -813,6 +829,8 @@ export const dbStore = {
       }
       const newOpp: DBOpportunity = {
         ...o,
+        currencyCode: o.currencyCode || "USD",
+        amountCorporate: o.amountCorporate || null,
         id: `opp-${Math.random().toString(36).substring(2, 11)}`,
       };
       store.opportunities.push(newOpp);
@@ -2404,6 +2422,62 @@ export const dbStore = {
       return true;
     },
   },
+  currencies: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.currencies.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const c = store.currencies.find((x) => x.id === id);
+      if (c && c.orgId !== orgId) {
+        return null;
+      }
+      return c || null;
+    },
+    findByIsoCode: async (isoCode: string) => {
+      const orgId = getActiveOrgId();
+      const c = store.currencies.find(
+        (x) =>
+          x.isoCode.toLowerCase() === isoCode.toLowerCase() &&
+          x.orgId === orgId,
+      );
+      return c || null;
+    },
+    insert: async (c: Omit<DBCurrency, "id" | "createdAt" | "updatedAt">) => {
+      const orgId = getActiveOrgId();
+      if (c.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newCurrency: DBCurrency = {
+        ...c,
+        id: `currency-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.currencies.push(newCurrency);
+      return newCurrency;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBCurrency, "id" | "orgId" | "createdAt" | "updatedAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.currencies.findIndex((c) => c.id === id);
+      if (index === -1) return null;
+      if (store.currencies[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.currencies[index] = {
+        ...store.currencies[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.currencies[index];
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -2451,5 +2525,6 @@ export const dbStore = {
     store.leadScoringRules = [];
     store.opportunityCompetitors = [];
     store.leadConversionMappings = [];
+    store.currencies = [];
   },
 };

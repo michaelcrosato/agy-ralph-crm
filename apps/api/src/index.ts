@@ -18,6 +18,7 @@ import {
   calculateProRatedAmount,
   calculateSlaStatus,
   calculateStageVelocity,
+  convertCurrency,
   convertLead,
   convertLeadWithMappings,
   detectCircularAccountRelation,
@@ -31,13 +32,14 @@ import {
   mergeLeads,
   rollupHierarchyPipeline,
   rollupOpportunityAmount,
+  rollupOpportunityAmountsInBase,
   setPrimaryOpportunityContactRole,
   validateAccountTeamMember,
   validateEmailLogInput,
   validateInfluencePercentageTotal,
   validateOpportunityApprovalSubmission,
 } from "@crm/core";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { type DBCurrency, dbStore, mockDb, store, withTenant } from "@crm/db";
 import { compileTemplate } from "@crm/documents";
 import { compileForecastSummary } from "@crm/forecasting";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
@@ -393,6 +395,96 @@ app.delete("/api/lead-conversions/mappings/:id", tenantAuth, async (c) => {
   });
 
   return c.json({ success: true });
+});
+
+// Currencies REST API Endpoints protected by tenantAuth
+app.get("/api/currencies", tenantAuth, async (c) => {
+  const currencies = await dbStore.currencies.findMany();
+  return c.json({ success: true, data: currencies });
+});
+
+app.get("/api/currencies/convert", tenantAuth, async (c) => {
+  const amount = c.req.query("amount");
+  const fromIso = c.req.query("from");
+  const toIso = c.req.query("to");
+
+  if (!amount || !fromIso || !toIso) {
+    return c.json(
+      { error: "Missing conversion query parameters: amount, from, to" },
+      400,
+    );
+  }
+
+  const fromCurr = await dbStore.currencies.findByIsoCode(fromIso);
+  const toCurr = await dbStore.currencies.findByIsoCode(toIso);
+
+  const fromRate = fromCurr?.isActive ? fromCurr.exchangeRate : "1.0000";
+  const toRate = toCurr?.isActive ? toCurr.exchangeRate : "1.0000";
+
+  const converted = convertCurrency(amount, fromRate, toRate);
+  return c.json({ success: true, converted });
+});
+
+app.post("/api/currencies", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { isoCode, displayName, symbol, exchangeRate, isCorporate } = body;
+
+  if (!isoCode || !displayName || !symbol || !exchangeRate) {
+    return c.json({ error: "Missing required currency parameters" }, 400);
+  }
+
+  const existing = await dbStore.currencies.findByIsoCode(isoCode);
+  let currency: DBCurrency | null = null;
+
+  if (isCorporate) {
+    const allCurrencies = await dbStore.currencies.findMany();
+    for (const cur of allCurrencies) {
+      if (cur.isCorporate) {
+        await dbStore.currencies.update(cur.id, { isCorporate: false });
+      }
+    }
+  }
+
+  if (existing) {
+    currency = await dbStore.currencies.update(existing.id, {
+      displayName,
+      symbol,
+      exchangeRate: String(exchangeRate),
+      isCorporate:
+        isCorporate !== undefined ? Boolean(isCorporate) : existing.isCorporate,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: existing.id,
+      recordType: "currencies",
+      action: "update",
+      userId: tenant.userId,
+      changes: null,
+    });
+  } else {
+    currency = await dbStore.currencies.insert({
+      orgId: tenant.orgId,
+      isoCode,
+      displayName,
+      symbol,
+      exchangeRate: String(exchangeRate),
+      isCorporate: isCorporate !== undefined ? Boolean(isCorporate) : false,
+      isActive: true,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: currency.id,
+      recordType: "currencies",
+      action: "create",
+      userId: tenant.userId,
+      changes: null,
+    });
+  }
+
+  return c.json({ success: true, data: currency }, 201);
 });
 
 // Lead operations protected by tenantAuth
@@ -1617,10 +1709,25 @@ app.get("/api/opportunities/:id", tenantAuth, async (c) => {
 app.post("/api/opportunities", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
-  const { name, stage, accountId, amount, closeDate } = body;
+  const { name, stage, accountId, amount, closeDate, currencyCode } = body;
 
   if (!name || !stage || !accountId) {
     return c.json({ error: "Missing required opportunity parameters" }, 400);
+  }
+
+  let localCurrencyCode = currencyCode || "USD";
+  let activeExchangeRate = "1.0000";
+  const currencyObj = await dbStore.currencies.findByIsoCode(localCurrencyCode);
+  if (currencyObj?.isActive) {
+    activeExchangeRate = currencyObj.exchangeRate;
+  } else {
+    localCurrencyCode = "USD";
+  }
+
+  let amountCorporate: string | null = null;
+  if (amount !== undefined && amount !== null) {
+    const rate = Number.parseFloat(activeExchangeRate) || 1.0;
+    amountCorporate = (Number.parseFloat(String(amount)) * rate).toFixed(2);
   }
 
   const opp = await dbStore.opportunities.insert({
@@ -1629,9 +1736,11 @@ app.post("/api/opportunities", tenantAuth, async (c) => {
     accountId,
     name,
     stage,
-    amount: amount !== undefined ? String(amount) : null,
+    amount: amount !== undefined && amount !== null ? String(amount) : null,
     closeDate: closeDate ? new Date(closeDate) : null,
     custom: null,
+    currencyCode: localCurrencyCode,
+    amountCorporate,
   });
 
   await dbStore.opportunityStageHistory.insert({
@@ -1650,7 +1759,7 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
-  const { name, stage, amount, closeDate } = body;
+  const { name, stage, amount, closeDate, currencyCode } = body;
 
   const existing = await dbStore.opportunities.findOne(id);
   if (!existing) {
@@ -1660,10 +1769,41 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
   const updates: Parameters<typeof dbStore.opportunities.update>[1] = {};
   if (name !== undefined) updates.name = name;
   if (stage !== undefined) updates.stage = stage;
-  if (amount !== undefined)
-    updates.amount = amount !== null ? String(amount) : null;
   if (closeDate !== undefined)
     updates.closeDate = closeDate !== null ? new Date(closeDate) : null;
+
+  let localCurrencyCode =
+    currencyCode !== undefined ? currencyCode : existing.currencyCode || "USD";
+  const localAmount =
+    amount !== undefined
+      ? amount !== null
+        ? String(amount)
+        : null
+      : existing.amount;
+
+  let activeExchangeRate = "1.0000";
+  const currencyObj = await dbStore.currencies.findByIsoCode(localCurrencyCode);
+  if (currencyObj?.isActive) {
+    activeExchangeRate = currencyObj.exchangeRate;
+  } else {
+    localCurrencyCode = "USD";
+  }
+
+  if (currencyCode !== undefined) {
+    updates.currencyCode = localCurrencyCode;
+  }
+  if (amount !== undefined) {
+    updates.amount = localAmount;
+  }
+
+  if (localAmount !== null && localAmount !== undefined) {
+    const rate = Number.parseFloat(activeExchangeRate) || 1.0;
+    updates.amountCorporate = (Number.parseFloat(localAmount) * rate).toFixed(
+      2,
+    );
+  } else {
+    updates.amountCorporate = null;
+  }
 
   const updated = await dbStore.opportunities.update(id, updates);
   if (!updated) {
