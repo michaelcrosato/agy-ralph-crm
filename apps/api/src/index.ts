@@ -58,6 +58,7 @@ import {
   parseCSV,
   processCSVImport,
   processESignatureTransition,
+  processSequenceEmailOpen,
   processSequenceLinkClick,
   resolveSegmentMembers,
   rollbackStoreMigrations,
@@ -9672,6 +9673,15 @@ app.get("/api/public/emails/track/open/:token", async (c) => {
           },
         },
       });
+
+      // Task 0198: Trigger automated sequence open actions
+      if (dbStore.marketingSequenceOpenActions) {
+        await processSequenceEmailOpen(
+          dbStore,
+          tracker.orgId,
+          tracker.activityId,
+        );
+      }
     });
   }
 
@@ -11353,6 +11363,60 @@ app.delete("/api/sequences/steps/link-actions/:id", tenantAuth, async (c) => {
   if (!deleted) {
     return c.json(
       { success: false, error: "Link action not found or unauthorized" },
+      404,
+    );
+  }
+  return c.json({ success: true });
+});
+
+app.get("/api/sequences/steps/:stepId/open-actions", tenantAuth, async (c) => {
+  const stepId = c.req.param("stepId");
+  const actions =
+    await dbStore.marketingSequenceOpenActions.findForStep(stepId);
+  return c.json({ success: true, data: actions });
+});
+
+app.post("/api/sequences/steps/:stepId/open-actions", tenantAuth, async (c) => {
+  const stepId = c.req.param("stepId");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { actionType, actionConfig } = body;
+
+  if (!actionType || !actionConfig) {
+    return c.json(
+      {
+        success: false,
+        error: "actionType and actionConfig are required",
+      },
+      400,
+    );
+  }
+  if (actionType !== "field_update" && actionType !== "create_task") {
+    return c.json(
+      {
+        success: false,
+        error: "actionType must be 'field_update' or 'create_task'",
+      },
+      400,
+    );
+  }
+
+  const action = await dbStore.marketingSequenceOpenActions.insert({
+    orgId: tenant.orgId,
+    stepId,
+    actionType,
+    actionConfig,
+  });
+
+  return c.json({ success: true, data: action });
+});
+
+app.delete("/api/sequences/steps/open-actions/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const deleted = await dbStore.marketingSequenceOpenActions.delete(id);
+  if (!deleted) {
+    return c.json(
+      { success: false, error: "Open action not found or unauthorized" },
       404,
     );
   }

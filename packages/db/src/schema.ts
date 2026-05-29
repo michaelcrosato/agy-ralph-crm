@@ -1448,3 +1448,20 @@ export const marketingSequenceLinkActions = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
 );
+
+export const marketingSequenceOpenActions = pgTable(
+  "marketing_sequence_open_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => marketingSequenceSteps.id, { onDelete: "cascade" }),
+    actionType: text("action_type").notNull(),
+    actionConfig: jsonb("action_config").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);
