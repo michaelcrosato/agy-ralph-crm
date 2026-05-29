@@ -596,6 +596,7 @@ export interface DBMarketingSequenceStep {
     daysOfWeek?: number[];
     timeOfDay?: string;
   } | null;
+  replyToStepNumber?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

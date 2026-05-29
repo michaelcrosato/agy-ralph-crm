@@ -10037,7 +10037,13 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
   const sequenceId = c.req.param("id");
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
-  const { stepNumber, delayDays, templateId, waitCondition } = body;
+  const {
+    stepNumber,
+    delayDays,
+    templateId,
+    waitCondition,
+    replyToStepNumber,
+  } = body;
 
   const seq = await dbStore.marketingSequences.findOne(sequenceId);
   if (!seq) {
@@ -10049,6 +10055,48 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
       { success: false, error: "stepNumber and templateId are required" },
       400,
     );
+  }
+
+  if (replyToStepNumber !== undefined && replyToStepNumber !== null) {
+    const replyStepNum = Number(replyToStepNumber);
+    if (
+      Number.isNaN(replyStepNum) ||
+      !Number.isInteger(replyStepNum) ||
+      replyStepNum < 1
+    ) {
+      return c.json(
+        {
+          success: false,
+          error: "replyToStepNumber must be a positive integer",
+        },
+        400,
+      );
+    }
+    if (replyStepNum >= Number(stepNumber)) {
+      return c.json(
+        {
+          success: false,
+          error:
+            "replyToStepNumber must be strictly less than the current stepNumber",
+        },
+        400,
+      );
+    }
+
+    const existingSteps =
+      await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+    const targetStepExists = existingSteps.some(
+      (s) => s.stepNumber === replyStepNum,
+    );
+    if (!targetStepExists) {
+      return c.json(
+        {
+          success: false,
+          error: `Target sequence step with stepNumber ${replyStepNum} not found in this sequence`,
+        },
+        400,
+      );
+    }
   }
 
   const template = await dbStore.emailTemplates.findOne(templateId);
@@ -10110,6 +10158,10 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     delayDays: delayDays !== undefined ? Number(delayDays) : 0,
     templateId,
     waitCondition: waitCondition || null,
+    replyToStepNumber:
+      replyToStepNumber !== undefined && replyToStepNumber !== null
+        ? Number(replyToStepNumber)
+        : null,
   });
 
   return c.json({ success: true, step });

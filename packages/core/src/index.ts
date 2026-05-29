@@ -4087,6 +4087,7 @@ interface CoreSequenceStep {
     daysOfWeek?: number[];
     timeOfDay?: string;
   } | null;
+  replyToStepNumber?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4647,6 +4648,7 @@ export interface CoreActivity {
   body: string | null;
   dueDate: Date | null;
   createdAt: Date;
+  custom?: Record<string, unknown> | null;
 }
 
 export interface CoreActivityLink {
@@ -4714,6 +4716,7 @@ export async function executePendingSequenceSteps(
         body: string;
         dueDate: Date | null;
         createdAt?: Date;
+        custom?: Record<string, unknown> | null;
       }) => Promise<{ id: string }>;
       findMany?: () => Promise<CoreActivity[]>;
     };
@@ -5549,14 +5552,59 @@ export async function executePendingSequenceSteps(
       }
     }
 
+    let finalSubject = compiled.subject;
+    const customAttributes: Record<string, unknown> = {};
+
+    if (step.replyToStepNumber && step.replyToStepNumber >= 1) {
+      const targetStep = steps.find(
+        (s) =>
+          s.sequenceId === step.sequenceId &&
+          s.stepNumber === step.replyToStepNumber &&
+          s.orgId === orgId,
+      );
+
+      if (targetStep) {
+        const activities = (await dbStore.activities.findMany?.()) || [];
+        const links = (await dbStore.activityLinks.findMany?.()) || [];
+
+        const targetLinks = links.filter(
+          (l) =>
+            l.orgId === orgId &&
+            l.targetType ===
+              (membership.recordType === "lead" ? "Lead" : "Contact") &&
+            l.targetId === membership.recordId,
+        );
+
+        const targetActivityIds = new Set(targetLinks.map((l) => l.activityId));
+        const parentActivity = activities.find(
+          (a) =>
+            targetActivityIds.has(a.id) &&
+            a.orgId === orgId &&
+            a.type === "email" &&
+            a.subject,
+        );
+
+        if (parentActivity) {
+          const startsWithRe = /^re:/i.test(parentActivity.subject);
+          finalSubject = startsWithRe
+            ? parentActivity.subject
+            : `Re: ${parentActivity.subject}`;
+
+          customAttributes.parent_activity_id = parentActivity.id;
+        }
+      }
+    }
+
     const activity = await dbStore.activities.insert({
       orgId,
       creatorId: resolvedSenderId,
       type: "email",
-      subject: compiled.subject,
+      subject: finalSubject,
       body: compiled.body,
       dueDate: null,
       createdAt: currentTime,
+      custom:
+        Object.keys(customAttributes).length > 0 ? customAttributes : null,
     });
 
     await dbStore.activityLinks.insert({
