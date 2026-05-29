@@ -3,7 +3,7 @@
 # build, verify, and commit high-value features.
 
 $AgyPath = "C:\Users\Michael Crosato\AppData\Local\agy\bin\agy.exe"
-$Prompt = "/goal review the features that are production/commercial ready for the CRM, research the next highest value common feature that aligns with the coding style and structure of this CRM the most, write its design/requirements specs, implement it, test it until production-ready, verify lint/compile check, commit it, and repeat."
+$Prompt = "/goal Read C:\Users\Michael Crosato\.gemini\antigravity-cli\brain\8dbbde2b-9dd7-487d-bd77-c3d0ed09e639\afk_execution_blueprint.md, find the next unimplemented specification task, write its specification, implement the code, write thorough RLS and integration tests, verify the workspace compiles and lint checks pass cleanly using pnpm verify, commit the changes to git, and stop so the script can execute the next step."
 
 Write-Host "========================================================" -ForegroundColor Green
 Write-Host "Starting CRM Core Automation Loop in AFK Mode..." -ForegroundColor Green
