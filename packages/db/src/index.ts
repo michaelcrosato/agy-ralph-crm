@@ -572,6 +572,9 @@ export interface DBMarketingSequence {
   name: string;
   description: string;
   status: string; // "active" | "draft"
+  sendingWindowStart?: string | null;
+  sendingWindowEnd?: string | null;
+  sendingDays?: number[] | null;
   createdAt: Date;
   updatedAt: Date;
 }

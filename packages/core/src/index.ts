@@ -3888,6 +3888,75 @@ export function compileEmailTemplate(
   };
 }
 
+interface CoreSequence {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string;
+  status: string;
+  sendingWindowStart?: string | null;
+  sendingWindowEnd?: string | null;
+  sendingDays?: number[] | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export function getNextValidSendingTime(
+  currentTime: Date,
+  sendingDays: number[] | null,
+  windowStart: string | null,
+  windowEnd: string | null,
+): Date {
+  const target = new Date(currentTime.getTime());
+
+  const allowedDays =
+    sendingDays && sendingDays.length > 0 ? new Set(sendingDays) : null;
+
+  let attempts = 0;
+  while (attempts < 8) {
+    const dayOfWeek = target.getUTCDay() === 0 ? 7 : target.getUTCDay();
+    const dayAllowed = !allowedDays || allowedDays.has(dayOfWeek);
+
+    if (dayAllowed) {
+      const currentHours = target.getUTCHours();
+      const currentMinutes = target.getUTCMinutes();
+      const currentTimeMinutes = currentHours * 60 + currentMinutes;
+
+      const startMinutes = windowStart ? parseTimeToMinutes(windowStart) : 0;
+      const endMinutes = windowEnd ? parseTimeToMinutes(windowEnd) : 24 * 60;
+
+      if (currentTimeMinutes < startMinutes) {
+        target.setUTCHours(
+          Math.floor(startMinutes / 60),
+          startMinutes % 60,
+          0,
+          0,
+        );
+        return target;
+      }
+
+      if (
+        currentTimeMinutes >= startMinutes &&
+        currentTimeMinutes < endMinutes
+      ) {
+        return target;
+      }
+    }
+
+    target.setUTCDate(target.getUTCDate() + 1);
+    const startMinutes = windowStart ? parseTimeToMinutes(windowStart) : 0;
+    target.setUTCHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+    attempts++;
+  }
+
+  return currentTime;
+}
+
+function parseTimeToMinutes(timeStr: string): number {
+  const [hours, minutes] = timeStr.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
 interface CoreSequenceStep {
   id: string;
   orgId: string;
@@ -4489,6 +4558,9 @@ export async function executePendingSequenceSteps(
         recordId: string,
       ) => Promise<{ segmentId: string }[]>;
     };
+    marketingSequences?: {
+      findOne: (id: string) => Promise<CoreSequence | null>;
+    };
   },
   currentTime: Date = new Date(),
 ): Promise<number> {
@@ -4542,6 +4614,44 @@ export async function executePendingSequenceSteps(
 
   for (const membership of pendingMemberships) {
     const orgId = membership.orgId;
+
+    if (dbStore.marketingSequences) {
+      const sequence = await dbStore.marketingSequences.findOne(
+        membership.sequenceId,
+      );
+      if (sequence) {
+        const validTime = getNextValidSendingTime(
+          currentTime,
+          sequence.sendingDays || null,
+          sequence.sendingWindowStart || null,
+          sequence.sendingWindowEnd || null,
+        );
+        if (validTime.getTime() > currentTime.getTime()) {
+          const originalNext = membership.nextExecutionAt;
+          await dbStore.marketingSequenceMemberships.update(membership.id, {
+            nextExecutionAt: validTime,
+          });
+          await dbStore.auditLogs.insert({
+            orgId: membership.orgId,
+            recordId: membership.id,
+            recordType: "marketing_sequence_memberships",
+            action: "membership_schedule_deferred",
+            userId: "00000000-0000-0000-0000-000000000000",
+            changes: {
+              nextExecutionAt: {
+                before:
+                  originalNext instanceof Date
+                    ? originalNext.toISOString()
+                    : new Date(originalNext).toISOString(),
+                after: validTime.toISOString(),
+              },
+            },
+          });
+          continue;
+        }
+      }
+    }
+
     const steps = await dbStore.marketingSequenceSteps.findForSequence(
       membership.sequenceId,
     );

@@ -1194,6 +1194,9 @@ export const marketingSequences = pgTable("marketing_sequences", {
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   status: text("status").notNull().default("draft"),
+  sendingWindowStart: text("sending_window_start"),
+  sendingWindowEnd: text("sending_window_end"),
+  sendingDays: jsonb("sending_days"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

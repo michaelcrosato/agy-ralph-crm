@@ -10632,6 +10632,92 @@ app.post("/api/sequences/:id/enroll-segment", tenantAuth, async (c) => {
   }
 });
 
+app.post("/api/sequences/:id/schedule", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { sendingWindowStart, sendingWindowEnd, sendingDays } = body;
+
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence || sequence.orgId !== tenant.orgId) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const timeRegex = /^([01]\d|2[0-3]):[0-5]\d$/;
+  if (
+    sendingWindowStart !== undefined &&
+    sendingWindowStart !== null &&
+    !timeRegex.test(sendingWindowStart)
+  ) {
+    return c.json(
+      { success: false, error: "sendingWindowStart must be in HH:MM format" },
+      400,
+    );
+  }
+  if (
+    sendingWindowEnd !== undefined &&
+    sendingWindowEnd !== null &&
+    !timeRegex.test(sendingWindowEnd)
+  ) {
+    return c.json(
+      { success: false, error: "sendingWindowEnd must be in HH:MM format" },
+      400,
+    );
+  }
+
+  if (sendingDays !== undefined && sendingDays !== null) {
+    if (!Array.isArray(sendingDays)) {
+      return c.json(
+        { success: false, error: "sendingDays must be an array of numbers" },
+        400,
+      );
+    }
+    for (const d of sendingDays) {
+      if (typeof d !== "number" || d < 1 || d > 7 || !Number.isInteger(d)) {
+        return c.json(
+          {
+            success: false,
+            error: "sendingDays values must be integers between 1 and 7",
+          },
+          400,
+        );
+      }
+    }
+  }
+
+  const originalWindowStart = sequence.sendingWindowStart;
+  const originalWindowEnd = sequence.sendingWindowEnd;
+  const originalDays = sequence.sendingDays;
+
+  const updated = await dbStore.marketingSequences.update(sequenceId, {
+    sendingWindowStart:
+      sendingWindowStart !== undefined
+        ? sendingWindowStart
+        : originalWindowStart,
+    sendingWindowEnd:
+      sendingWindowEnd !== undefined ? sendingWindowEnd : originalWindowEnd,
+    sendingDays: sendingDays !== undefined ? sendingDays : originalDays,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: sequenceId,
+    recordType: "marketing_sequences",
+    action: "sequence_schedule_updated",
+    userId: "00000000-0000-0000-0000-000000000000",
+    changes: {
+      sendingWindowStart: {
+        before: originalWindowStart,
+        after: sendingWindowStart,
+      },
+      sendingWindowEnd: { before: originalWindowEnd, after: sendingWindowEnd },
+      sendingDays: { before: originalDays, after: sendingDays },
+    },
+  });
+
+  return c.json({ success: true, data: updated });
+});
+
 app.post(
   "/api/sequences/memberships/:membershipId/snooze",
   tenantAuth,
