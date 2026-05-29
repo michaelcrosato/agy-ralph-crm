@@ -3675,3 +3675,75 @@ export function calculateAdjustedForecast(params: {
     adjustedAttainment,
   };
 }
+
+function getFieldValue(fields: Record<string, unknown>, path: string): unknown {
+  if (path in fields && fields[path] !== undefined && fields[path] !== null) {
+    return fields[path];
+  }
+  if (path.includes(".")) {
+    const parts = path.split(".");
+    let current: unknown = fields;
+    for (const part of parts) {
+      if (
+        current === null ||
+        current === undefined ||
+        typeof current !== "object"
+      ) {
+        current = undefined;
+        break;
+      }
+      current = (current as Record<string, unknown>)[part];
+    }
+    if (current !== undefined && current !== null) {
+      return current;
+    }
+  }
+  if (
+    fields.custom &&
+    typeof fields.custom === "object" &&
+    path in (fields.custom as Record<string, unknown>)
+  ) {
+    const val = (fields.custom as Record<string, unknown>)[path];
+    if (val !== undefined && val !== null) {
+      return val;
+    }
+  }
+  return undefined;
+}
+
+export function validatePicklistDependencies(
+  fields: Record<string, unknown>,
+  dependencies: {
+    parentField: string;
+    dependentField: string;
+    dependencyMap: Record<string, string[]>;
+  }[],
+): { success: boolean; error?: string } {
+  for (const dep of dependencies) {
+    const parentVal = getFieldValue(fields, dep.parentField);
+    const dependentVal = getFieldValue(fields, dep.dependentField);
+
+    // If controlling or dependent values are not set on the record mutation, skip validation
+    if (
+      parentVal === undefined ||
+      parentVal === null ||
+      dependentVal === undefined ||
+      dependentVal === null
+    ) {
+      continue;
+    }
+
+    const parentValStr = String(parentVal);
+    const dependentValStr = String(dependentVal);
+
+    const allowedOptions = dep.dependencyMap[parentValStr];
+    if (!allowedOptions || !allowedOptions.includes(dependentValStr)) {
+      return {
+        success: false,
+        error: `Value '${dependentValStr}' is not allowed for dependent field '${dep.dependentField}' when parent field '${dep.parentField}' is '${parentValStr}'. Allowed values are: ${allowedOptions ? allowedOptions.join(", ") : "none"}.`,
+      };
+    }
+  }
+
+  return { success: true };
+}

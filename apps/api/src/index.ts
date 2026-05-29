@@ -69,6 +69,7 @@ import {
   validateOpportunityProductSchedule,
   validateOpportunityStageGate,
   validateOpportunityTeamMember,
+  validatePicklistDependencies,
   validateSurveyResponse,
   validateTicketCommentInput,
   validateTicketMacroInput,
@@ -231,6 +232,17 @@ export const tenantAuth = createMiddleware<Env>(async (c, next) => {
     return await next();
   });
 });
+
+// Helper to evaluate picklist dependencies validation
+export async function enforcePicklistDependencies(
+  objectType: string,
+  fields: Record<string, unknown>,
+): Promise<{ success: boolean; error?: string }> {
+  const deps = await dbStore.picklistDependencies.findMany();
+  const relevantDeps = deps.filter((d) => d.objectType === objectType);
+  if (relevantDeps.length === 0) return { success: true };
+  return validatePicklistDependencies(fields, relevantDeps);
+}
 
 // Helper to fire outbound webhook notifications asynchronously to all active subscriptions of the tenant
 export async function triggerOutboundWebhooks(
@@ -1048,6 +1060,46 @@ app.get("/api/metadata/fields", tenantAuth, async (c) => {
   return c.json({ success: true, data: fields });
 });
 
+app.post("/api/metadata/picklist-dependencies", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { objectType, parentField, dependentField, dependencyMap } = body;
+
+  if (!objectType || !parentField || !dependentField || !dependencyMap) {
+    return c.json(
+      { error: "Missing required picklist dependency parameters" },
+      400,
+    );
+  }
+
+  const dep = await dbStore.picklistDependencies.insert({
+    orgId: tenant.orgId,
+    objectType,
+    parentField,
+    dependentField,
+    dependencyMap,
+  });
+
+  return c.json({ success: true, data: dep });
+});
+
+app.get("/api/metadata/picklist-dependencies", tenantAuth, async (c) => {
+  const deps = await dbStore.picklistDependencies.findMany();
+  return c.json({ success: true, data: deps });
+});
+
+app.delete("/api/metadata/picklist-dependencies/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const deleted = await dbStore.picklistDependencies.delete(id);
+  if (!deleted) {
+    return c.json(
+      { error: "Picklist dependency not found or tenant mismatch" },
+      404,
+    );
+  }
+  return c.json({ success: true });
+});
+
 app.post("/api/metadata/layouts/:objectType", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const objectType = c.req.param("objectType");
@@ -1702,6 +1754,15 @@ app.post("/api/leads", tenantAuth, async (c) => {
     }
   }
 
+  // Validate picklist dependencies
+  const pldValidation = await enforcePicklistDependencies("leads", {
+    ...body,
+    ...(custom || {}),
+  });
+  if (!pldValidation.success) {
+    return c.json({ error: pldValidation.error }, 400);
+  }
+
   const leadData = {
     orgId: tenant.orgId,
     ownerId: tenant.userId,
@@ -2001,6 +2062,23 @@ app.patch("/api/leads/:id", tenantAuth, async (c) => {
     }
   }
 
+  // Validate picklist dependencies
+  const combinedForValidation = {
+    ...lead,
+    ...body,
+    custom: {
+      ...(lead.custom || {}),
+      ...(custom || {}),
+    },
+  };
+  const pldValidation = await enforcePicklistDependencies("leads", {
+    ...combinedForValidation,
+    ...(combinedForValidation.custom || {}),
+  });
+  if (!pldValidation.success) {
+    return c.json({ error: pldValidation.error }, 400);
+  }
+
   const updates: Record<string, unknown> = {};
   if (email !== undefined) updates.email = email;
   if (company !== undefined) updates.company = company;
@@ -2288,6 +2366,15 @@ app.post("/api/accounts", tenantAuth, async (c) => {
     return c.json({ error: "Missing required parameter: name" }, 400);
   }
 
+  // Validate picklist dependencies
+  const pldValidation = await enforcePicklistDependencies("accounts", {
+    ...body,
+    ...(custom || {}),
+  });
+  if (!pldValidation.success) {
+    return c.json({ error: pldValidation.error }, 400);
+  }
+
   if (parentAccountId) {
     const parent = await dbStore.accounts.findOne(parentAccountId);
     if (!parent) {
@@ -2338,6 +2425,24 @@ app.patch("/api/accounts/:id", tenantAuth, async (c) => {
   }
 
   const body = await c.req.json().catch(() => ({}));
+
+  // Validate picklist dependencies
+  const combinedForValidation = {
+    ...existing,
+    ...body,
+    custom: {
+      ...(existing.custom || {}),
+      ...(body.custom || {}),
+    },
+  };
+  const pldValidation = await enforcePicklistDependencies("accounts", {
+    ...combinedForValidation,
+    ...(combinedForValidation.custom || {}),
+  });
+  if (!pldValidation.success) {
+    return c.json({ error: pldValidation.error }, 400);
+  }
+
   const updates: Partial<Omit<typeof existing, "id" | "orgId" | "ownerId">> =
     {};
 
@@ -2705,6 +2810,15 @@ app.post("/api/contacts", tenantAuth, async (c) => {
     return c.json({ error: "Missing required parameter: lastName" }, 400);
   }
 
+  // Validate picklist dependencies
+  const pldValidation = await enforcePicklistDependencies("contacts", {
+    ...body,
+    ...(custom || {}),
+  });
+  if (!pldValidation.success) {
+    return c.json({ error: pldValidation.error }, 400);
+  }
+
   if (reportsToId) {
     const manager = await dbStore.contacts.findOne(reportsToId);
     if (!manager) {
@@ -2748,6 +2862,24 @@ app.patch("/api/contacts/:id", tenantAuth, async (c) => {
   }
 
   const body = await c.req.json().catch(() => ({}));
+
+  // Validate picklist dependencies
+  const combinedForValidation = {
+    ...existing,
+    ...body,
+    custom: {
+      ...(existing.custom || {}),
+      ...(body.custom || {}),
+    },
+  };
+  const pldValidation = await enforcePicklistDependencies("contacts", {
+    ...combinedForValidation,
+    ...(combinedForValidation.custom || {}),
+  });
+  if (!pldValidation.success) {
+    return c.json({ error: pldValidation.error }, 400);
+  }
+
   const updates: Partial<Omit<typeof existing, "id" | "orgId" | "ownerId">> =
     {};
 
@@ -3209,6 +3341,15 @@ app.post("/api/opportunities", tenantAuth, async (c) => {
     return c.json({ error: "Missing required opportunity parameters" }, 400);
   }
 
+  // Validate picklist dependencies
+  const pldValidation = await enforcePicklistDependencies("opportunities", {
+    ...body,
+    ...(body.custom || {}),
+  });
+  if (!pldValidation.success) {
+    return c.json({ error: pldValidation.error }, 400);
+  }
+
   let localCurrencyCode = currencyCode || "USD";
   let activeExchangeRate = "1.0000";
   const currencyObj = await dbStore.currencies.findByIsoCode(localCurrencyCode);
@@ -3258,6 +3399,23 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
   const existing = await dbStore.opportunities.findOne(id);
   if (!existing) {
     return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  // Validate picklist dependencies
+  const combinedForValidation = {
+    ...existing,
+    ...body,
+    custom: {
+      ...(existing.custom || {}),
+      ...(body.custom || {}),
+    },
+  };
+  const pldValidation = await enforcePicklistDependencies("opportunities", {
+    ...combinedForValidation,
+    ...(combinedForValidation.custom || {}),
+  });
+  if (!pldValidation.success) {
+    return c.json({ error: pldValidation.error }, 400);
   }
 
   const updates: Parameters<typeof dbStore.opportunities.update>[1] = {};

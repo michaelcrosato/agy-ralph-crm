@@ -1130,3 +1130,16 @@ export const stageForecastMappings = pgTable("stage_forecast_mappings", {
   stage: text("stage").notNull(),
   forecastCategory: text("forecast_category").notNull(), // "Omitted" | "Pipeline" | "Best Case" | "Commit" | "Closed"
 });
+
+export const picklistDependencies = pgTable("picklist_dependencies", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  objectType: text("object_type").notNull(), // "accounts" | "contacts" | "leads" | "opportunities"
+  parentField: text("parent_field").notNull(),
+  dependentField: text("dependent_field").notNull(),
+  dependencyMap: jsonb("dependency_map").notNull(), // Record<string, string[]> mapping parent options to allowed child options
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

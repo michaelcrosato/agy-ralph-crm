@@ -864,6 +864,17 @@ export interface DBStageForecastMapping {
   forecastCategory: string; // "Omitted" | "Pipeline" | "Best Case" | "Commit" | "Closed"
 }
 
+export interface DBPicklistDependency {
+  id: string;
+  orgId: string;
+  objectType: string;
+  parentField: string;
+  dependentField: string;
+  dependencyMap: Record<string, string[]>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBForecastAdjustment {
   id: string;
   orgId: string;
@@ -877,6 +888,7 @@ export interface DBForecastAdjustment {
 }
 
 export const store = {
+  picklistDependencies: [] as DBPicklistDependency[],
   stageForecastMappings: [] as DBStageForecastMapping[],
   forecastAdjustments: [] as DBForecastAdjustment[],
   users: [] as DBUser[],
@@ -4137,7 +4149,65 @@ export const dbStore = {
       return newRun;
     },
   },
+  picklistDependencies: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.picklistDependencies.filter((d) => d.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const d = store.picklistDependencies.find((x) => x.id === id);
+      if (d && d.orgId !== orgId) return null;
+      return d || null;
+    },
+    insert: async (
+      d: Omit<DBPicklistDependency, "id" | "createdAt" | "updatedAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (d.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newDep: DBPicklistDependency = {
+        ...d,
+        id: `pldep-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.picklistDependencies.push(newDep);
+      return newDep;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBPicklistDependency, "id" | "orgId" | "createdAt" | "updatedAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.picklistDependencies.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      if (store.picklistDependencies[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.picklistDependencies[index] = {
+        ...store.picklistDependencies[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.picklistDependencies[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.picklistDependencies.findIndex((x) => x.id === id);
+      if (index === -1) return false;
+      if (store.picklistDependencies[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.picklistDependencies.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
+    store.picklistDependencies = [];
     store.stageForecastMappings = [];
     store.forecastAdjustments = [];
     store.users = [];
