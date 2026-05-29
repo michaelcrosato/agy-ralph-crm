@@ -6109,6 +6109,170 @@ app.post(
   },
 );
 
+app.post("/api/campaigns/:id/email-blast", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const campaignId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { templateId, senderEmail } = body;
+
+  if (!templateId) {
+    return c.json({ error: "Missing required parameter: templateId" }, 400);
+  }
+
+  if (!senderEmail) {
+    return c.json({ error: "Missing required parameter: senderEmail" }, 400);
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(senderEmail)) {
+    return c.json({ error: "Invalid 'senderEmail' format" }, 400);
+  }
+
+  const campaign = await dbStore.campaigns.findOne(campaignId);
+  if (!campaign) {
+    return c.json({ error: "Campaign not found" }, 404);
+  }
+
+  const template = await dbStore.emailTemplates.findOne(templateId);
+  if (!template) {
+    return c.json({ error: "Email template not found" }, 404);
+  }
+
+  const members = await dbStore.campaignMembers.findForCampaign(campaignId);
+  const emailLogs: unknown[] = [];
+  let processedCount = 0;
+
+  for (const member of members) {
+    let targetEmail: string | null = null;
+    const context: {
+      lead?: Record<string, unknown>;
+      contact?: Record<string, unknown>;
+      account?: Record<string, unknown>;
+      opportunity?: Record<string, unknown>;
+    } = {};
+
+    if (member.leadId) {
+      const lead = await dbStore.leads.findOne(member.leadId);
+      if (lead) {
+        targetEmail = lead.email;
+        context.lead = lead as unknown as Record<string, unknown>;
+      }
+    } else if (member.contactId) {
+      const contact = await dbStore.contacts.findOne(member.contactId);
+      if (contact) {
+        targetEmail = contact.email;
+        context.contact = contact as unknown as Record<string, unknown>;
+
+        if (contact.accountId) {
+          const account = await dbStore.accounts.findOne(contact.accountId);
+          if (account) {
+            context.account = account as unknown as Record<string, unknown>;
+
+            // Fetch opportunities associated with the account, get the most recently updated/created one
+            const allOpps = await dbStore.opportunities.findMany();
+            const accountOpps = allOpps.filter(
+              (opp) => opp.accountId === account.id,
+            );
+            if (accountOpps.length > 0) {
+              const sorted = [...accountOpps].sort((a, b) => {
+                const dateA = a.closeDate ? new Date(a.closeDate).getTime() : 0;
+                const dateB = b.closeDate ? new Date(b.closeDate).getTime() : 0;
+                return dateB - dateA;
+              });
+              context.opportunity = sorted[0] as unknown as Record<
+                string,
+                unknown
+              >;
+            }
+          }
+        }
+      }
+    }
+
+    if (!targetEmail || !emailRegex.test(targetEmail)) {
+      continue; // Skip members without valid emails
+    }
+
+    const compiled = compileEmailTemplate(
+      { subject: template.subject, body: template.body },
+      context,
+    );
+
+    const act = await dbStore.activities.insert({
+      orgId: tenant.orgId,
+      creatorId: tenant.userId,
+      type: "email",
+      subject: compiled.subject,
+      body: compiled.body,
+      dueDate: null,
+      custom: {
+        from: senderEmail,
+        to: [targetEmail],
+        cc: [],
+        bcc: [],
+      },
+    });
+
+    // Links: recipient
+    await dbStore.activityLinks.insert({
+      orgId: tenant.orgId,
+      activityId: act.id,
+      targetType: member.leadId ? "Lead" : "Contact",
+      targetId: member.leadId ? member.leadId : member.contactId || "",
+    });
+
+    // Links: Campaign
+    await dbStore.activityLinks.insert({
+      orgId: tenant.orgId,
+      activityId: act.id,
+      targetType: "Campaign",
+      targetId: campaignId,
+    });
+
+    // Links: Account
+    if (context.account) {
+      await dbStore.activityLinks.insert({
+        orgId: tenant.orgId,
+        activityId: act.id,
+        targetType: "Account",
+        targetId: context.account.id,
+      });
+    }
+
+    // Links: Opportunity
+    if (context.opportunity) {
+      await dbStore.activityLinks.insert({
+        orgId: tenant.orgId,
+        activityId: act.id,
+        targetType: "Opportunity",
+        targetId: context.opportunity.id,
+      });
+    }
+
+    // Update member status to Sent
+    await dbStore.campaignMembers.update(member.id, { status: "Sent" });
+
+    // Audit Log
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: act.id,
+      recordType: "EmailLog",
+      action: "create",
+      userId: tenant.userId,
+      changes: null,
+    });
+
+    emailLogs.push(act);
+    processedCount++;
+  }
+
+  return c.json({
+    success: true,
+    processedCount,
+    emailLogs,
+  });
+});
+
 app.get("/api/opportunities/:id/contact-roles", tenantAuth, async (c) => {
   const id = c.req.param("id");
   const opportunity = await dbStore.opportunities.findOne(id);

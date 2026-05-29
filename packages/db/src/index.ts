@@ -253,7 +253,7 @@ export interface DBActivityLink {
   id: string;
   orgId: string;
   activityId: string;
-  targetType: "Account" | "Contact" | "Lead" | "Opportunity";
+  targetType: "Account" | "Contact" | "Lead" | "Opportunity" | "Campaign";
   targetId: string;
 }
 
