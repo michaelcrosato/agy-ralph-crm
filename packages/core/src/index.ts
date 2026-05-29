@@ -1599,3 +1599,86 @@ export function rollupOpportunityAmountsInBase(
 
   return total.toFixed(2);
 }
+
+export interface StageGateRule {
+  targetStage: string;
+  field: string;
+  operator: string;
+  expectedValue: string | null;
+  errorMessage: string;
+  isActive: boolean;
+}
+
+export function validateOpportunityStageGate(
+  opportunity: Record<string, unknown>,
+  rules: StageGateRule[],
+  newStage: string,
+): { isValid: boolean; errorMessages: string[] } {
+  const errors: string[] = [];
+  const activeRules = rules.filter(
+    (r) => r.isActive && r.targetStage === newStage,
+  );
+
+  for (const rule of activeRules) {
+    let rawVal: unknown = undefined;
+    if (rule.field.startsWith("custom.")) {
+      const fieldKey = rule.field.substring("custom.".length);
+      rawVal = (opportunity.custom as Record<string, unknown> | null)?.[
+        fieldKey
+      ];
+    } else {
+      rawVal = opportunity[rule.field];
+    }
+
+    const fieldValue =
+      rawVal !== undefined && rawVal !== null ? String(rawVal) : "";
+    const expected = rule.expectedValue || "";
+
+    let isViolated = false;
+
+    switch (rule.operator) {
+      case "equals":
+        isViolated = fieldValue !== expected;
+        break;
+      case "not_equals":
+        isViolated = fieldValue === expected;
+        break;
+      case "greater_than": {
+        const fNum = Number.parseFloat(fieldValue);
+        const eNum = Number.parseFloat(expected);
+        isViolated =
+          !Number.isNaN(fNum) && !Number.isNaN(eNum)
+            ? fNum <= eNum
+            : fieldValue <= expected;
+        break;
+      }
+      case "less_than": {
+        const fNum = Number.parseFloat(fieldValue);
+        const eNum = Number.parseFloat(expected);
+        isViolated =
+          !Number.isNaN(fNum) && !Number.isNaN(eNum)
+            ? fNum >= eNum
+            : fieldValue >= expected;
+        break;
+      }
+      case "contains":
+        isViolated = !fieldValue.includes(expected);
+        break;
+      case "is_not_empty":
+        isViolated = fieldValue.trim() === "";
+        break;
+      default:
+        isViolated = false;
+        break;
+    }
+
+    if (isViolated) {
+      errors.push(rule.errorMessage);
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errorMessages: errors,
+  };
+}

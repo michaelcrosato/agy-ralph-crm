@@ -550,6 +550,19 @@ export interface DBCurrency {
   updatedAt: Date;
 }
 
+export interface DBOpportunityStageGate {
+  id: string;
+  orgId: string;
+  targetStage: string;
+  field: string;
+  operator: string;
+  expectedValue: string | null;
+  errorMessage: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -598,6 +611,7 @@ export const store = {
   opportunityCompetitors: [] as DBOpportunityCompetitor[],
   leadConversionMappings: [] as DBLeadConversionMapping[],
   currencies: [] as DBCurrency[],
+  opportunityStageGates: [] as DBOpportunityStageGate[],
 };
 
 export const dbStore = {
@@ -2478,6 +2492,65 @@ export const dbStore = {
       return store.currencies[index];
     },
   },
+  opportunityStageGates: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityStageGates.filter((g) => g.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const g = store.opportunityStageGates.find((x) => x.id === id);
+      if (g && g.orgId !== orgId) {
+        return null;
+      }
+      return g || null;
+    },
+    insert: async (
+      g: Omit<DBOpportunityStageGate, "id" | "createdAt" | "updatedAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (g.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newGate: DBOpportunityStageGate = {
+        ...g,
+        id: `gate-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.opportunityStageGates.push(newGate);
+      return newGate;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBOpportunityStageGate, "id" | "orgId" | "createdAt" | "updatedAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityStageGates.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      if (store.opportunityStageGates[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityStageGates[index] = {
+        ...store.opportunityStageGates[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.opportunityStageGates[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityStageGates.findIndex((x) => x.id === id);
+      if (index === -1) return false;
+      if (store.opportunityStageGates[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityStageGates.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -2526,5 +2599,6 @@ export const dbStore = {
     store.opportunityCompetitors = [];
     store.leadConversionMappings = [];
     store.currencies = [];
+    store.opportunityStageGates = [];
   },
 };

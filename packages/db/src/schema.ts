@@ -685,3 +685,18 @@ export const currencies = pgTable("currencies", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const opportunityStageGates = pgTable("opportunity_stage_gates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  targetStage: text("target_stage").notNull(),
+  field: text("field").notNull(),
+  operator: text("operator").notNull(),
+  expectedValue: text("expected_value"),
+  errorMessage: text("error_message").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

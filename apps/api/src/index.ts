@@ -4,6 +4,7 @@ import {
   verifySessionToken,
 } from "@crm/auth";
 import {
+  type StageGateRule,
   calculateAccountDuplicates,
   calculateCPQPrice,
   calculateCampaignRevenueShare,
@@ -38,8 +39,16 @@ import {
   validateEmailLogInput,
   validateInfluencePercentageTotal,
   validateOpportunityApprovalSubmission,
+  validateOpportunityStageGate,
 } from "@crm/core";
-import { type DBCurrency, dbStore, mockDb, store, withTenant } from "@crm/db";
+import {
+  type DBCurrency,
+  type DBOpportunityStageGate,
+  dbStore,
+  mockDb,
+  store,
+  withTenant,
+} from "@crm/db";
 import { compileTemplate } from "@crm/documents";
 import { compileForecastSummary } from "@crm/forecasting";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
@@ -485,6 +494,80 @@ app.post("/api/currencies", tenantAuth, async (c) => {
   }
 
   return c.json({ success: true, data: currency }, 201);
+});
+
+// Stage Gates REST API Endpoints protected by tenantAuth
+app.get("/api/stage-gates", tenantAuth, async (c) => {
+  const gates = await dbStore.opportunityStageGates.findMany();
+  return c.json({ success: true, data: gates });
+});
+
+app.post("/api/stage-gates", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const {
+    id,
+    targetStage,
+    field,
+    operator,
+    expectedValue,
+    errorMessage,
+    isActive,
+  } = body;
+
+  if (!targetStage || !field || !operator || !errorMessage) {
+    return c.json({ error: "Missing required stage gate parameters" }, 400);
+  }
+
+  let gate: DBOpportunityStageGate | null = null;
+
+  if (id) {
+    const existing = await dbStore.opportunityStageGates.findOne(id);
+    if (!existing) {
+      return c.json({ error: "Stage gate not found" }, 404);
+    }
+    gate = await dbStore.opportunityStageGates.update(id, {
+      targetStage,
+      field,
+      operator,
+      expectedValue:
+        expectedValue !== undefined
+          ? String(expectedValue)
+          : existing.expectedValue,
+      errorMessage,
+      isActive: isActive !== undefined ? Boolean(isActive) : existing.isActive,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: id,
+      recordType: "opportunity_stage_gates",
+      action: "update",
+      userId: tenant.userId,
+      changes: null,
+    });
+  } else {
+    gate = await dbStore.opportunityStageGates.insert({
+      orgId: tenant.orgId,
+      targetStage,
+      field,
+      operator,
+      expectedValue: expectedValue !== undefined ? String(expectedValue) : null,
+      errorMessage,
+      isActive: isActive !== undefined ? Boolean(isActive) : true,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: gate.id,
+      recordType: "opportunity_stage_gates",
+      action: "create",
+      userId: tenant.userId,
+      changes: null,
+    });
+  }
+
+  return c.json({ success: true, data: gate }, 201);
 });
 
 // Lead operations protected by tenantAuth
@@ -1803,6 +1886,23 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
     );
   } else {
     updates.amountCorporate = null;
+  }
+
+  if (stage !== undefined && stage !== existing.stage) {
+    const activeRules = await dbStore.opportunityStageGates.findMany();
+    const mergedOpportunity = {
+      ...existing,
+      ...updates,
+      stage,
+    };
+    const gateResult = validateOpportunityStageGate(
+      mergedOpportunity as unknown as Record<string, unknown>,
+      activeRules as StageGateRule[],
+      stage,
+    );
+    if (!gateResult.isValid) {
+      return c.json({ success: false, errors: gateResult.errorMessages }, 400);
+    }
   }
 
   const updated = await dbStore.opportunities.update(id, updates);
