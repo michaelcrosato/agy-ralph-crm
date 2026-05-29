@@ -18,6 +18,7 @@ import {
   calculateLeadDuplicates,
   calculateLeadScore,
   calculateMilestoneDueDate,
+  calculateNextRunDate,
   calculateOpportunityCommission,
   calculateOpportunityCompetitorStats,
   calculateOpportunitySplits,
@@ -51,6 +52,7 @@ import {
   rollupHierarchyPipeline,
   rollupOpportunityAmount,
   rollupOpportunityAmountsInBase,
+  runPendingScheduledReports,
   runStoreMigrations,
   setPrimaryOpportunityContactRole,
   syncExternalItems,
@@ -8609,6 +8611,83 @@ app.post("/api/db/rollback", tenantAuth, async (c) => {
   );
 
   return c.json(result);
+});
+
+app.get("/api/reports/scheduled", tenantAuth, async (c) => {
+  const schedules = await dbStore.scheduledReports.findMany();
+  return c.json({
+    success: true,
+    schedules,
+  });
+});
+
+app.post("/api/reports/scheduled", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { reportId, recipientEmail, frequency, isActive } = body;
+
+  if (!reportId || !recipientEmail || !frequency) {
+    return c.json(
+      { error: "Missing required fields: reportId, recipientEmail, frequency" },
+      400,
+    );
+  }
+
+  const report = await dbStore.reports.findOne(reportId);
+  if (!report) {
+    return c.json({ error: `Report with ID ${reportId} not found.` }, 404);
+  }
+
+  const nextRunAt = calculateNextRunDate(new Date(), frequency);
+
+  const schedule = await dbStore.scheduledReports.insert({
+    orgId: tenant.orgId,
+    reportId,
+    recipientEmail,
+    frequency,
+    nextRunAt,
+    isActive: isActive !== undefined ? Number(isActive) : 1,
+  });
+
+  return c.json({
+    success: true,
+    schedule,
+  });
+});
+
+app.delete("/api/reports/scheduled/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const schedule = await dbStore.scheduledReports.findOne(id);
+  if (!schedule) {
+    return c.json(
+      { error: "Scheduled report not found or unauthorized." },
+      404,
+    );
+  }
+  const success = await dbStore.scheduledReports.delete(id);
+  if (!success) {
+    return c.json(
+      { error: "Scheduled report not found or unauthorized." },
+      404,
+    );
+  }
+  return c.json({
+    success: true,
+  });
+});
+
+app.post("/api/reports/scheduled/run-pending", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const processed = await runPendingScheduledReports(
+    dbStore,
+    store,
+    tenant.orgId,
+    triggerOutboundWebhooks,
+  );
+  return c.json({
+    success: true,
+    processed,
+  });
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)

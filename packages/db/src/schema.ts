@@ -1075,3 +1075,31 @@ export const schemaMigrations = pgTable("schema_migrations", {
   name: text("name").notNull(),
   appliedAt: timestamp("applied_at").notNull().defaultNow(),
 });
+
+export const scheduledReports = pgTable("scheduled_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  reportId: uuid("report_id")
+    .notNull()
+    .references(() => reports.id, { onDelete: "cascade" }),
+  recipientEmail: text("recipient_email").notNull(),
+  frequency: text("frequency").notNull(), // "daily" | "weekly" | "monthly"
+  nextRunAt: timestamp("next_run_at").notNull().defaultNow(),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const scheduledReportRuns = pgTable("scheduled_report_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  scheduledReportId: uuid("scheduled_report_id")
+    .notNull()
+    .references(() => scheduledReports.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("success"), // "success" | "failed"
+  errorMessage: text("error_message"),
+  runAt: timestamp("run_at").notNull().defaultNow(),
+});

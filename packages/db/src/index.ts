@@ -822,6 +822,26 @@ export interface DBTicketTagLink {
   createdAt: Date;
 }
 
+export interface DBScheduledReport {
+  id: string;
+  orgId: string;
+  reportId: string;
+  recipientEmail: string;
+  frequency: "daily" | "weekly" | "monthly";
+  nextRunAt: Date;
+  isActive: number;
+  createdAt: Date;
+}
+
+export interface DBScheduledReportRun {
+  id: string;
+  orgId: string;
+  scheduledReportId: string;
+  status: "success" | "failed";
+  errorMessage: string | null;
+  runAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -895,6 +915,8 @@ export const store = {
   ticketEscalations: [] as DBTicketEscalation[],
   ticketMacros: [] as DBTicketMacro[],
   schemaMigrations: [] as DBSchemaMigration[],
+  scheduledReports: [] as DBScheduledReport[],
+  scheduledReportRuns: [] as DBScheduledReportRun[],
 };
 
 export const dbStore = {
@@ -3911,6 +3933,90 @@ export const dbStore = {
       return true;
     },
   },
+  scheduledReports: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.scheduledReports.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const r = store.scheduledReports.find((x) => x.id === id);
+      if (r && r.orgId !== orgId) {
+        return null;
+      }
+      return r || null;
+    },
+    insert: async (
+      r: Omit<DBScheduledReport, "id" | "createdAt"> & { createdAt?: Date },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (r.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newReport: DBScheduledReport = {
+        ...r,
+        id: `sr-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: r.createdAt || new Date(),
+      };
+      store.scheduledReports.push(newReport);
+      return newReport;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBScheduledReport, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.scheduledReports.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      if (store.scheduledReports[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.scheduledReports[index] = {
+        ...store.scheduledReports[index],
+        ...updates,
+      };
+      return store.scheduledReports[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.scheduledReports.findIndex((x) => x.id === id);
+      if (index === -1) return false;
+      if (store.scheduledReports[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.scheduledReports.splice(index, 1);
+      return true;
+    },
+  },
+  scheduledReportRuns: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.scheduledReportRuns.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const r = store.scheduledReportRuns.find((x) => x.id === id);
+      if (r && r.orgId !== orgId) {
+        return null;
+      }
+      return r || null;
+    },
+    insert: async (
+      r: Omit<DBScheduledReportRun, "id" | "runAt"> & { runAt?: Date },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (r.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRun: DBScheduledReportRun = {
+        ...r,
+        id: `srr-${Math.random().toString(36).substring(2, 11)}`,
+        runAt: r.runAt || new Date(),
+      };
+      store.scheduledReportRuns.push(newRun);
+      return newRun;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3985,5 +4091,7 @@ export const dbStore = {
     store.ticketEscalations = [];
     store.ticketMacros = [];
     store.schemaMigrations = [];
+    store.scheduledReports = [];
+    store.scheduledReportRuns = [];
   },
 };
