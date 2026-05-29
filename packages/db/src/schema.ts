@@ -628,3 +628,15 @@ export const accountTeams = pgTable("account_teams", {
   role: text("role").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const leadScoringRules = pgTable("lead_scoring_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  criteria: jsonb("criteria").notNull(),
+  scoreValue: integer("score_value").notNull(),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

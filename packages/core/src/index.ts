@@ -1140,3 +1140,74 @@ export function detectCircularContactRelation(
 
   return false;
 }
+
+export interface ScoringRuleInput {
+  id: string;
+  isActive: number;
+  scoreValue: number;
+  criteria: CriteriaCondition[];
+}
+
+export function calculateLeadScore(
+  lead: Record<string, unknown>,
+  rules: ScoringRuleInput[],
+): number {
+  let score = 0;
+  const activeRules = rules.filter((r) => r.isActive === 1);
+
+  for (const rule of activeRules) {
+    let match = true;
+    for (const cond of rule.criteria) {
+      let val: unknown = undefined;
+      if (cond.field.startsWith("custom.")) {
+        const customField = cond.field.substring("custom.".length);
+        val = (lead.custom as Record<string, unknown> | null)?.[customField];
+      } else {
+        val = lead[cond.field];
+      }
+
+      if (val === undefined || val === null) {
+        match = false;
+        break;
+      }
+
+      const valStr = String(val).toLowerCase();
+      const condStr = String(cond.value).toLowerCase();
+
+      if (cond.operator === "equals") {
+        if (valStr !== condStr) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "contains") {
+        if (!valStr.includes(condStr)) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "greater_than") {
+        const vNum = Number.parseFloat(valStr);
+        const cNum = Number.parseFloat(condStr);
+        if (Number.isNaN(vNum) || Number.isNaN(cNum) || vNum <= cNum) {
+          match = false;
+          break;
+        }
+      } else if (cond.operator === "less_than") {
+        const vNum = Number.parseFloat(valStr);
+        const cNum = Number.parseFloat(condStr);
+        if (Number.isNaN(vNum) || Number.isNaN(cNum) || vNum >= cNum) {
+          match = false;
+          break;
+        }
+      } else {
+        match = false;
+        break;
+      }
+    }
+
+    if (match) {
+      score += rule.scoreValue;
+    }
+  }
+
+  return score;
+}

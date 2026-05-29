@@ -9,6 +9,7 @@ import {
   calculateCampaignStats,
   calculateContractRenewalAmount,
   calculateLeadDuplicates,
+  calculateLeadScore,
   calculateOpportunityCommission,
   calculateOpportunitySplits,
   calculateProRatedAmount,
@@ -4270,6 +4271,107 @@ app.post("/api/contracts/:id/renew", tenantAuth, async (c) => {
   });
 
   return c.json({ success: true, data: newOpportunity }, 201);
+});
+
+app.get("/api/lead-scoring-rules", tenantAuth, async (c) => {
+  const rules = await dbStore.leadScoringRules.findMany();
+  return c.json({ data: rules });
+});
+
+app.post("/api/lead-scoring-rules", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  if (
+    !body.name ||
+    !Array.isArray(body.criteria) ||
+    body.scoreValue === undefined
+  ) {
+    return c.json(
+      { error: "Missing name, criteria, or scoreValue in request body." },
+      400,
+    );
+  }
+  const newRule = await dbStore.leadScoringRules.insert({
+    orgId: tenant.orgId,
+    name: body.name,
+    criteria: body.criteria,
+    scoreValue: Number(body.scoreValue),
+    isActive: body.isActive !== undefined ? Number(body.isActive) : 1,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: newRule.id,
+    recordType: "lead_scoring_rules",
+    action: "create",
+    userId: tenant.userId,
+    changes: { rule: { before: null, after: newRule } },
+  });
+
+  return c.json({ success: true, data: newRule }, 201);
+});
+
+app.get("/api/leads/:id/score", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found." }, 404);
+  }
+  const rules = await dbStore.leadScoringRules.findMany();
+  const score = calculateLeadScore(
+    lead as unknown as Record<string, unknown>,
+    rules.map((r) => ({
+      id: r.id,
+      isActive: r.isActive,
+      scoreValue: r.scoreValue,
+      criteria: r.criteria,
+    })),
+  );
+  return c.json({ leadId: id, score });
+});
+
+app.post("/api/leads/:id/score/recalculate", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found." }, 404);
+  }
+  const rules = await dbStore.leadScoringRules.findMany();
+  const score = calculateLeadScore(
+    lead as unknown as Record<string, unknown>,
+    rules.map((r) => ({
+      id: r.id,
+      isActive: r.isActive,
+      scoreValue: r.scoreValue,
+      criteria: r.criteria,
+    })),
+  );
+
+  const custom = lead.custom || {};
+  const updatedCustom = { ...custom, score };
+
+  const updatedLead = await dbStore.leads.update(id, {
+    custom: updatedCustom,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "leads",
+    action: "recalculate_score",
+    userId: tenant.userId,
+    changes: {
+      score: { before: custom.score, after: score },
+    },
+  });
+
+  await triggerOutboundWebhooks(tenant.orgId, "lead.score_updated", {
+    leadId: id,
+    score,
+  });
+
+  return c.json({ success: true, data: updatedLead });
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)
