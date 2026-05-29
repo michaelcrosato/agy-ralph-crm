@@ -610,6 +610,15 @@ export interface DBLeadAutoConversionRule {
   createdAt: Date;
 }
 
+export interface DBOpportunityStageDurationRule {
+  id: string;
+  orgId: string;
+  stage: string;
+  maxDaysAllowed: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -663,6 +672,7 @@ export const store = {
   opportunityStageGates: [] as DBOpportunityStageGate[],
   stageGuidance: [] as DBStageGuidance[],
   leadAutoConversionRules: [] as DBLeadAutoConversionRule[],
+  opportunityStageDurationRules: [] as DBOpportunityStageDurationRule[],
 };
 
 export const dbStore = {
@@ -2844,6 +2854,52 @@ export const dbStore = {
       return store.leadAutoConversionRules[index];
     },
   },
+  opportunityStageDurationRules: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityStageDurationRules.filter(
+        (r) => r.orgId === orgId,
+      );
+    },
+    findByStage: async (stage: string) => {
+      const orgId = getActiveOrgId();
+      const r = store.opportunityStageDurationRules.find(
+        (x) => x.stage === stage && x.orgId === orgId,
+      );
+      return r || null;
+    },
+    upsert: async (
+      rule: Omit<
+        DBOpportunityStageDurationRule,
+        "id" | "createdAt" | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (rule.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const existingIndex = store.opportunityStageDurationRules.findIndex(
+        (x) => x.stage === rule.stage && x.orgId === orgId,
+      );
+      const now = new Date();
+      if (existingIndex > -1) {
+        store.opportunityStageDurationRules[existingIndex] = {
+          ...store.opportunityStageDurationRules[existingIndex],
+          maxDaysAllowed: rule.maxDaysAllowed,
+          updatedAt: now,
+        };
+        return store.opportunityStageDurationRules[existingIndex];
+      }
+      const newRule: DBOpportunityStageDurationRule = {
+        ...rule,
+        id: `duration-rule-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: now,
+        updatedAt: now,
+      };
+      store.opportunityStageDurationRules.push(newRule);
+      return newRule;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -2898,5 +2954,6 @@ export const dbStore = {
     store.opportunityStageGates = [];
     store.stageGuidance = [];
     store.leadAutoConversionRules = [];
+    store.opportunityStageDurationRules = [];
   },
 };

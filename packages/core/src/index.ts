@@ -2093,3 +2093,97 @@ export function calculateGlobalCompetitorAnalytics(params: {
 
   return results;
 }
+
+export interface StalledOpportunityResult {
+  opportunityId: string;
+  opportunityName: string;
+  currentStage: string;
+  elapsedDays: number;
+  maxDaysAllowed: number;
+  amount: string | null;
+}
+
+export interface StalledOpportunityOpportunity {
+  id: string;
+  name: string;
+  stage: string;
+  amount: string | null;
+}
+
+export interface StalledOpportunityStageHistory {
+  opportunityId: string;
+  toStage: string;
+  createdAt: Date;
+}
+
+export interface StalledOpportunityStageDurationRule {
+  stage: string;
+  maxDaysAllowed: number;
+}
+
+export function calculateStalledOpportunities(
+  opportunities: StalledOpportunityOpportunity[],
+  stageHistory: StalledOpportunityStageHistory[],
+  rules: StalledOpportunityStageDurationRule[],
+  currentDate: Date = new Date(),
+): StalledOpportunityResult[] {
+  const DEFAULT_THRESHOLDS: Record<string, number> = {
+    Prospecting: 30,
+    Qualification: 20,
+    "Needs Analysis": 14,
+    "Value Proposition": 14,
+    "Id. Decision Makers": 10,
+    "Perception Analysis": 10,
+    "Proposal/Price Quote": 7,
+    "Negotiation/Review": 5,
+  };
+
+  const results: StalledOpportunityResult[] = [];
+
+  const ruleMap = new Map<string, number>();
+  for (const rule of rules) {
+    ruleMap.set(rule.stage, rule.maxDaysAllowed);
+  }
+
+  // Active opportunities: stage not Closed Won or Closed Lost
+  const activeOpps = opportunities.filter(
+    (o) => o.stage !== "Closed Won" && o.stage !== "Closed Lost",
+  );
+
+  for (const opp of activeOpps) {
+    // Find latest stage history entry where toStage matches the current stage
+    const currentStageHistory = stageHistory.filter(
+      (h) => h.opportunityId === opp.id && h.toStage === opp.stage,
+    );
+
+    let elapsedDays = 0;
+    if (currentStageHistory.length > 0) {
+      // Sort history descending by createdAt
+      currentStageHistory.sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+      const latestEntry = currentStageHistory[0];
+      const elapsedMs =
+        currentDate.getTime() - new Date(latestEntry.createdAt).getTime();
+      elapsedDays = Math.floor(elapsedMs / (1000 * 60 * 60 * 24));
+      if (elapsedDays < 0) elapsedDays = 0;
+    }
+
+    const maxDaysAllowed =
+      ruleMap.get(opp.stage) ?? DEFAULT_THRESHOLDS[opp.stage] ?? 14;
+
+    if (elapsedDays > maxDaysAllowed) {
+      results.push({
+        opportunityId: opp.id,
+        opportunityName: opp.name,
+        currentStage: opp.stage,
+        elapsedDays,
+        maxDaysAllowed,
+        amount: opp.amount ?? null,
+      });
+    }
+  }
+
+  return results;
+}

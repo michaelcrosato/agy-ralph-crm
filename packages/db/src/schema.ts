@@ -762,3 +762,17 @@ export const leadAutoConversionRules = pgTable("lead_auto_conversion_rules", {
   criteria: jsonb("criteria").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const opportunityStageDurationRules = pgTable(
+  "opportunity_stage_duration_rules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    stage: text("stage").notNull(),
+    maxDaysAllowed: integer("max_days_allowed").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);

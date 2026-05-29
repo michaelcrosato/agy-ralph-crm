@@ -21,6 +21,7 @@ import {
   calculateProRatedAmount,
   calculateSlaStatus,
   calculateStageVelocity,
+  calculateStalledOpportunities,
   convertCurrency,
   convertLead,
   convertLeadWithMappings,
@@ -2234,6 +2235,70 @@ app.get("/api/contacts/:id/hierarchy", tenantAuth, async (c) => {
 app.get("/api/opportunities", tenantAuth, async (c) => {
   const opportunities = await dbStore.opportunities.findMany();
   return c.json({ success: true, data: opportunities });
+});
+
+app.get("/api/opportunities/stalled", tenantAuth, async (c) => {
+  const opportunities = await dbStore.opportunities.findMany();
+  const stageHistory = await dbStore.opportunityStageHistory.findMany();
+  const rules = await dbStore.opportunityStageDurationRules.findMany();
+
+  const stalled = calculateStalledOpportunities(
+    opportunities.map((opp) => ({
+      id: opp.id,
+      name: opp.name,
+      stage: opp.stage,
+      amount: opp.amount ?? null,
+    })),
+    stageHistory.map((h) => ({
+      opportunityId: h.opportunityId,
+      toStage: h.toStage,
+      createdAt: h.createdAt,
+    })),
+    rules.map((r) => ({
+      stage: r.stage,
+      maxDaysAllowed: r.maxDaysAllowed,
+    })),
+    new Date(),
+  );
+
+  return c.json({ success: true, data: stalled });
+});
+
+app.get("/api/opportunities/stalled/rules", tenantAuth, async (c) => {
+  const rules = await dbStore.opportunityStageDurationRules.findMany();
+  return c.json({ success: true, data: rules });
+});
+
+app.post("/api/opportunities/stalled/rules", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { stage, maxDaysAllowed } = body;
+
+  if (!stage || typeof stage !== "string" || !stage.trim()) {
+    return c.json(
+      { error: "'stage' is required and must be a non-empty string" },
+      400,
+    );
+  }
+
+  if (
+    typeof maxDaysAllowed !== "number" ||
+    maxDaysAllowed <= 0 ||
+    !Number.isInteger(maxDaysAllowed)
+  ) {
+    return c.json(
+      { error: "'maxDaysAllowed' must be a positive integer greater than 0" },
+      400,
+    );
+  }
+
+  const upsertedRule = await dbStore.opportunityStageDurationRules.upsert({
+    orgId: tenant.orgId,
+    stage: stage.trim(),
+    maxDaysAllowed,
+  });
+
+  return c.json({ success: true, data: upsertedRule });
 });
 
 app.get("/api/opportunities/:id", tenantAuth, async (c) => {
