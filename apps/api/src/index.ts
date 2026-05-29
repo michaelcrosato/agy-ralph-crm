@@ -69,6 +69,7 @@ import {
   processSequenceEmailOpen,
   processSequenceEmailReply,
   processSequenceLinkClick,
+  processSequenceMembershipScoreTriggers,
   resolveSegmentMembers,
   rollbackStoreMigrations,
   rollupHierarchyPipeline,
@@ -99,6 +100,7 @@ import {
   type DBEmailOpenEvent,
   type DBForecastAdjustment,
   type DBMarketingSequence,
+  type DBMarketingSequenceScoreTrigger,
   type DBOpportunityStageGate,
   type DBStageForecastMapping,
   type DBStageGuidance,
@@ -12084,6 +12086,12 @@ async function recalculateMemberEngagementScore(
     engagementScore: score,
   });
 
+  await processSequenceMembershipScoreTriggers(
+    dbStore,
+    membership.orgId,
+    membershipId,
+  );
+
   return score;
 }
 
@@ -12173,6 +12181,60 @@ app.post(
     });
   },
 );
+
+app.post("/api/sequences/:id/triggers", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const body = await c.req.json();
+  const tenant = c.get("tenant");
+  const orgId = tenant.orgId;
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const trigger = await dbStore.marketingSequenceScoreTriggers.insert({
+    orgId,
+    sequenceId,
+    scoreThreshold: Number(body.scoreThreshold ?? 0),
+    actionType: body.actionType,
+    actionConfig: body.actionConfig || {},
+  });
+
+  return c.json({ success: true, data: trigger }, 201);
+});
+
+app.get("/api/sequences/:id/triggers", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const triggers =
+    await dbStore.marketingSequenceScoreTriggers.findForSequence(sequenceId);
+  return c.json({ success: true, data: triggers });
+});
+
+app.delete("/api/sequences/triggers/:id", tenantAuth, async (c) => {
+  const triggerId = c.req.param("id");
+  const trigger =
+    await dbStore.marketingSequenceScoreTriggers.findOne(triggerId);
+  if (!trigger) {
+    return c.json({ success: false, error: "Trigger not found" }, 404);
+  }
+
+  const success =
+    await dbStore.marketingSequenceScoreTriggers.delete(triggerId);
+  if (!success) {
+    return c.json({ success: false, error: "Trigger not found" }, 404);
+  }
+
+  return c.json({
+    success: true,
+    message: "Score trigger deleted successfully",
+  });
+});
 
 // Start Hono Node Server if run directly (excluding test execution environment)
 

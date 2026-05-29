@@ -629,6 +629,21 @@ export interface DBMarketingSequenceExitTrigger {
   updatedAt: Date;
 }
 
+export interface DBMarketingSequenceScoreTrigger {
+  id: string;
+  orgId: string;
+  sequenceId: string;
+  scoreThreshold: number;
+  actionType: "change_lead_status" | "auto_exit" | "notify_owner";
+  actionConfig: {
+    status?: string;
+    subject?: string;
+    body?: string;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBMarketingSequenceStepSplitTest {
   id: string;
   orgId: string;
@@ -1260,6 +1275,7 @@ export const store = {
   marketingSequenceConversions: [] as DBMarketingSequenceConversion[],
   marketingSequenceSuppressions: [] as DBMarketingSequenceSuppression[],
   marketingSequenceExclusions: [] as DBMarketingSequenceExclusion[],
+  marketingSequenceScoreTriggers: [] as DBMarketingSequenceScoreTrigger[],
   marketingSequenceAbAllocations: [] as DBMarketingSequenceAbAllocation[],
   marketingSequenceCaps: [] as DBMarketingSequenceCap[],
   marketingSequenceLinkActions: [] as DBMarketingSequenceLinkAction[],
@@ -5073,6 +5089,57 @@ export const dbStore = {
       return true;
     },
   },
+  marketingSequenceScoreTriggers: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceScoreTriggers.filter(
+        (c) => c.orgId === orgId,
+      );
+    },
+    findForSequence: async (sequenceId: string) => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceScoreTriggers.filter(
+        (m) => m.sequenceId === sequenceId && m.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.marketingSequenceScoreTriggers.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (
+      item: Omit<
+        DBMarketingSequenceScoreTrigger,
+        "id" | "createdAt" | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSequenceScoreTrigger = {
+        ...item,
+        id: `sctr-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSequenceScoreTriggers.push(newItem);
+      return newItem;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceScoreTriggers.findIndex(
+        (c) => c.id === id,
+      );
+      if (index === -1) return false;
+      if (store.marketingSequenceScoreTriggers[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceScoreTriggers.splice(index, 1);
+      return true;
+    },
+  },
   marketingSequenceStepSplitTests: {
     findMany: async () => {
       const orgId = getActiveOrgId();
@@ -5839,6 +5906,7 @@ export const dbStore = {
     store.marketingSequenceConversions = [];
     store.marketingSequenceSuppressions = [];
     store.marketingSequenceExclusions = [];
+    store.marketingSequenceScoreTriggers = [];
     store.marketingSequenceAbAllocations = [];
     store.marketingSequenceCaps = [];
     store.marketingSequenceLinkActions = [];
