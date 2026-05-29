@@ -7,6 +7,7 @@ import {
   type StageGateRule,
   calculateAccountDuplicates,
   calculateCPQPrice,
+  calculateCampaignROI,
   calculateCampaignRevenueShare,
   calculateCampaignStats,
   calculateContactDuplicates,
@@ -5115,6 +5116,37 @@ app.get("/api/campaigns/:id/attribution", tenantAuth, async (c) => {
     data: {
       totalRevenueAttributed: totalRevenue.toFixed(2),
     },
+  });
+});
+
+app.get("/api/campaigns/:id/roi", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const campaign = await dbStore.campaigns.findOne(id);
+  if (!campaign) {
+    return c.json({ error: "Campaign not found" }, 404);
+  }
+
+  const members = await dbStore.campaignMembers.findForCampaign(id);
+  const influences = await dbStore.campaignInfluence.findMany();
+  const campaignInfluences = influences.filter((inf) => inf.campaignId === id);
+
+  const opportunities = await dbStore.opportunities.findMany();
+  const wonOpportunityIds = new Set(
+    opportunities
+      .filter((opp) => opp.stage === "Closed Won")
+      .map((opp) => opp.id),
+  );
+
+  const metrics = calculateCampaignROI({
+    campaign,
+    members,
+    influences: campaignInfluences,
+    wonOpportunityIds,
+  });
+
+  return c.json({
+    success: true,
+    data: metrics,
   });
 });
 
