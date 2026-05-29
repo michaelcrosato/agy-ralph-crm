@@ -815,3 +815,28 @@ export function mergeLeads(input: MergeLeadsInput): LeadRecord {
     custom: Object.keys(custom).length > 0 ? custom : null,
   };
 }
+
+export interface DBOpportunityContactRole {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  contactId: string;
+  role: string;
+  isPrimary: boolean;
+}
+
+export function setPrimaryOpportunityContactRole(
+  roles: DBOpportunityContactRole[],
+  opportunityId: string,
+  primaryContactId: string,
+): DBOpportunityContactRole[] {
+  return roles.map((r) => {
+    if (r.opportunityId === opportunityId) {
+      return {
+        ...r,
+        isPrimary: r.contactId === primaryContactId,
+      };
+    }
+    return r;
+  });
+}

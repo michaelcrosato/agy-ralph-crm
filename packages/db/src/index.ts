@@ -442,6 +442,16 @@ export interface DBOpportunityStageHistory {
   createdAt: Date;
 }
 
+export interface DBOpportunityContactRole {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  contactId: string;
+  role: string;
+  isPrimary: boolean;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -480,6 +490,7 @@ export const store = {
   campaigns: [] as DBCampaign[],
   campaignMembers: [] as DBCampaignMember[],
   opportunityStageHistory: [] as DBOpportunityStageHistory[],
+  opportunityContactRoles: [] as DBOpportunityContactRole[],
 };
 
 export const dbStore = {
@@ -1741,6 +1752,67 @@ export const dbStore = {
       return newHistory;
     },
   },
+  opportunityContactRoles: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityContactRoles.filter((r) => r.orgId === orgId);
+    },
+    findForOpportunity: async (opportunityId: string) => {
+      const orgId = getActiveOrgId();
+      return store.opportunityContactRoles.filter(
+        (r) => r.opportunityId === opportunityId && r.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const r = store.opportunityContactRoles.find((x) => x.id === id);
+      if (r && r.orgId !== orgId) return null;
+      return r || null;
+    },
+    insert: async (
+      role: Omit<DBOpportunityContactRole, "id" | "createdAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (role.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRole: DBOpportunityContactRole = {
+        ...role,
+        id: `ocr-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.opportunityContactRoles.push(newRole);
+      return newRole;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBOpportunityContactRole, "id" | "orgId" | "createdAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityContactRoles.findIndex((r) => r.id === id);
+      if (index === -1) return null;
+      if (store.opportunityContactRoles[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityContactRoles[index] = {
+        ...store.opportunityContactRoles[index],
+        ...updates,
+      };
+      return store.opportunityContactRoles[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityContactRoles.findIndex((r) => r.id === id);
+      if (index === -1) return false;
+      if (store.opportunityContactRoles[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityContactRoles.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1779,5 +1851,6 @@ export const dbStore = {
     store.campaigns = [];
     store.campaignMembers = [];
     store.opportunityStageHistory = [];
+    store.opportunityContactRoles = [];
   },
 };
