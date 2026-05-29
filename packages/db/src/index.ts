@@ -598,9 +598,12 @@ export interface DBMarketingSequenceStep {
     timeOfDay?: string;
   } | null;
   replyToStepNumber?: number | null;
-  stepType: "email" | "webhook";
+  stepType: "email" | "webhook" | "task";
   webhookUrl?: string | null;
   webhookPayload?: string | null;
+  taskSubject?: string | null;
+  taskBody?: string | null;
+  taskDueDays?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

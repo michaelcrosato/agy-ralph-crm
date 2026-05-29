@@ -4163,9 +4163,12 @@ interface CoreSequenceStep {
     timeOfDay?: string;
   } | null;
   replyToStepNumber?: number | null;
-  stepType: "email" | "webhook";
+  stepType: "email" | "webhook" | "task";
   webhookUrl?: string | null;
   webhookPayload?: string | null;
+  taskSubject?: string | null;
+  taskBody?: string | null;
+  taskDueDays?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -5605,6 +5608,109 @@ export async function executePendingSequenceSteps(
           }
         }
       }
+    }
+
+    if (step.stepType === "task") {
+      if (dbStore.activities && step.taskSubject) {
+        const personalized = personalizeEmailTemplate(
+          { subject: step.taskSubject, body: step.taskBody || "" },
+          recipientContext,
+        );
+
+        let dueDate: Date | null = null;
+        if (step.taskDueDays !== undefined && step.taskDueDays !== null) {
+          dueDate = new Date(
+            currentTime.getTime() + step.taskDueDays * 24 * 60 * 60 * 1000,
+          );
+        }
+
+        const creatorId = "00000000-0000-0000-0000-000000000000";
+
+        const act = await dbStore.activities.insert({
+          orgId,
+          creatorId,
+          type: "task",
+          subject: personalized.subject,
+          body: personalized.body,
+          dueDate,
+          custom: null,
+        });
+
+        if (dbStore.activityLinks && act?.id) {
+          const targetType =
+            membership.recordType === "lead"
+              ? "Lead"
+              : membership.recordType === "contact"
+                ? "Contact"
+                : "Lead";
+
+          await dbStore.activityLinks.insert({
+            orgId,
+            activityId: act.id,
+            targetType,
+            targetId: membership.recordId,
+          });
+        }
+      }
+
+      let nextStatus = "active";
+      let nextExecTime = new Date();
+
+      const stepJustExecuted = steps.find(
+        (s) => s.stepNumber === nextStepNumber,
+      );
+      const branchForExecutedStep =
+        stepJustExecuted && dbStore.marketingSequenceStepBranches
+          ? await dbStore.marketingSequenceStepBranches.findForStep(
+              stepJustExecuted.id,
+            )
+          : null;
+
+      if (branchForExecutedStep) {
+        nextExecTime = new Date(
+          currentTime.getTime() +
+            branchForExecutedStep.evaluationWindowDays * 24 * 60 * 60 * 1000,
+        );
+      } else {
+        const nextStep = steps.find((s) => s.stepNumber === nextStepNumber + 1);
+        if (!nextStep) {
+          nextStatus = "completed";
+        } else {
+          nextExecTime = calculateNextStepExecutionTime(
+            currentTime,
+            nextStep.delayDays,
+            nextStep.waitCondition || undefined,
+          );
+        }
+      }
+
+      await dbStore.marketingSequenceMemberships.update(membership.id, {
+        status: nextStatus,
+        currentStepNumber: nextStepNumber,
+        lastExecutedAt: currentTime,
+        nextExecutionAt: nextExecTime,
+      });
+
+      await dbStore.auditLogs.insert({
+        orgId,
+        recordId: membership.id,
+        recordType: "marketing_sequence_memberships",
+        action: "execute_step",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          stepNumber: {
+            before: membership.currentStepNumber,
+            after: nextStepNumber,
+          },
+          status: { before: membership.status, after: nextStatus },
+        },
+      });
+
+      const count = sequenceSendsToday.get(membership.sequenceId) || 0;
+      sequenceSendsToday.set(membership.sequenceId, count + 1);
+
+      processedCount++;
+      continue;
     }
 
     if (step.stepType === "webhook") {

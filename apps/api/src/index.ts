@@ -10510,9 +10510,9 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     return c.json({ success: false, error: "stepNumber is required" }, 400);
   }
 
-  if (stepType !== "email" && stepType !== "webhook") {
+  if (stepType !== "email" && stepType !== "webhook" && stepType !== "task") {
     return c.json(
-      { success: false, error: "stepType must be either email or webhook" },
+      { success: false, error: "stepType must be email, webhook, or task" },
       400,
     );
   }
@@ -10540,6 +10540,13 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
           error:
             "webhookUrl is required and must be a valid HTTP/HTTPS URL for webhook steps",
         },
+        400,
+      );
+    }
+  } else if (stepType === "task") {
+    if (!body.taskSubject || typeof body.taskSubject !== "string") {
+      return c.json(
+        { success: false, error: "taskSubject is required for task steps" },
         400,
       );
     }
@@ -10648,6 +10655,14 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     stepType,
     webhookUrl: stepType === "webhook" ? webhookUrl : null,
     webhookPayload: stepType === "webhook" ? webhookPayload || null : null,
+    taskSubject: stepType === "task" ? body.taskSubject || null : null,
+    taskBody: stepType === "task" ? body.taskBody || null : null,
+    taskDueDays:
+      stepType === "task"
+        ? body.taskDueDays !== undefined && body.taskDueDays !== null
+          ? Number(body.taskDueDays)
+          : null
+        : null,
   });
 
   return c.json({ success: true, step });

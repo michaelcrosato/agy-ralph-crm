@@ -1248,6 +1248,9 @@ export const marketingSequenceSteps = pgTable("marketing_sequence_steps", {
   stepType: text("step_type").notNull().default("email"),
   webhookUrl: text("webhook_url"),
   webhookPayload: text("webhook_payload"),
+  taskSubject: text("task_subject"),
+  taskBody: text("task_body"),
+  taskDueDays: integer("task_due_days"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
