@@ -160,6 +160,116 @@ app.post("/api/auth/token", async (c) => {
   return c.json({ success: true, token });
 });
 
+app.post("/api/public/web-to-lead", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { orgId, lastName, email, firstName, company, custom, ownerId } = body;
+
+  if (!orgId || !lastName || !email) {
+    return c.json(
+      { error: "Missing required fields: orgId, lastName, email" },
+      400,
+    );
+  }
+
+  return await withTenant(orgId, mockDb, async () => {
+    // 1. Perform custom field validation if custom fields are provided
+    if (custom && typeof custom === "object") {
+      const allDefs = await dbStore.fieldDefinitions.findMany();
+      const leadDefs = allDefs.filter((def) => def.objectType === "leads");
+      const validation = validateCustomFields(
+        custom,
+        leadDefs.map((def) => ({
+          apiName: def.apiName,
+          dataType: def.dataType,
+          validationRules: def.validationRules || undefined,
+        })),
+      );
+      if (!validation.success) {
+        return c.json(
+          { error: "Validation failed", errors: validation.errors },
+          400,
+        );
+      }
+    }
+
+    // 2. Resolve ownership using active Lead Assignment Rule
+    let resolvedOwnerId = ownerId || null;
+
+    const rules = await dbStore.leadAssignmentRules.findMany();
+    const activeRule = rules.find((r) => r.isActive === 1);
+
+    if (activeRule) {
+      const allEntries = await dbStore.leadAssignmentRuleEntries.findMany();
+      const activeEntries = allEntries
+        .filter((e) => e.ruleId === activeRule.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+
+      if (activeEntries.length > 0) {
+        const evalLead = {
+          firstName: firstName || null,
+          lastName,
+          email,
+          company: company || null,
+          custom: custom || null,
+        };
+        const matchResult = evaluateLeadAssignment(evalLead, activeEntries);
+        if (matchResult) {
+          resolvedOwnerId = matchResult.newOwnerId;
+
+          // Update round-robin lastAssignedIndex if needed
+          const matchedEntry = activeEntries.find(
+            (e) => e.id === matchResult.matchedEntryId,
+          );
+          if (matchedEntry && matchedEntry.routingMethod === "round_robin") {
+            await dbStore.leadAssignmentRuleEntries.update(matchedEntry.id, {
+              lastAssignedIndex: matchResult.newLastAssignedIndex,
+            });
+          }
+        }
+      }
+    }
+
+    if (!resolvedOwnerId) {
+      resolvedOwnerId = "user-system"; // Fallback system owner
+    }
+
+    // 3. Create Lead record under strict RLS context
+    const newLead = await dbStore.leads.insert({
+      orgId,
+      ownerId: resolvedOwnerId,
+      status: "New",
+      email,
+      company: company || null,
+      convertedAccountId: null,
+      convertedContactId: null,
+      custom: custom || null,
+    });
+
+    // 4. Log audit trail
+    await dbStore.auditLogs.insert({
+      orgId,
+      recordId: newLead.id,
+      recordType: "Lead",
+      action: "create",
+      userId: resolvedOwnerId,
+      changes: null,
+    });
+
+    // 5. Trigger Webhook
+    triggerOutboundWebhooks(orgId, "lead.created", {
+      id: newLead.id,
+      orgId,
+      ownerId: resolvedOwnerId,
+      status: "New",
+      email,
+      company: company || null,
+      custom: custom || null,
+    });
+
+    return c.json({ success: true, data: newLead }, 201);
+  });
+});
+
 app.get("/mcp/tools", (c) => c.json({ tools: mcpTools }));
 
 // Model Context Protocol (MCP) Tool Call Executor Route
