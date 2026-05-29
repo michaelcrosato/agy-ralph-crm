@@ -2486,3 +2486,29 @@ export function validateTicketCommentInput(input: TicketCommentInput): {
   }
   return { success: true };
 }
+
+export interface TicketTagInput {
+  name: string;
+  color: string;
+}
+
+export function validateTicketTagInput(input: TicketTagInput): {
+  success: boolean;
+  error?: string;
+} {
+  if (!input.name || input.name.trim() === "") {
+    return { success: false, error: "Tag name cannot be empty." };
+  }
+  if (input.name.length > 50) {
+    return { success: false, error: "Tag name cannot exceed 50 characters." };
+  }
+  const hexPattern = /^#[0-9A-Fa-f]{6}$/;
+  if (!input.color || !hexPattern.test(input.color)) {
+    return {
+      success: false,
+      error:
+        "Tag color must be a valid 6-character hex color starting with '#'.",
+    };
+  }
+  return { success: true };
+}

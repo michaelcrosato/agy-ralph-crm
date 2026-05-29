@@ -740,6 +740,22 @@ export interface DBTicketComment {
   createdAt: Date;
 }
 
+export interface DBTicketTag {
+  id: string;
+  orgId: string;
+  name: string;
+  color: string;
+  createdAt: Date;
+}
+
+export interface DBTicketTagLink {
+  id: string;
+  orgId: string;
+  ticketId: string;
+  tagId: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -805,6 +821,8 @@ export const store = {
   kbCategories: [] as DBKbCategory[],
   kbArticles: [] as DBKbArticle[],
   ticketComments: [] as DBTicketComment[],
+  ticketTags: [] as DBTicketTag[],
+  ticketTagLinks: [] as DBTicketTagLink[],
 };
 
 export const dbStore = {
@@ -3494,6 +3512,78 @@ export const dbStore = {
       return newComment;
     },
   },
+  ticketTags: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketTags.filter((t) => t.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const tag = store.ticketTags.find((t) => t.id === id);
+      if (tag && tag.orgId !== orgId) {
+        return null;
+      }
+      return tag || null;
+    },
+    insert: async (
+      tag: Omit<DBTicketTag, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (tag.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newTag: DBTicketTag = {
+        ...tag,
+        id: `ttag-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: tag.createdAt || new Date(),
+      };
+      store.ticketTags.push(newTag);
+      return newTag;
+    },
+  },
+  ticketTagLinks: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketTagLinks.filter((l) => l.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const link = store.ticketTagLinks.find((l) => l.id === id);
+      if (link && link.orgId !== orgId) {
+        return null;
+      }
+      return link || null;
+    },
+    insert: async (
+      link: Omit<DBTicketTagLink, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (link.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newLink: DBTicketTagLink = {
+        ...link,
+        id: `tlink-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: link.createdAt || new Date(),
+      };
+      store.ticketTagLinks.push(newLink);
+      return newLink;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.ticketTagLinks.findIndex((l) => l.id === id);
+      if (index === -1) return false;
+      if (store.ticketTagLinks[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.ticketTagLinks.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3560,5 +3650,7 @@ export const dbStore = {
     store.kbCategories = [];
     store.kbArticles = [];
     store.ticketComments = [];
+    store.ticketTags = [];
+    store.ticketTagLinks = [];
   },
 };

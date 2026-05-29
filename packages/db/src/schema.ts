@@ -951,3 +951,27 @@ export const ticketComments = pgTable("ticket_comments", {
   body: text("body").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const ticketTags = pgTable("ticket_tags", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  color: text("color").notNull().default("#808080"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const ticketTagLinks = pgTable("ticket_tag_links", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  ticketId: uuid("ticket_id")
+    .notNull()
+    .references(() => tickets.id, { onDelete: "cascade" }),
+  tagId: uuid("tag_id")
+    .notNull()
+    .references(() => ticketTags.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
