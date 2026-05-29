@@ -41,6 +41,9 @@ importers:
       '@crm/reporting':
         specifier: workspace:*
         version: link:../../packages/reporting
+      '@crm/search':
+        specifier: workspace:*
+        version: link:../../packages/search
       '@crm/webhooks':
         specifier: workspace:*
         version: link:../../packages/webhooks

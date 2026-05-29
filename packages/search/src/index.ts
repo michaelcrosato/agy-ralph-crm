@@ -1,3 +1,5 @@
+import type { dbStore as DbStoreType } from "@crm/db";
+
 export const SEARCH_VERSION = "0.1.0";
 
 export interface SearchResult {
@@ -69,5 +71,120 @@ export function fuzzySearchRecords(
 
   results.sort((a, b) => b.score - a.score);
 
+  return results;
+}
+
+export interface GlobalSearchOptions {
+  types?: ("Lead" | "Account" | "Contact" | "Opportunity")[];
+  threshold?: number;
+  dbStore: typeof DbStoreType;
+}
+
+export async function globalFuzzySearch(
+  query: string,
+  options: GlobalSearchOptions,
+): Promise<SearchResult[]> {
+  const targetTypes = options.types || [
+    "Lead",
+    "Account",
+    "Contact",
+    "Opportunity",
+  ];
+  const threshold = options.threshold ?? 0.1;
+  const dbStore = options.dbStore;
+
+  const results: SearchResult[] = [];
+
+  // Fetch all field definitions to find searchable custom fields dynamically
+  const fieldDefs = await dbStore.fieldDefinitions.findMany().catch(() => []);
+
+  const getSearchFields = (objType: string, baseFields: string[]): string[] => {
+    const customFields = fieldDefs
+      .filter(
+        (def) =>
+          def.objectType === objType &&
+          (def.dataType === "text" || def.dataType === "picklist"),
+      )
+      .map((def) => def.apiName);
+    return [...baseFields, ...customFields];
+  };
+
+  if (targetTypes.includes("Lead")) {
+    const leads = await dbStore.leads.findMany();
+    const searchFields = getSearchFields("leads", ["email", "company"]);
+    const matched = fuzzySearchRecords(
+      leads as unknown as Record<string, unknown>[],
+      query,
+      searchFields,
+      threshold,
+    );
+    for (const m of matched) {
+      results.push({
+        record: m.record,
+        recordType: "Lead",
+        score: m.score,
+      });
+    }
+  }
+
+  if (targetTypes.includes("Account")) {
+    const accounts = await dbStore.accounts.findMany();
+    const searchFields = getSearchFields("accounts", ["name", "domain"]);
+    const matched = fuzzySearchRecords(
+      accounts as unknown as Record<string, unknown>[],
+      query,
+      searchFields,
+      threshold,
+    );
+    for (const m of matched) {
+      results.push({
+        record: m.record,
+        recordType: "Account",
+        score: m.score,
+      });
+    }
+  }
+
+  if (targetTypes.includes("Contact")) {
+    const contacts = await dbStore.contacts.findMany();
+    const searchFields = getSearchFields("contacts", [
+      "firstName",
+      "lastName",
+      "email",
+    ]);
+    const matched = fuzzySearchRecords(
+      contacts as unknown as Record<string, unknown>[],
+      query,
+      searchFields,
+      threshold,
+    );
+    for (const m of matched) {
+      results.push({
+        record: m.record,
+        recordType: "Contact",
+        score: m.score,
+      });
+    }
+  }
+
+  if (targetTypes.includes("Opportunity")) {
+    const opportunities = await dbStore.opportunities.findMany();
+    const searchFields = getSearchFields("opportunities", ["stage"]);
+    const matched = fuzzySearchRecords(
+      opportunities as unknown as Record<string, unknown>[],
+      query,
+      searchFields,
+      threshold,
+    );
+    for (const m of matched) {
+      results.push({
+        record: m.record,
+        recordType: "Opportunity",
+        score: m.score,
+      });
+    }
+  }
+
+  results.sort((a, b) => b.score - a.score);
   return results;
 }

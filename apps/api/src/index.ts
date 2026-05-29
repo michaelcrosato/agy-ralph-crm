@@ -11,6 +11,7 @@ import { compileForecastSummary } from "@crm/forecasting";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { createTicket, resolveTicket } from "@crm/module-service-lite";
 import { runReport } from "@crm/reporting";
+import { globalFuzzySearch } from "@crm/search";
 import { simulateWebhookDispatch } from "@crm/webhooks";
 import { executeWorkflows } from "@crm/workflow";
 import { Hono } from "hono";
@@ -1687,6 +1688,34 @@ app.get("/api/opportunities/:oppId/quote", tenantAuth, async (c) => {
     success: true,
     data: opportunityQuotes[0],
   });
+});
+
+// Global Multi-Field Fuzzy Trigram Search Endpoint
+app.get("/api/search", tenantAuth, async (c) => {
+  const q = c.req.query("q") || "";
+  const typesParam = c.req.query("types");
+  const thresholdParam = c.req.query("threshold");
+
+  const types = typesParam
+    ? (typesParam.split(",") as (
+        | "Lead"
+        | "Account"
+        | "Contact"
+        | "Opportunity"
+      )[])
+    : undefined;
+
+  const threshold = thresholdParam
+    ? Number.parseFloat(thresholdParam)
+    : undefined;
+
+  const results = await globalFuzzySearch(q, {
+    types,
+    threshold,
+    dbStore,
+  });
+
+  return c.json({ success: true, data: results });
 });
 
 export default app;
