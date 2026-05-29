@@ -3900,6 +3900,8 @@ interface CoreSequence {
   allowReenrollment?: boolean | null;
   reenrollmentMinDays?: number | null;
   dailySendLimit?: number | null;
+  senderType?: string | null;
+  senderUserId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4885,22 +4887,55 @@ export async function executePendingSequenceSteps(
       }
     }
 
+    let sequence: CoreSequence | null = null;
     if (dbStore.marketingSequences) {
-      const sequence = await dbStore.marketingSequences.findOne(
+      sequence = await dbStore.marketingSequences.findOne(
         membership.sequenceId,
       );
-      if (sequence) {
-        const validTime = getNextValidSendingTime(
-          currentTime,
-          sequence.sendingDays || null,
-          sequence.sendingWindowStart || null,
-          sequence.sendingWindowEnd || null,
-          recipientTimezone,
-        );
-        if (validTime.getTime() > currentTime.getTime()) {
+    }
+
+    if (sequence) {
+      const validTime = getNextValidSendingTime(
+        currentTime,
+        sequence.sendingDays || null,
+        sequence.sendingWindowStart || null,
+        sequence.sendingWindowEnd || null,
+        recipientTimezone,
+      );
+      if (validTime.getTime() > currentTime.getTime()) {
+        const originalNext = membership.nextExecutionAt;
+        await dbStore.marketingSequenceMemberships.update(membership.id, {
+          nextExecutionAt: validTime,
+        });
+        await dbStore.auditLogs.insert({
+          orgId: membership.orgId,
+          recordId: membership.id,
+          recordType: "marketing_sequence_memberships",
+          action: "membership_schedule_deferred",
+          userId: "00000000-0000-0000-0000-000000000000",
+          changes: {
+            nextExecutionAt: {
+              before:
+                originalNext instanceof Date
+                  ? originalNext.toISOString()
+                  : new Date(originalNext).toISOString(),
+              after: validTime.toISOString(),
+            },
+          },
+        });
+        continue;
+      }
+
+      const dailyLimit = sequence.dailySendLimit;
+      if (dailyLimit !== undefined && dailyLimit !== null && dailyLimit > 0) {
+        const sentCount = sequenceSendsToday.get(membership.sequenceId) || 0;
+        if (sentCount >= dailyLimit) {
+          const validDeferredTime = new Date(
+            currentTime.getTime() + 24 * 60 * 60 * 1000,
+          );
           const originalNext = membership.nextExecutionAt;
           await dbStore.marketingSequenceMemberships.update(membership.id, {
-            nextExecutionAt: validTime,
+            nextExecutionAt: validDeferredTime,
           });
           await dbStore.auditLogs.insert({
             orgId: membership.orgId,
@@ -4914,46 +4949,15 @@ export async function executePendingSequenceSteps(
                   originalNext instanceof Date
                     ? originalNext.toISOString()
                     : new Date(originalNext).toISOString(),
-                after: validTime.toISOString(),
+                after: validDeferredTime.toISOString(),
+              },
+              throttle_reason: {
+                before: null,
+                after: `Daily sending throttle reached: limit is ${dailyLimit}`,
               },
             },
           });
           continue;
-        }
-
-        const dailyLimit = sequence.dailySendLimit;
-        if (dailyLimit !== undefined && dailyLimit !== null && dailyLimit > 0) {
-          const sentCount = sequenceSendsToday.get(membership.sequenceId) || 0;
-          if (sentCount >= dailyLimit) {
-            const validDeferredTime = new Date(
-              currentTime.getTime() + 24 * 60 * 60 * 1000,
-            );
-            const originalNext = membership.nextExecutionAt;
-            await dbStore.marketingSequenceMemberships.update(membership.id, {
-              nextExecutionAt: validDeferredTime,
-            });
-            await dbStore.auditLogs.insert({
-              orgId: membership.orgId,
-              recordId: membership.id,
-              recordType: "marketing_sequence_memberships",
-              action: "membership_schedule_deferred",
-              userId: "00000000-0000-0000-0000-000000000000",
-              changes: {
-                nextExecutionAt: {
-                  before:
-                    originalNext instanceof Date
-                      ? originalNext.toISOString()
-                      : new Date(originalNext).toISOString(),
-                  after: validDeferredTime.toISOString(),
-                },
-                throttle_reason: {
-                  before: null,
-                  after: `Daily sending throttle reached: limit is ${dailyLimit}`,
-                },
-              },
-            });
-            continue;
-          }
         }
       }
     }
@@ -5523,9 +5527,31 @@ export async function executePendingSequenceSteps(
 
     const compiled = compileEmailTemplate(template, recipientContext);
 
+    let resolvedSenderId = "00000000-0000-0000-0000-000000000000";
+    if (sequence) {
+      const senderType = sequence.senderType || "system";
+      if (senderType === "owner") {
+        let recipient: { ownerId?: string } | null = null;
+        if (membership.recordType === "lead" && dbStore.leads) {
+          recipient = (await dbStore.leads.findOne(membership.recordId)) as {
+            ownerId?: string;
+          } | null;
+        } else if (membership.recordType === "contact" && dbStore.contacts) {
+          recipient = (await dbStore.contacts.findOne(membership.recordId)) as {
+            ownerId?: string;
+          } | null;
+        }
+        if (recipient?.ownerId) {
+          resolvedSenderId = recipient.ownerId;
+        }
+      } else if (senderType === "specific" && sequence.senderUserId) {
+        resolvedSenderId = sequence.senderUserId;
+      }
+    }
+
     const activity = await dbStore.activities.insert({
       orgId,
-      creatorId: "00000000-0000-0000-0000-000000000000",
+      creatorId: resolvedSenderId,
       type: "email",
       subject: compiled.subject,
       body: compiled.body,

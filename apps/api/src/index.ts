@@ -86,6 +86,7 @@ import {
 import {
   type DBCurrency,
   type DBForecastAdjustment,
+  type DBMarketingSequence,
   type DBOpportunityStageGate,
   type DBStageForecastMapping,
   type DBStageGuidance,
@@ -9835,6 +9836,8 @@ app.post("/api/sequences", tenantAuth, async (c) => {
     allowReenrollment,
     reenrollmentMinDays,
     dailySendLimit,
+    senderType,
+    senderUserId,
   } = body;
 
   if (!name) {
@@ -9853,6 +9856,50 @@ app.post("/api/sequences", tenantAuth, async (c) => {
     parsedLimit = num;
   }
 
+  let resolvedSenderType = "system";
+  if (senderType !== undefined && senderType !== null) {
+    if (
+      senderType !== "system" &&
+      senderType !== "owner" &&
+      senderType !== "specific"
+    ) {
+      return c.json(
+        {
+          success: false,
+          error: "senderType must be one of 'system', 'owner', or 'specific'",
+        },
+        400,
+      );
+    }
+    resolvedSenderType = senderType;
+  }
+
+  let resolvedSenderUserId: string | null = null;
+  if (resolvedSenderType === "specific") {
+    if (!senderUserId) {
+      return c.json(
+        {
+          success: false,
+          error: "senderUserId is required when senderType is 'specific'",
+        },
+        400,
+      );
+    }
+    const activeMembers = await dbStore.memberships.findMany();
+    const isValidMember = activeMembers.some((m) => m.userId === senderUserId);
+    if (!isValidMember) {
+      return c.json(
+        {
+          success: false,
+          error:
+            "Invalid senderUserId: user does not belong to your organization",
+        },
+        400,
+      );
+    }
+    resolvedSenderUserId = senderUserId;
+  }
+
   const seq = await dbStore.marketingSequences.insert({
     orgId: tenant.orgId,
     name,
@@ -9863,9 +9910,127 @@ app.post("/api/sequences", tenantAuth, async (c) => {
       ? Number(reenrollmentMinDays)
       : null,
     dailySendLimit: parsedLimit,
+    senderType: resolvedSenderType,
+    senderUserId: resolvedSenderUserId,
   });
 
   return c.json({ success: true, sequence: seq });
+});
+
+app.patch("/api/sequences/:id", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const {
+    name,
+    description,
+    status,
+    allowReenrollment,
+    reenrollmentMinDays,
+    dailySendLimit,
+    senderType,
+    senderUserId,
+  } = body;
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (name !== undefined) updates.name = name;
+  if (description !== undefined) updates.description = description;
+  if (status !== undefined) updates.status = status;
+  if (allowReenrollment !== undefined)
+    updates.allowReenrollment = allowReenrollment === true;
+  if (reenrollmentMinDays !== undefined) {
+    updates.reenrollmentMinDays = reenrollmentMinDays
+      ? Number(reenrollmentMinDays)
+      : null;
+  }
+  if (dailySendLimit !== undefined) {
+    if (dailySendLimit !== null) {
+      const num = Number(dailySendLimit);
+      if (!Number.isInteger(num) || num <= 0) {
+        return c.json(
+          {
+            success: false,
+            error: "dailySendLimit must be a positive integer",
+          },
+          400,
+        );
+      }
+      updates.dailySendLimit = num;
+    } else {
+      updates.dailySendLimit = null;
+    }
+  }
+
+  let resolvedSenderType =
+    (updates.senderType as string) || seq.senderType || "system";
+  if (senderType !== undefined) {
+    if (
+      senderType !== "system" &&
+      senderType !== "owner" &&
+      senderType !== "specific"
+    ) {
+      return c.json(
+        {
+          success: false,
+          error: "senderType must be one of 'system', 'owner', or 'specific'",
+        },
+        400,
+      );
+    }
+    updates.senderType = senderType;
+    resolvedSenderType = senderType;
+  }
+
+  if (senderUserId !== undefined) {
+    updates.senderUserId = senderUserId;
+  }
+
+  const finalSenderUserId =
+    updates.senderUserId !== undefined
+      ? (updates.senderUserId as string | null)
+      : seq.senderUserId;
+  if (resolvedSenderType === "specific") {
+    if (!finalSenderUserId) {
+      return c.json(
+        {
+          success: false,
+          error: "senderUserId is required when senderType is 'specific'",
+        },
+        400,
+      );
+    }
+    const activeMembers = await dbStore.memberships.findMany();
+    const isValidMember = activeMembers.some(
+      (m) => m.userId === finalSenderUserId,
+    );
+    if (!isValidMember) {
+      return c.json(
+        {
+          success: false,
+          error:
+            "Invalid senderUserId: user does not belong to your organization",
+        },
+        400,
+      );
+    }
+  } else {
+    if (senderType !== undefined) {
+      updates.senderUserId = null;
+    }
+  }
+
+  const updated = await dbStore.marketingSequences.update(
+    sequenceId,
+    updates as Partial<
+      Omit<DBMarketingSequence, "id" | "orgId" | "createdAt" | "updatedAt">
+    >,
+  );
+  return c.json({ success: true, sequence: updated });
 });
 
 app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {

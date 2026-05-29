@@ -578,6 +578,8 @@ export interface DBMarketingSequence {
   allowReenrollment?: boolean | null;
   reenrollmentMinDays?: number | null;
   dailySendLimit?: number | null;
+  senderType: string;
+  senderUserId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4721,6 +4723,8 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequence = {
         ...item,
+        senderType: item.senderType ?? "system",
+        senderUserId: item.senderUserId ?? null,
         id: `seq-${Math.random().toString(36).substring(2, 11)}`,
         createdAt: new Date(),
         updatedAt: new Date(),

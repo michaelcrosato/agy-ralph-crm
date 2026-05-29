@@ -1200,6 +1200,10 @@ export const marketingSequences = pgTable("marketing_sequences", {
   allowReenrollment: boolean("allow_reenrollment").notNull().default(false),
   reenrollmentMinDays: integer("reenrollment_min_days"),
   dailySendLimit: integer("daily_send_limit"),
+  senderType: text("sender_type").notNull().default("system"),
+  senderUserId: uuid("sender_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
