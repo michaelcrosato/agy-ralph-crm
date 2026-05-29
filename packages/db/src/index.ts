@@ -740,6 +740,7 @@ export interface DBSurveyResponse {
   orgId: string;
   surveyId: string;
   contactId: string | null;
+  ticketId?: string | null;
   score: number;
   comment: string | null;
   createdAt: Date;
@@ -3346,6 +3347,12 @@ export const dbStore = {
         (r) => r.surveyId === surveyId && r.orgId === orgId,
       );
     },
+    findByTicket: async (ticketId: string) => {
+      const orgId = getActiveOrgId();
+      return store.surveyResponses.filter(
+        (r) => r.ticketId === ticketId && r.orgId === orgId,
+      );
+    },
     insert: async (
       res: Omit<DBSurveyResponse, "id" | "createdAt"> & {
         createdAt?: Date;
@@ -3357,6 +3364,7 @@ export const dbStore = {
       }
       const newRes: DBSurveyResponse = {
         ...res,
+        ticketId: res.ticketId || null,
         id: `sres-${Math.random().toString(36).substring(2, 11)}`,
         createdAt: res.createdAt || new Date(),
       };

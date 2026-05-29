@@ -877,6 +877,9 @@ export const surveyResponses = pgTable("survey_responses", {
   contactId: uuid("contact_id").references(() => contacts.id, {
     onDelete: "set null",
   }),
+  ticketId: uuid("ticket_id").references(() => tickets.id, {
+    onDelete: "set null",
+  }),
   score: integer("score").notNull(),
   comment: text("comment"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -2751,3 +2751,105 @@ export function validateTicketMacroInput(input: TicketMacroValidationInput): {
   }
   return { success: true };
 }
+
+export interface AgentCSATMetricsInput {
+  agentId: string;
+  tickets: {
+    id: string;
+    assignedToId: string | null;
+    status: string;
+    createdAt: Date;
+    resolvedAt?: Date | null;
+  }[];
+  responses: {
+    ticketId: string | null;
+    score: number;
+  }[];
+}
+
+export interface AgentCSATMetricsResult {
+  totalTickets: number;
+  resolvedTickets: number;
+  averageCsat: string;
+  satisfactionRate: number;
+  averageResolutionTimeMinutes: number;
+}
+
+export function calculateAgentCSATMetrics(
+  input: AgentCSATMetricsInput,
+): AgentCSATMetricsResult {
+  const agentTickets = input.tickets.filter(
+    (t) => t.assignedToId === input.agentId,
+  );
+  const totalTickets = agentTickets.length;
+
+  const resolvedOrClosedTickets = agentTickets.filter(
+    (t) => t.status === "Resolved" || t.status === "Closed",
+  );
+  const resolvedTickets = resolvedOrClosedTickets.length;
+
+  // Find all CSAT survey responses linked to this agent's tickets
+  const ticketIds = new Set(agentTickets.map((t) => t.id));
+  const agentResponses = input.responses.filter(
+    (r) => r.ticketId && ticketIds.has(r.ticketId),
+  );
+
+  let averageCsat = "0.00";
+  let satisfactionRate = 0;
+
+  if (agentResponses.length > 0) {
+    const sum = agentResponses.reduce((acc, curr) => acc + curr.score, 0);
+    averageCsat = (sum / agentResponses.length).toFixed(2);
+
+    const positiveCount = agentResponses.filter((r) => r.score >= 4).length;
+    satisfactionRate =
+      Math.round((positiveCount / agentResponses.length) * 100 * 100) / 100;
+  }
+
+  // Calculate average resolution time in minutes
+  let totalResolutionTimeMs = 0;
+  let resolutionTimeCount = 0;
+
+  for (const ticket of resolvedOrClosedTickets) {
+    const resolvedAt = ticket.resolvedAt || new Date();
+    const durationMs = resolvedAt.getTime() - ticket.createdAt.getTime();
+    if (durationMs >= 0) {
+      totalResolutionTimeMs += durationMs;
+      resolutionTimeCount++;
+    }
+  }
+
+  const averageResolutionTimeMinutes =
+    resolutionTimeCount > 0
+      ? Math.round(totalResolutionTimeMs / (1000 * 60) / resolutionTimeCount)
+      : 0;
+
+  return {
+    totalTickets,
+    resolvedTickets,
+    averageCsat,
+    satisfactionRate,
+    averageResolutionTimeMinutes,
+  };
+}
+
+export interface CSATFeedbackInput {
+  score: number;
+  comment?: string | null;
+}
+
+export function validateCSATFeedbackInput(input: CSATFeedbackInput): {
+  success: boolean;
+  error?: string;
+} {
+  if (input.score === undefined || input.score === null) {
+    return { success: false, error: "Score is required." };
+  }
+  if (!Number.isInteger(input.score) || input.score < 1 || input.score > 5) {
+    return {
+      success: false,
+      error: "CSAT score must be an integer between 1 and 5.",
+    };
+  }
+  return { success: true };
+}
