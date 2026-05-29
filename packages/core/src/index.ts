@@ -2853,3 +2853,161 @@ export function validateCSATFeedbackInput(input: CSATFeedbackInput): {
   }
   return { success: true };
 }
+
+export interface CSVColumnMapping {
+  [entityField: string]: string;
+}
+
+export interface CSVImportInput {
+  entityType: "lead" | "contact";
+  csvContent: string;
+  mapping: CSVColumnMapping;
+  dryRun: boolean;
+}
+
+export interface RowValidationError {
+  row: number;
+  column: string;
+  message: string;
+}
+
+export interface CSVValidationResult {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  errors: RowValidationError[];
+}
+
+export function parseCSV(content: string): string[][] {
+  const result: string[][] = [];
+  if (!content) return result;
+
+  const lines = content.split(/\r?\n/);
+  for (const line of lines) {
+    if (!line.trim()) continue;
+
+    const row: string[] = [];
+    let inQuotes = false;
+    let currentCell = "";
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === "," && !inQuotes) {
+        row.push(currentCell.trim());
+        currentCell = "";
+      } else {
+        currentCell += char;
+      }
+    }
+    row.push(currentCell.trim());
+    result.push(row);
+  }
+  return result;
+}
+
+export function processCSVImport(
+  entityType: "lead" | "contact",
+  rows: string[][],
+  mapping: CSVColumnMapping,
+): { valid: Record<string, unknown>[]; errors: RowValidationError[] } {
+  const errors: RowValidationError[] = [];
+  const valid: Record<string, unknown>[] = [];
+
+  if (rows.length === 0) {
+    return { valid, errors };
+  }
+
+  const headers = rows[0].map((h) => h.toLowerCase());
+  const dataRows = rows.slice(1);
+
+  const getCellValue = (row: string[], field: string): string | null => {
+    const mapVal = mapping[field];
+    if (!mapVal) return null;
+
+    if (/^\d+$/.test(mapVal)) {
+      const idx = Number.parseInt(mapVal, 10);
+      return row[idx] !== undefined ? row[idx] : null;
+    }
+
+    const idx = headers.indexOf(mapVal.toLowerCase());
+    if (idx !== -1) {
+      return row[idx] !== undefined ? row[idx] : null;
+    }
+
+    return null;
+  };
+
+  for (let i = 0; i < dataRows.length; i++) {
+    const row = dataRows[i];
+    const rowNum = i + 2;
+
+    const record: Record<string, unknown> = {};
+    let rowHasError = false;
+
+    if (entityType === "lead") {
+      const company = getCellValue(row, "company");
+      const email = getCellValue(row, "email");
+      const status = getCellValue(row, "status") || "New";
+
+      if (!company && !email) {
+        errors.push({
+          row: rowNum,
+          column: "company/email",
+          message: "Either Company or Email is required for Leads.",
+        });
+        rowHasError = true;
+      }
+
+      if (email && !email.includes("@")) {
+        errors.push({
+          row: rowNum,
+          column: "email",
+          message: `Invalid email address format: ${email}`,
+        });
+        rowHasError = true;
+      }
+
+      if (!rowHasError) {
+        record.company = company || null;
+        record.email = email || null;
+        record.status = status;
+      }
+    } else if (entityType === "contact") {
+      const firstName = getCellValue(row, "firstName");
+      const lastName = getCellValue(row, "lastName");
+      const email = getCellValue(row, "email");
+
+      if (!lastName) {
+        errors.push({
+          row: rowNum,
+          column: "lastName",
+          message: "Last Name is required for Contacts.",
+        });
+        rowHasError = true;
+      }
+
+      if (email && !email.includes("@")) {
+        errors.push({
+          row: rowNum,
+          column: "email",
+          message: `Invalid email address format: ${email}`,
+        });
+        rowHasError = true;
+      }
+
+      if (!rowHasError) {
+        record.firstName = firstName || "";
+        record.lastName = lastName || "";
+        record.email = email || null;
+      }
+    }
+
+    if (!rowHasError) {
+      valid.push(record);
+    }
+  }
+
+  return { valid, errors };
+}
