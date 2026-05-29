@@ -59,6 +59,7 @@ import {
   processCSVImport,
   processESignatureTransition,
   processSequenceEmailOpen,
+  processSequenceEmailReply,
   processSequenceLinkClick,
   resolveSegmentMembers,
   rollbackStoreMigrations,
@@ -9750,6 +9751,47 @@ app.get("/api/public/emails/track/click/:token", async (c) => {
   return c.redirect("/", 302);
 });
 
+app.post("/api/public/emails/track/reply/:token", async (c) => {
+  const { token } = c.req.param();
+
+  const tracker = await dbStore.emailTrackers.findByToken(token);
+  if (tracker) {
+    await withTenant(tracker.orgId, mockDb, async () => {
+      // Record reply event publicly
+      await dbStore.emailTrackers.updatePublic(tracker.id, {
+        replyCount: tracker.replyCount + 1,
+        lastRepliedAt: new Date(),
+      });
+
+      // Record audit log
+      await dbStore.auditLogs.insert({
+        orgId: tracker.orgId,
+        recordId: tracker.activityId,
+        recordType: "EmailTracking",
+        action: "reply",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          replyCount: {
+            before: tracker.replyCount,
+            after: tracker.replyCount + 1,
+          },
+        },
+      });
+
+      // Task 0199: Trigger automated sequence reply actions
+      if (dbStore.marketingSequenceReplyActions) {
+        await processSequenceEmailReply(
+          dbStore,
+          tracker.orgId,
+          tracker.activityId,
+        );
+      }
+    });
+  }
+
+  return c.json({ success: true });
+});
+
 app.get("/api/public/emails/unsubscribe/:token", async (c) => {
   const { token } = c.req.param();
 
@@ -11417,6 +11459,64 @@ app.delete("/api/sequences/steps/open-actions/:id", tenantAuth, async (c) => {
   if (!deleted) {
     return c.json(
       { success: false, error: "Open action not found or unauthorized" },
+      404,
+    );
+  }
+  return c.json({ success: true });
+});
+
+app.get("/api/sequences/steps/:stepId/reply-actions", tenantAuth, async (c) => {
+  const stepId = c.req.param("stepId");
+  const actions =
+    await dbStore.marketingSequenceReplyActions.findForStep(stepId);
+  return c.json({ success: true, data: actions });
+});
+
+app.post(
+  "/api/sequences/steps/:stepId/reply-actions",
+  tenantAuth,
+  async (c) => {
+    const stepId = c.req.param("stepId");
+    const tenant = c.get("tenant");
+    const body = await c.req.json().catch(() => ({}));
+    const { actionType, actionConfig } = body;
+
+    if (!actionType || !actionConfig) {
+      return c.json(
+        {
+          success: false,
+          error: "actionType and actionConfig are required",
+        },
+        400,
+      );
+    }
+    if (actionType !== "field_update" && actionType !== "create_task") {
+      return c.json(
+        {
+          success: false,
+          error: "actionType must be 'field_update' or 'create_task'",
+        },
+        400,
+      );
+    }
+
+    const action = await dbStore.marketingSequenceReplyActions.insert({
+      orgId: tenant.orgId,
+      stepId,
+      actionType,
+      actionConfig,
+    });
+
+    return c.json({ success: true, data: action });
+  },
+);
+
+app.delete("/api/sequences/steps/reply-actions/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const deleted = await dbStore.marketingSequenceReplyActions.delete(id);
+  if (!deleted) {
+    return c.json(
+      { success: false, error: "Reply action not found or unauthorized" },
       404,
     );
   }

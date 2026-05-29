@@ -1180,8 +1180,10 @@ export const emailTrackers = pgTable("email_trackers", {
   token: text("token").notNull().unique(),
   openCount: integer("open_count").notNull().default(0),
   clickCount: integer("click_count").notNull().default(0),
+  replyCount: integer("reply_count").notNull().default(0),
   lastOpenedAt: timestamp("last_opened_at"),
   lastClickedAt: timestamp("last_clicked_at"),
+  lastRepliedAt: timestamp("last_replied_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1460,6 +1462,23 @@ export const marketingSequenceOpenActions = pgTable(
       .notNull()
       .references(() => marketingSequenceSteps.id, { onDelete: "cascade" }),
     actionType: text("action_type").notNull(),
+    actionConfig: jsonb("action_config").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);
+
+export const marketingSequenceReplyActions = pgTable(
+  "marketing_sequence_reply_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => marketingSequenceSteps.id, { onDelete: "cascade" }),
+    actionType: text("action_type").notNull(), // 'field_update' | 'create_task'
     actionConfig: jsonb("action_config").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
