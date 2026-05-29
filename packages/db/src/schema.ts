@@ -729,3 +729,21 @@ export const opportunityTeams = pgTable("opportunity_teams", {
   role: text("role").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const opportunityProductSchedules = pgTable(
+  "opportunity_product_schedules",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    opportunityProductId: uuid("opportunity_product_id")
+      .notNull()
+      .references(() => opportunityProducts.id, { onDelete: "cascade" }),
+    scheduleType: text("schedule_type").notNull(), // "revenue" | "quantity"
+    scheduleDate: timestamp("schedule_date").notNull(),
+    amount: text("amount").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+);

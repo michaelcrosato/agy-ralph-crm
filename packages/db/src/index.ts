@@ -515,6 +515,17 @@ export interface DBOpportunityTeamMember {
   createdAt: Date;
 }
 
+export interface DBOpportunityProductSchedule {
+  id: string;
+  orgId: string;
+  opportunityProductId: string;
+  scheduleType: "revenue" | "quantity";
+  scheduleDate: Date;
+  amount: string;
+  description: string | null;
+  createdAt: Date;
+}
+
 export interface DBLeadScoringRule {
   id: string;
   orgId: string;
@@ -629,6 +640,7 @@ export const store = {
   leadSlaTrackers: [] as DBLeadSlaTracker[],
   accountTeams: [] as DBAccountTeamMember[],
   opportunityTeams: [] as DBOpportunityTeamMember[],
+  opportunityProductSchedules: [] as DBOpportunityProductSchedule[],
   leadScoringRules: [] as DBLeadScoringRule[],
   opportunityCompetitors: [] as DBOpportunityCompetitor[],
   leadConversionMappings: [] as DBLeadConversionMapping[],
@@ -2710,8 +2722,70 @@ export const dbStore = {
       return true;
     },
   },
+  opportunityProductSchedules: {
+    findForProduct: async (opportunityProductId: string) => {
+      const orgId = getActiveOrgId();
+      return store.opportunityProductSchedules.filter(
+        (s) =>
+          s.opportunityProductId === opportunityProductId && s.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const s = store.opportunityProductSchedules.find((x) => x.id === id);
+      if (s && s.orgId !== orgId) {
+        return null;
+      }
+      return s || null;
+    },
+    insert: async (
+      s: Omit<DBOpportunityProductSchedule, "id" | "createdAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (s.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newSchedule: DBOpportunityProductSchedule = {
+        ...s,
+        id: `schedule-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.opportunityProductSchedules.push(newSchedule);
+      return newSchedule;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityProductSchedules.findIndex(
+        (s) => s.id === id,
+      );
+      if (index === -1) return false;
+      if (store.opportunityProductSchedules[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityProductSchedules.splice(index, 1);
+      return true;
+    },
+    deleteForProduct: async (opportunityProductId: string) => {
+      const orgId = getActiveOrgId();
+      // Safe filter/mutation under RLS
+      const targets = store.opportunityProductSchedules.filter(
+        (s) =>
+          s.opportunityProductId === opportunityProductId && s.orgId === orgId,
+      );
+      for (const t of targets) {
+        const idx = store.opportunityProductSchedules.findIndex(
+          (s) => s.id === t.id,
+        );
+        if (idx !== -1) {
+          store.opportunityProductSchedules.splice(idx, 1);
+        }
+      }
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
+
     store.accounts = [];
     store.contacts = [];
     store.opportunities = [];
@@ -2755,6 +2829,7 @@ export const dbStore = {
     store.leadSlaTrackers = [];
     store.accountTeams = [];
     store.opportunityTeams = [];
+    store.opportunityProductSchedules = [];
     store.leadScoringRules = [];
     store.opportunityCompetitors = [];
     store.leadConversionMappings = [];

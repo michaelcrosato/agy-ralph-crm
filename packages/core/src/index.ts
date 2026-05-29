@@ -1752,3 +1752,114 @@ export function validateOpportunityTeamMember(
   }
   return { success: true };
 }
+
+export function validateOpportunityProductSchedule(
+  opportunityProductId: string,
+  scheduleType: string,
+  scheduleDate: Date,
+  amount: string,
+): { success: boolean; error?: string } {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const mockRegex =
+    /^(opportunity_products|opportunity-product|opp-prod|schedule|item|line)-[a-z0-9]+$/i;
+
+  if (
+    !opportunityProductId ||
+    (!uuidRegex.test(opportunityProductId) &&
+      !mockRegex.test(opportunityProductId))
+  ) {
+    return { success: false, error: "Invalid Opportunity Product ID format." };
+  }
+
+  if (scheduleType !== "revenue" && scheduleType !== "quantity") {
+    return {
+      success: false,
+      error: "Invalid schedule type. Supported types are: revenue, quantity",
+    };
+  }
+
+  if (!scheduleDate || Number.isNaN(scheduleDate.getTime())) {
+    return { success: false, error: "Invalid schedule date." };
+  }
+
+  const parsedAmount = Number.parseFloat(amount);
+  if (Number.isNaN(parsedAmount) || parsedAmount <= 0) {
+    return { success: false, error: "Amount must be a positive number." };
+  }
+
+  return { success: true };
+}
+
+export interface GeneratedSchedule {
+  opportunityProductId: string;
+  scheduleType: "revenue" | "quantity";
+  scheduleDate: Date;
+  amount: string;
+  description: string;
+}
+
+export function generateStraightLineSchedules(
+  opportunityProductId: string,
+  totalAmount: string,
+  periodsCount: number,
+  startDate: Date,
+  scheduleType: "revenue" | "quantity" = "revenue",
+): GeneratedSchedule[] {
+  const total = Number.parseFloat(totalAmount) || 0;
+  const schedules: GeneratedSchedule[] = [];
+
+  if (periodsCount <= 0 || total <= 0) {
+    return [];
+  }
+
+  if (scheduleType === "quantity") {
+    // Integer quantity straight line distribution
+    const baseQty = Math.floor(total);
+    const quotient = Math.floor(baseQty / periodsCount);
+    const remainder = baseQty % periodsCount;
+
+    for (let i = 0; i < periodsCount; i++) {
+      const date = new Date(startDate.getTime());
+      date.setMonth(date.getMonth() + i);
+
+      // Distribute remainder to first periods
+      const qty = quotient + (i < remainder ? 1 : 0);
+
+      schedules.push({
+        opportunityProductId,
+        scheduleType,
+        scheduleDate: date,
+        amount: String(qty),
+        description: `Straight-line quantity schedule ${i + 1} of ${periodsCount}`,
+      });
+    }
+  } else {
+    // Decimal revenue straight line distribution
+    const amountPerPeriod = Number((total / periodsCount).toFixed(2));
+    let accumulated = 0;
+
+    for (let i = 0; i < periodsCount; i++) {
+      const date = new Date(startDate.getTime());
+      date.setMonth(date.getMonth() + i);
+
+      let currentAmount = amountPerPeriod;
+      if (i === periodsCount - 1) {
+        // Adjust final period to avoid rounding discrepancy
+        currentAmount = Number((total - accumulated).toFixed(2));
+      } else {
+        accumulated += currentAmount;
+      }
+
+      schedules.push({
+        opportunityProductId,
+        scheduleType,
+        scheduleDate: date,
+        amount: currentAmount.toFixed(2),
+        description: `Straight-line revenue schedule ${i + 1} of ${periodsCount}`,
+      });
+    }
+  }
+
+  return schedules;
+}
