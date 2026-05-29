@@ -3901,38 +3901,82 @@ interface CoreSequence {
   updatedAt: Date;
 }
 
+function getPartsInTimezone(date: Date, tz: string) {
+  try {
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      weekday: "short",
+    });
+    const parts = formatter.formatToParts(date);
+    const map: Record<string, string> = {};
+    for (const p of parts) {
+      map[p.type] = p.value;
+    }
+    return {
+      year: Number.parseInt(map.year),
+      month: Number.parseInt(map.month),
+      day: Number.parseInt(map.day),
+      hour: Number.parseInt(map.hour),
+      minute: Number.parseInt(map.minute),
+      weekday: map.weekday, // "Mon", "Tue", etc.
+    };
+  } catch (e) {
+    // Fallback to UTC
+    const utcDate = new Date(date.getTime());
+    const weekdayMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    return {
+      year: utcDate.getUTCFullYear(),
+      month: utcDate.getUTCMonth() + 1,
+      day: utcDate.getUTCDate(),
+      hour: utcDate.getUTCHours(),
+      minute: utcDate.getUTCMinutes(),
+      weekday: weekdayMap[utcDate.getUTCDay()],
+    };
+  }
+}
+
 export function getNextValidSendingTime(
   currentTime: Date,
   sendingDays: number[] | null,
   windowStart: string | null,
   windowEnd: string | null,
+  timezone?: string | null,
 ): Date {
-  const target = new Date(currentTime.getTime());
+  const tz = timezone || "UTC";
+  let target = new Date(currentTime.getTime());
 
   const allowedDays =
     sendingDays && sendingDays.length > 0 ? new Set(sendingDays) : null;
+  const weekdayMap: Record<string, number> = {
+    Mon: 1,
+    Tue: 2,
+    Wed: 3,
+    Thu: 4,
+    Fri: 5,
+    Sat: 6,
+    Sun: 7,
+  };
 
   let attempts = 0;
   while (attempts < 8) {
-    const dayOfWeek = target.getUTCDay() === 0 ? 7 : target.getUTCDay();
+    const local = getPartsInTimezone(target, tz);
+    const dayOfWeek = weekdayMap[local.weekday] || 1;
     const dayAllowed = !allowedDays || allowedDays.has(dayOfWeek);
 
     if (dayAllowed) {
-      const currentHours = target.getUTCHours();
-      const currentMinutes = target.getUTCMinutes();
-      const currentTimeMinutes = currentHours * 60 + currentMinutes;
-
+      const currentTimeMinutes = local.hour * 60 + local.minute;
       const startMinutes = windowStart ? parseTimeToMinutes(windowStart) : 0;
       const endMinutes = windowEnd ? parseTimeToMinutes(windowEnd) : 24 * 60;
 
       if (currentTimeMinutes < startMinutes) {
-        target.setUTCHours(
-          Math.floor(startMinutes / 60),
-          startMinutes % 60,
-          0,
-          0,
-        );
-        return target;
+        const minutesToStart = startMinutes - currentTimeMinutes;
+        return new Date(target.getTime() + minutesToStart * 60 * 1000);
       }
 
       if (
@@ -3943,9 +3987,36 @@ export function getNextValidSendingTime(
       }
     }
 
-    target.setUTCDate(target.getUTCDate() + 1);
+    const localForShift = getPartsInTimezone(target, tz);
+    const nextTarget = new Date(target.getTime() + 24 * 60 * 60 * 1000);
+    const nextLocal = getPartsInTimezone(nextTarget, tz);
     const startMinutes = windowStart ? parseTimeToMinutes(windowStart) : 0;
-    target.setUTCHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+
+    const nextLocalAsUtc = new Date(
+      Date.UTC(
+        nextLocal.year,
+        nextLocal.month - 1,
+        nextLocal.day,
+        nextLocal.hour,
+        nextLocal.minute,
+        0,
+        0,
+      ),
+    );
+    const targetLocalAsUtc = new Date(
+      Date.UTC(
+        nextLocal.year,
+        nextLocal.month - 1,
+        nextLocal.day,
+        Math.floor(startMinutes / 60),
+        startMinutes % 60,
+        0,
+        0,
+      ),
+    );
+    const diffMs = targetLocalAsUtc.getTime() - nextLocalAsUtc.getTime();
+
+    target = new Date(nextTarget.getTime() + diffMs);
     attempts++;
   }
 
@@ -4615,6 +4686,21 @@ export async function executePendingSequenceSteps(
   for (const membership of pendingMemberships) {
     const orgId = membership.orgId;
 
+    let recipientTimezone: string | null = null;
+    if (membership.recordType === "lead" && dbStore.leads) {
+      // biome-ignore lint/suspicious/noExplicitAny: dbStore findOne returns unknown, casting to any is safe here
+      const lead: any = await dbStore.leads.findOne(membership.recordId);
+      if (lead?.custom?.timezone) {
+        recipientTimezone = lead.custom.timezone;
+      }
+    } else if (membership.recordType === "contact" && dbStore.contacts) {
+      // biome-ignore lint/suspicious/noExplicitAny: dbStore findOne returns unknown, casting to any is safe here
+      const contact: any = await dbStore.contacts.findOne(membership.recordId);
+      if (contact?.custom?.timezone) {
+        recipientTimezone = contact.custom.timezone;
+      }
+    }
+
     if (dbStore.marketingSequences) {
       const sequence = await dbStore.marketingSequences.findOne(
         membership.sequenceId,
@@ -4625,6 +4711,7 @@ export async function executePendingSequenceSteps(
           sequence.sendingDays || null,
           sequence.sendingWindowStart || null,
           sequence.sendingWindowEnd || null,
+          recipientTimezone,
         );
         if (validTime.getTime() > currentTime.getTime()) {
           const originalNext = membership.nextExecutionAt;
