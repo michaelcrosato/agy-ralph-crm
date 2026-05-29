@@ -612,6 +612,26 @@ export interface DBMarketingSequenceExitTrigger {
   updatedAt: Date;
 }
 
+export interface DBMarketingSequenceStepSplitTest {
+  id: string;
+  orgId: string;
+  stepId: string;
+  variantTemplateId: string;
+  splitWeight: number;
+  isActive: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface DBMarketingSequenceAbAllocation {
+  id: string;
+  orgId: string;
+  membershipId: string;
+  stepId: string;
+  allocatedTemplateId: string;
+  createdAt: Date;
+}
+
 export interface DBContract {
   id: string;
   orgId: string;
@@ -1051,6 +1071,8 @@ export const store = {
   marketingSequenceSteps: [] as DBMarketingSequenceStep[],
   marketingSequenceMemberships: [] as DBMarketingSequenceMembership[],
   marketingSequenceExitTriggers: [] as DBMarketingSequenceExitTrigger[],
+  marketingSequenceStepSplitTests: [] as DBMarketingSequenceStepSplitTest[],
+  marketingSequenceAbAllocations: [] as DBMarketingSequenceAbAllocation[],
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
   leadSlaTrackers: [] as DBLeadSlaTracker[],
@@ -4662,6 +4684,12 @@ export const dbStore = {
         (s) => s.sequenceId === sequenceId && s.orgId === orgId,
       );
     },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.marketingSequenceSteps.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
     insert: async (
       item: Omit<DBMarketingSequenceStep, "id" | "createdAt" | "updatedAt">,
     ) => {
@@ -4803,12 +4831,101 @@ export const dbStore = {
       return true;
     },
   },
+  marketingSequenceStepSplitTests: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceStepSplitTests.filter(
+        (c) => c.orgId === orgId,
+      );
+    },
+    findForStep: async (stepId: string) => {
+      const orgId = getActiveOrgId();
+      return (
+        store.marketingSequenceStepSplitTests.find(
+          (m) => m.stepId === stepId && m.orgId === orgId,
+        ) || null
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.marketingSequenceStepSplitTests.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (
+      item: Omit<
+        DBMarketingSequenceStepSplitTest,
+        "id" | "createdAt" | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSequenceStepSplitTest = {
+        ...item,
+        id: `split-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSequenceStepSplitTests.push(newItem);
+      return newItem;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceStepSplitTests.findIndex(
+        (c) => c.id === id,
+      );
+      if (index === -1) return false;
+      if (store.marketingSequenceStepSplitTests[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceStepSplitTests.splice(index, 1);
+      return true;
+    },
+  },
+  marketingSequenceAbAllocations: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceAbAllocations.filter(
+        (c) => c.orgId === orgId,
+      );
+    },
+    findForMemberAndStep: async (membershipId: string, stepId: string) => {
+      const orgId = getActiveOrgId();
+      return (
+        store.marketingSequenceAbAllocations.find(
+          (m) =>
+            m.membershipId === membershipId &&
+            m.stepId === stepId &&
+            m.orgId === orgId,
+        ) || null
+      );
+    },
+    insert: async (
+      item: Omit<DBMarketingSequenceAbAllocation, "id" | "createdAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSequenceAbAllocation = {
+        ...item,
+        id: `alloc-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.marketingSequenceAbAllocations.push(newItem);
+      return newItem;
+    },
+  },
   clear: () => {
     store.marketingSegments = [];
     store.marketingSequences = [];
     store.marketingSequenceSteps = [];
     store.marketingSequenceMemberships = [];
     store.marketingSequenceExitTriggers = [];
+    store.marketingSequenceStepSplitTests = [];
+    store.marketingSequenceAbAllocations = [];
     store.emailTemplates = [];
     store.emailTrackers = [];
     store.picklistDependencies = [];

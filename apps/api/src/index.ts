@@ -10046,6 +10046,144 @@ app.delete(
   },
 );
 
+// Marketing Sequence A/B Split Testing Endpoints
+
+app.get(
+  "/api/sequences/:id/steps/:stepId/split-test",
+  tenantAuth,
+  async (c) => {
+    const sequenceId = c.req.param("id");
+    const stepId = c.req.param("stepId");
+
+    const seq = await dbStore.marketingSequences.findOne(sequenceId);
+    if (!seq) {
+      return c.json({ success: false, error: "Sequence not found" }, 404);
+    }
+
+    const step = await dbStore.marketingSequenceSteps.findOne(stepId);
+    if (!step || step.sequenceId !== sequenceId) {
+      return c.json({ success: false, error: "Sequence step not found" }, 404);
+    }
+
+    const splitTest =
+      await dbStore.marketingSequenceStepSplitTests.findForStep(stepId);
+    return c.json({ success: true, data: splitTest });
+  },
+);
+
+app.post(
+  "/api/sequences/:id/steps/:stepId/split-test",
+  tenantAuth,
+  async (c) => {
+    const sequenceId = c.req.param("id");
+    const stepId = c.req.param("stepId");
+    const tenant = c.get("tenant");
+
+    const seq = await dbStore.marketingSequences.findOne(sequenceId);
+    if (!seq) {
+      return c.json({ success: false, error: "Sequence not found" }, 404);
+    }
+
+    const step = await dbStore.marketingSequenceSteps.findOne(stepId);
+    if (!step || step.sequenceId !== sequenceId) {
+      return c.json({ success: false, error: "Sequence step not found" }, 404);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const { variantTemplateId, splitWeight, isActive } = body;
+
+    if (!variantTemplateId) {
+      return c.json(
+        { success: false, error: "variantTemplateId is required" },
+        400,
+      );
+    }
+
+    const template = await dbStore.emailTemplates.findOne(variantTemplateId);
+    if (!template) {
+      return c.json(
+        { success: false, error: "Variant template not found" },
+        404,
+      );
+    }
+
+    const existing =
+      await dbStore.marketingSequenceStepSplitTests.findForStep(stepId);
+    if (existing) {
+      await dbStore.marketingSequenceStepSplitTests.delete(existing.id);
+    }
+
+    const splitTest = await dbStore.marketingSequenceStepSplitTests.insert({
+      orgId: tenant.orgId,
+      stepId,
+      variantTemplateId,
+      splitWeight: typeof splitWeight === "number" ? splitWeight : 50,
+      isActive: isActive === 0 ? 0 : 1,
+    });
+
+    return c.json({ success: true, data: splitTest });
+  },
+);
+
+app.post(
+  "/api/sequences/:id/steps/:stepId/split-test/allocate",
+  tenantAuth,
+  async (c) => {
+    const sequenceId = c.req.param("id");
+    const stepId = c.req.param("stepId");
+    const tenant = c.get("tenant");
+
+    const seq = await dbStore.marketingSequences.findOne(sequenceId);
+    if (!seq) {
+      return c.json({ success: false, error: "Sequence not found" }, 404);
+    }
+
+    const step = await dbStore.marketingSequenceSteps.findOne(stepId);
+    if (!step || step.sequenceId !== sequenceId) {
+      return c.json({ success: false, error: "Sequence step not found" }, 404);
+    }
+
+    const body = await c.req.json().catch(() => ({}));
+    const { membershipId, allocatedTemplateId } = body;
+
+    if (!membershipId || !allocatedTemplateId) {
+      return c.json(
+        {
+          success: false,
+          error: "membershipId and allocatedTemplateId are required",
+        },
+        400,
+      );
+    }
+
+    const membership =
+      await dbStore.marketingSequenceMemberships.findOne(membershipId);
+    if (!membership || membership.sequenceId !== sequenceId) {
+      return c.json(
+        { success: false, error: "Sequence membership not found" },
+        404,
+      );
+    }
+
+    const template = await dbStore.emailTemplates.findOne(allocatedTemplateId);
+    if (!template) {
+      return c.json(
+        { success: false, error: "Allocated template not found" },
+        404,
+      );
+    }
+
+    const allocation = await dbStore.marketingSequenceAbAllocations.insert({
+      orgId: tenant.orgId,
+      membershipId,
+      stepId,
+      allocatedTemplateId,
+    });
+
+    return c.json({ success: true, data: allocation });
+  },
+);
+
 // Marketing Segments & Dynamic Lists Endpoints
 
 app.post("/api/segments", tenantAuth, async (c) => {

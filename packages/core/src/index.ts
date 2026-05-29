@@ -3935,6 +3935,26 @@ export interface CoreExitTrigger {
   updatedAt: Date;
 }
 
+export interface CoreStepSplitTest {
+  id: string;
+  orgId: string;
+  stepId: string;
+  variantTemplateId: string;
+  splitWeight: number;
+  isActive: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CoreAbAllocation {
+  id: string;
+  orgId: string;
+  membershipId: string;
+  stepId: string;
+  allocatedTemplateId: string;
+  createdAt: Date;
+}
+
 export function shouldExitSequence(params: {
   recordType: "lead" | "contact";
   lead: Record<string, unknown> | null | undefined;
@@ -4078,7 +4098,22 @@ export async function executePendingSequenceSteps(
       findForSequence: (sequenceId: string) => Promise<CoreExitTrigger[]>;
     };
     opportunities?: {
-      findMany: () => Promise<Record<string, unknown>[]>;
+      findMany: () => Promise<unknown[]>;
+    };
+    marketingSequenceStepSplitTests?: {
+      findForStep: (stepId: string) => Promise<CoreStepSplitTest | null>;
+    };
+    marketingSequenceAbAllocations?: {
+      findForMemberAndStep: (
+        membershipId: string,
+        stepId: string,
+      ) => Promise<CoreAbAllocation | null>;
+      insert: (item: {
+        orgId: string;
+        membershipId: string;
+        stepId: string;
+        allocatedTemplateId: string;
+      }) => Promise<CoreAbAllocation>;
     };
   },
   currentTime: Date = new Date(),
@@ -4131,7 +4166,10 @@ export async function executePendingSequenceSteps(
         await dbStore.marketingSequenceExitTriggers.findForSequence(
           membership.sequenceId,
         );
-      const allOpps = await dbStore.opportunities.findMany();
+      const allOpps = (await dbStore.opportunities.findMany()) as Record<
+        string,
+        unknown
+      >[];
       let relevantOpps: Record<string, unknown>[] = [];
       if (membership.recordType === "contact" && recipientContext.contact) {
         const contactAccountId = (
@@ -4201,7 +4239,40 @@ export async function executePendingSequenceSteps(
       continue;
     }
 
-    const template = await dbStore.emailTemplates.findOne(step.templateId);
+    let templateIdToUse = step.templateId;
+
+    if (
+      dbStore.marketingSequenceStepSplitTests &&
+      dbStore.marketingSequenceAbAllocations
+    ) {
+      const splitTest =
+        await dbStore.marketingSequenceStepSplitTests.findForStep(step.id);
+      if (splitTest && splitTest.isActive === 1) {
+        const existingAlloc =
+          await dbStore.marketingSequenceAbAllocations.findForMemberAndStep(
+            membership.id,
+            step.id,
+          );
+        if (existingAlloc) {
+          templateIdToUse = existingAlloc.allocatedTemplateId;
+        } else {
+          const roll = Math.floor(Math.random() * 100) + 1;
+          if (roll <= splitTest.splitWeight) {
+            templateIdToUse = splitTest.variantTemplateId;
+          } else {
+            templateIdToUse = step.templateId;
+          }
+          await dbStore.marketingSequenceAbAllocations.insert({
+            orgId,
+            membershipId: membership.id,
+            stepId: step.id,
+            allocatedTemplateId: templateIdToUse,
+          });
+        }
+      }
+    }
+
+    const template = await dbStore.emailTemplates.findOne(templateIdToUse);
     if (!template) {
       await dbStore.marketingSequenceMemberships.update(membership.id, {
         status: "error",

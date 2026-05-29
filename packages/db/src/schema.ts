@@ -1266,3 +1266,45 @@ export const marketingSequenceExitTriggers = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
 );
+
+export const marketingSequenceStepSplitTests = pgTable(
+  "marketing_sequence_step_split_tests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => marketingSequenceSteps.id, { onDelete: "cascade" }),
+    variantTemplateId: uuid("variant_template_id")
+      .notNull()
+      .references(() => emailTemplates.id, { onDelete: "cascade" }),
+    splitWeight: integer("split_weight").notNull().default(50),
+    isActive: integer("is_active").notNull().default(1),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);
+
+export const marketingSequenceAbAllocations = pgTable(
+  "marketing_sequence_ab_allocations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    membershipId: uuid("membership_id")
+      .notNull()
+      .references(() => marketingSequenceMemberships.id, {
+        onDelete: "cascade",
+      }),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => marketingSequenceSteps.id, { onDelete: "cascade" }),
+    allocatedTemplateId: uuid("allocated_template_id")
+      .notNull()
+      .references(() => emailTemplates.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+);
