@@ -1031,3 +1031,39 @@ export function rollupHierarchyPipeline(
     closedWonPipeline: closedWonSum.toFixed(2),
   };
 }
+
+/**
+ * Calculates whether a lead SLA response target has been breached, met, or is still pending.
+ */
+export function calculateSlaStatus(
+  createdAt: Date,
+  maxResponseTimeMinutes: number,
+  respondedAt: Date | null,
+  currentTime: Date,
+): {
+  status: "Pending" | "Met" | "Breached";
+  responseTimeMinutes: number | null;
+} {
+  if (respondedAt) {
+    const diffMs = respondedAt.getTime() - createdAt.getTime();
+    const diffMins = Math.round(diffMs / 60000);
+    return {
+      status: diffMins <= maxResponseTimeMinutes ? "Met" : "Breached",
+      responseTimeMinutes: diffMins,
+    };
+  }
+
+  const diffMs = currentTime.getTime() - createdAt.getTime();
+  const diffMins = Math.round(diffMs / 60000);
+  if (diffMins > maxResponseTimeMinutes) {
+    return {
+      status: "Breached",
+      responseTimeMinutes: diffMins,
+    };
+  }
+
+  return {
+    status: "Pending",
+    responseTimeMinutes: null,
+  };
+}

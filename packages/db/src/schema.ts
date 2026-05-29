@@ -580,3 +580,32 @@ export const contracts = pgTable("contracts", {
   status: text("status").notNull().default("Draft"), // "Draft" | "Active" | "Expired" | "Renewed"
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const leadSlaTargets = pgTable("lead_sla_targets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  maxResponseTimeMinutes: integer("max_response_time_minutes")
+    .notNull()
+    .default(60),
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const leadSlaTrackers = pgTable("lead_sla_trackers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  leadId: uuid("lead_id")
+    .notNull()
+    .references(() => leads.id, { onDelete: "cascade" }),
+  targetId: uuid("target_id")
+    .notNull()
+    .references(() => leadSlaTargets.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("Pending"), // "Pending" | "Met" | "Breached"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  respondedAt: timestamp("responded_at"),
+  responseTimeMinutes: integer("response_time_minutes"),
+});

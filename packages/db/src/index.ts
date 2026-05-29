@@ -475,6 +475,25 @@ export interface DBContract {
   createdAt: Date;
 }
 
+export interface DBLeadSlaTarget {
+  id: string;
+  orgId: string;
+  maxResponseTimeMinutes: number;
+  isActive: number;
+  createdAt: Date;
+}
+
+export interface DBLeadSlaTracker {
+  id: string;
+  orgId: string;
+  leadId: string;
+  targetId: string;
+  status: string; // "Pending" | "Met" | "Breached"
+  createdAt: Date;
+  respondedAt: Date | null;
+  responseTimeMinutes: number | null;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -516,6 +535,8 @@ export const store = {
   opportunityContactRoles: [] as DBOpportunityContactRole[],
   campaignInfluence: [] as DBCampaignInfluence[],
   contracts: [] as DBContract[],
+  leadSlaTargets: [] as DBLeadSlaTarget[],
+  leadSlaTrackers: [] as DBLeadSlaTracker[],
 };
 
 export const dbStore = {
@@ -1966,6 +1987,94 @@ export const dbStore = {
       return true;
     },
   },
+  leadSlaTargets: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.leadSlaTargets.filter((t) => t.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const t = store.leadSlaTargets.find((x) => x.id === id);
+      if (t && t.orgId !== orgId) return null;
+      return t || null;
+    },
+    insert: async (target: Omit<DBLeadSlaTarget, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (target.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newTarget: DBLeadSlaTarget = {
+        ...target,
+        id: `target-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.leadSlaTargets.push(newTarget);
+      return newTarget;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBLeadSlaTarget, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.leadSlaTargets.findIndex((t) => t.id === id);
+      if (index === -1) return null;
+      if (store.leadSlaTargets[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.leadSlaTargets[index] = {
+        ...store.leadSlaTargets[index],
+        ...updates,
+      };
+      return store.leadSlaTargets[index];
+    },
+  },
+  leadSlaTrackers: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.leadSlaTrackers.filter((t) => t.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const t = store.leadSlaTrackers.find((x) => x.id === id);
+      if (t && t.orgId !== orgId) return null;
+      return t || null;
+    },
+    findForLead: async (leadId: string) => {
+      const orgId = getActiveOrgId();
+      return store.leadSlaTrackers.filter(
+        (t) => t.leadId === leadId && t.orgId === orgId,
+      );
+    },
+    insert: async (tracker: Omit<DBLeadSlaTracker, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (tracker.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newTracker: DBLeadSlaTracker = {
+        ...tracker,
+        id: `tracker-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.leadSlaTrackers.push(newTracker);
+      return newTracker;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBLeadSlaTracker, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.leadSlaTrackers.findIndex((t) => t.id === id);
+      if (index === -1) return null;
+      if (store.leadSlaTrackers[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.leadSlaTrackers[index] = {
+        ...store.leadSlaTrackers[index],
+        ...updates,
+      };
+      return store.leadSlaTrackers[index];
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -2007,5 +2116,7 @@ export const dbStore = {
     store.opportunityContactRoles = [];
     store.campaignInfluence = [];
     store.contracts = [];
+    store.leadSlaTargets = [];
+    store.leadSlaTrackers = [];
   },
 };

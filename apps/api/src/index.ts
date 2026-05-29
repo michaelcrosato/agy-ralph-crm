@@ -12,6 +12,7 @@ import {
   calculateOpportunityCommission,
   calculateOpportunitySplits,
   calculateProRatedAmount,
+  calculateSlaStatus,
   calculateStageVelocity,
   convertLead,
   detectCircularAccountRelation,
@@ -378,12 +379,169 @@ app.post("/api/leads", tenantAuth, async (c) => {
     newLead as unknown as Record<string, unknown>,
   );
 
+  // SLA Tracker setup if active target exists
+  const targets = await dbStore.leadSlaTargets.findMany();
+  const activeTarget = targets.find((t) => t.isActive === 1);
+  if (activeTarget) {
+    await dbStore.leadSlaTrackers.insert({
+      orgId: tenant.orgId,
+      leadId: newLead.id,
+      targetId: activeTarget.id,
+      status: "Pending",
+      respondedAt: null,
+      responseTimeMinutes: null,
+    });
+  }
+
   return c.json({ success: true, data: newLead });
 });
 
 app.get("/api/leads", tenantAuth, async (c) => {
   const leads = await dbStore.leads.findMany();
   return c.json({ success: true, data: leads });
+});
+
+// Lead SLA configurations & Response Aging Tracking Endpoints
+app.post("/api/leads/sla-targets", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { maxResponseTimeMinutes } = body;
+
+  const targetMinutes =
+    maxResponseTimeMinutes !== undefined ? Number(maxResponseTimeMinutes) : 60;
+
+  // Deactivate all previous SLA targets for the tenant org
+  const existingTargets = await dbStore.leadSlaTargets.findMany();
+  for (const t of existingTargets) {
+    if (t.isActive === 1) {
+      await dbStore.leadSlaTargets.update(t.id, { isActive: 0 });
+    }
+  }
+
+  // Insert the new SLA target
+  const target = await dbStore.leadSlaTargets.insert({
+    orgId: tenant.orgId,
+    maxResponseTimeMinutes: targetMinutes,
+    isActive: 1,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: target.id,
+    recordType: "lead_sla_targets",
+    action: "create",
+    userId: tenant.userId,
+    changes: { target: { before: null, after: target } },
+  });
+
+  return c.json({ success: true, data: target }, 201);
+});
+
+app.get("/api/leads/sla-targets", tenantAuth, async (c) => {
+  const targets = await dbStore.leadSlaTargets.findMany();
+  const activeTarget = targets.find((t) => t.isActive === 1);
+  return c.json({ success: true, data: activeTarget || null });
+});
+
+app.get("/api/leads/sla-breaches", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const trackers = await dbStore.leadSlaTrackers.findMany();
+  const pendingTrackers = trackers.filter((t) => t.status === "Pending");
+
+  const targets = await dbStore.leadSlaTargets.findMany();
+  const activeTarget = targets.find((t) => t.isActive === 1);
+  const maxMinutes = activeTarget ? activeTarget.maxResponseTimeMinutes : 60;
+
+  const now = new Date();
+  for (const tracker of pendingTrackers) {
+    const slaStatus = calculateSlaStatus(
+      tracker.createdAt,
+      maxMinutes,
+      null,
+      now,
+    );
+    if (slaStatus.status === "Breached") {
+      await dbStore.leadSlaTrackers.update(tracker.id, {
+        status: "Breached",
+        responseTimeMinutes: slaStatus.responseTimeMinutes,
+      });
+
+      await dbStore.auditLogs.insert({
+        orgId: tenant.orgId,
+        recordId: tracker.leadId,
+        recordType: "leads",
+        action: "sla_breach",
+        userId: tenant.userId,
+        changes: { status: { before: "Pending", after: "Breached" } },
+      });
+
+      triggerOutboundWebhooks(tenant.orgId, "lead.sla_breached", {
+        leadId: tracker.leadId,
+        trackerId: tracker.id,
+        responseTimeMinutes: slaStatus.responseTimeMinutes,
+      });
+    }
+  }
+
+  // Reload trackers and filter by Breached status
+  const reloaded = await dbStore.leadSlaTrackers.findMany();
+  const breached = reloaded.filter((t) => t.status === "Breached");
+
+  return c.json({ success: true, data: breached });
+});
+
+app.post("/api/leads/:id/respond", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+
+  const trackers = await dbStore.leadSlaTrackers.findForLead(id);
+  const tracker = trackers.find((t) => t.respondedAt === null);
+
+  if (!tracker) {
+    return c.json({ error: "No active SLA tracker found for this lead" }, 404);
+  }
+
+  const targets = await dbStore.leadSlaTargets.findMany();
+  const activeTarget = targets.find((t) => t.isActive === 1);
+  const maxMinutes = activeTarget ? activeTarget.maxResponseTimeMinutes : 60;
+
+  const now = new Date();
+  const slaStatus = calculateSlaStatus(tracker.createdAt, maxMinutes, now, now);
+
+  const updatedTracker = await dbStore.leadSlaTrackers.update(tracker.id, {
+    status: slaStatus.status,
+    respondedAt: now,
+    responseTimeMinutes: slaStatus.responseTimeMinutes,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "leads",
+    action: "respond",
+    userId: tenant.userId,
+    changes: {
+      slaTracker: { before: tracker, after: updatedTracker },
+    },
+  });
+
+  if (slaStatus.status === "Met") {
+    triggerOutboundWebhooks(tenant.orgId, "lead.sla_resolved", {
+      leadId: id,
+      trackerId: tracker.id,
+      status: "Met",
+      responseTimeMinutes: slaStatus.responseTimeMinutes,
+    });
+  } else if (slaStatus.status === "Breached") {
+    triggerOutboundWebhooks(tenant.orgId, "lead.sla_breached", {
+      leadId: id,
+      trackerId: tracker.id,
+      status: "Breached",
+      responseTimeMinutes: slaStatus.responseTimeMinutes,
+    });
+  }
+
+  return c.json({ success: true, data: updatedTracker });
 });
 
 app.get("/api/leads/:id", tenantAuth, async (c) => {
