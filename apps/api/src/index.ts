@@ -22,6 +22,7 @@ import {
   calculateSlaStatus,
   calculateStageVelocity,
   calculateStalledOpportunities,
+  calculateSurveyMetrics,
   convertCurrency,
   convertLead,
   convertLeadWithMappings,
@@ -50,6 +51,7 @@ import {
   validateOpportunityStageGate,
   validateOpportunityTeamMember,
   validateStageGuidanceKeyFields,
+  validateSurveyResponse,
 } from "@crm/core";
 import {
   type DBCurrency,
@@ -6476,6 +6478,136 @@ app.post("/api/sales/esignature/simulate", tenantAuth, async (c) => {
     const err = error as Error;
     return c.json({ error: err.message }, 400);
   }
+});
+
+// Surveys & Customer Satisfaction (CSAT/NPS) API routes
+app.post("/api/sales/surveys", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, type, status } = body;
+
+  if (!name || !type) {
+    return c.json({ error: "Missing required fields: 'name' or 'type'" }, 400);
+  }
+
+  if (type !== "csat" && type !== "nps") {
+    return c.json(
+      { error: "Invalid survey type. Must be 'csat' or 'nps'" },
+      400,
+    );
+  }
+
+  const surveyStatus = status || "draft";
+  if (
+    surveyStatus !== "draft" &&
+    surveyStatus !== "active" &&
+    surveyStatus !== "closed"
+  ) {
+    return c.json(
+      {
+        error: "Invalid survey status. Must be 'draft', 'active', or 'closed'",
+      },
+      400,
+    );
+  }
+
+  const newSurvey = await dbStore.surveys.insert({
+    orgId: tenant.orgId,
+    name,
+    type: type as "csat" | "nps",
+    status: surveyStatus as "draft" | "active" | "closed",
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: newSurvey.id,
+    recordType: "surveys",
+    action: "create",
+    userId: tenant.userId,
+    changes: {
+      name: { before: null, after: name },
+      type: { before: null, after: type },
+      status: { before: null, after: surveyStatus },
+    },
+  });
+
+  return c.json({ success: true, data: newSurvey });
+});
+
+app.get("/api/sales/surveys", tenantAuth, async (c) => {
+  const surveys = await dbStore.surveys.findMany();
+  return c.json({ success: true, data: surveys });
+});
+
+app.post("/api/sales/surveys/responses", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { surveyId, contactId, score, comment } = body;
+
+  if (!surveyId || score === undefined) {
+    return c.json(
+      { error: "Missing required fields: 'surveyId' or 'score'" },
+      400,
+    );
+  }
+
+  const survey = await dbStore.surveys.findOne(surveyId);
+  if (!survey) {
+    return c.json({ error: "Survey not found" }, 404);
+  }
+
+  if (survey.status !== "active") {
+    return c.json(
+      { error: "Survey is not active and cannot accept responses" },
+      400,
+    );
+  }
+
+  const validation = validateSurveyResponse(score, survey.type);
+  if (!validation.isValid) {
+    return c.json({ error: validation.error }, 400);
+  }
+
+  const response = await dbStore.surveyResponses.insert({
+    orgId: tenant.orgId,
+    surveyId,
+    contactId: contactId || null,
+    score,
+    comment: comment || null,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: response.id,
+    recordType: "survey_responses",
+    action: "create",
+    userId: tenant.userId,
+    changes: {
+      surveyId: { before: null, after: surveyId },
+      score: { before: null, after: score },
+    },
+  });
+
+  await triggerOutboundWebhooks(tenant.orgId, "sales.survey_response_created", {
+    responseId: response.id,
+    surveyId,
+    score,
+  });
+
+  return c.json({ success: true, data: response });
+});
+
+app.get("/api/sales/surveys/:id/metrics", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const survey = await dbStore.surveys.findOne(id);
+  if (!survey) {
+    return c.json({ error: "Survey not found" }, 404);
+  }
+
+  const responses = await dbStore.surveyResponses.findBySurvey(id);
+  const metrics = calculateSurveyMetrics(responses, survey.type);
+
+  return c.json({ success: true, data: metrics });
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)

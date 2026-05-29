@@ -669,6 +669,25 @@ export interface DBEsignatureRequest {
   completedAt: Date | null;
 }
 
+export interface DBSurvey {
+  id: string;
+  orgId: string;
+  name: string;
+  type: "csat" | "nps";
+  status: "draft" | "active" | "closed";
+  createdAt: Date;
+}
+
+export interface DBSurveyResponse {
+  id: string;
+  orgId: string;
+  surveyId: string;
+  contactId: string | null;
+  score: number;
+  comment: string | null;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -727,6 +746,8 @@ export const store = {
   emailCalendarSyncSettings: [] as DBEmailCalendarSyncSettings[],
   emailCalendarSyncRuns: [] as DBEmailCalendarSyncRun[],
   esignatureRequests: [] as DBEsignatureRequest[],
+  surveys: [] as DBSurvey[],
+  surveyResponses: [] as DBSurveyResponse[],
 };
 
 export const dbStore = {
@@ -3129,6 +3150,82 @@ export const dbStore = {
       return store.esignatureRequests[index];
     },
   },
+  surveys: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.surveys.filter((s) => s.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const survey = store.surveys.find((s) => s.id === id);
+      if (survey && survey.orgId !== orgId) {
+        return null;
+      }
+      return survey || null;
+    },
+    insert: async (
+      survey: Omit<DBSurvey, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (survey.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newSurvey: DBSurvey = {
+        ...survey,
+        id: `survey-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: survey.createdAt || new Date(),
+      };
+      store.surveys.push(newSurvey);
+      return newSurvey;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBSurvey, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.surveys.findIndex((s) => s.id === id);
+      if (index === -1) return null;
+      if (store.surveys[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.surveys[index] = {
+        ...store.surveys[index],
+        ...updates,
+      };
+      return store.surveys[index];
+    },
+  },
+  surveyResponses: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.surveyResponses.filter((r) => r.orgId === orgId);
+    },
+    findBySurvey: async (surveyId: string) => {
+      const orgId = getActiveOrgId();
+      return store.surveyResponses.filter(
+        (r) => r.surveyId === surveyId && r.orgId === orgId,
+      );
+    },
+    insert: async (
+      res: Omit<DBSurveyResponse, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (res.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRes: DBSurveyResponse = {
+        ...res,
+        id: `sres-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: res.createdAt || new Date(),
+      };
+      store.surveyResponses.push(newRes);
+      return newRes;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3188,5 +3285,7 @@ export const dbStore = {
     store.emailCalendarSyncSettings = [];
     store.emailCalendarSyncRuns = [];
     store.esignatureRequests = [];
+    store.surveys = [];
+    store.surveyResponses = [];
   },
 };

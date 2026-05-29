@@ -850,3 +850,30 @@ export const esignatureRequests = pgTable("esignature_requests", {
   sentAt: timestamp("sent_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
 });
+
+export const surveys = pgTable("surveys", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  type: text("type").notNull(), // "csat" | "nps"
+  status: text("status").notNull().default("draft"), // "draft" | "active" | "closed"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const surveyResponses = pgTable("survey_responses", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  surveyId: uuid("survey_id")
+    .notNull()
+    .references(() => surveys.id, { onDelete: "cascade" }),
+  contactId: uuid("contact_id").references(() => contacts.id, {
+    onDelete: "set null",
+  }),
+  score: integer("score").notNull(),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
