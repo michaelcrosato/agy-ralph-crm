@@ -49,6 +49,7 @@ import {
   executePendingSequenceSteps,
   generateRenewalOpportunity,
   generateStraightLineSchedules,
+  handleEmailDeliveryEvent,
   incrementArticleViewCount,
   isContractInRenewalWindow,
   mergeAccounts,
@@ -10824,6 +10825,35 @@ app.post(
     return c.json({ success: true, data: updated });
   },
 );
+
+app.post("/api/sequences/email-event", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { email, event, reason } = body;
+
+  if (!email || !event) {
+    return c.json(
+      { success: false, error: "Email and event type are required" },
+      400,
+    );
+  }
+
+  if (event !== "bounce" && event !== "complaint") {
+    return c.json(
+      { success: false, error: "Event must be 'bounce' or 'complaint'" },
+      400,
+    );
+  }
+
+  const result = await handleEmailDeliveryEvent(dbStore, {
+    orgId: tenant.orgId,
+    email,
+    event,
+    reason,
+  });
+
+  return c.json({ success: true, data: result });
+});
 
 // Start Hono Node Server if run directly (excluding test execution environment)
 

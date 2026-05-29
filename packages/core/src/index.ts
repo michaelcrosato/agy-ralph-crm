@@ -5304,3 +5304,187 @@ export function calculateSequenceAnalytics(params: {
     steps: stepAnalyticsList,
   };
 }
+
+export async function handleEmailDeliveryEvent(
+  dbStore: {
+    marketingSequenceMemberships: {
+      // biome-ignore lint/suspicious/noExplicitAny: memberships findMany structure
+      findMany: () => Promise<any[]>;
+      update: (
+        id: string,
+        updates: Partial<
+          Omit<
+            CoreSequenceMembership,
+            "id" | "orgId" | "createdAt" | "updatedAt"
+          >
+        >,
+      ) => Promise<unknown>;
+    };
+    marketingSequenceSuppressions: {
+      insert: (item: {
+        orgId: string;
+        recordType: string;
+        recordId: string | null;
+        pattern: string;
+        reason: string;
+      }) => Promise<unknown>;
+    };
+    leads: {
+      // biome-ignore lint/suspicious/noExplicitAny: leads findMany structure
+      findMany: () => Promise<any[]>;
+      // biome-ignore lint/suspicious/noExplicitAny: leads update structure
+      update: (id: string, updates: any) => Promise<any>;
+    };
+    contacts: {
+      // biome-ignore lint/suspicious/noExplicitAny: contacts findMany structure
+      findMany: () => Promise<any[]>;
+      // biome-ignore lint/suspicious/noExplicitAny: contacts update structure
+      update: (id: string, updates: any) => Promise<any>;
+    };
+    auditLogs: {
+      insert: (item: {
+        orgId: string;
+        recordId: string;
+        recordType: string;
+        action: string;
+        userId: string;
+        changes: Record<string, { before: unknown; after: unknown }>;
+      }) => Promise<unknown>;
+    };
+  },
+  eventDetails: {
+    orgId: string;
+    email: string;
+    event: "bounce" | "complaint";
+    reason?: string;
+  },
+): Promise<{ suppressionsCreated: number; membershipsExited: number }> {
+  const { orgId, email, event, reason } = eventDetails;
+
+  // 1. Find matching leads and contacts
+  const leads = await dbStore.leads.findMany();
+  const matchedLeads = leads.filter(
+    (l) =>
+      l.orgId === orgId &&
+      l.email &&
+      l.email.toLowerCase() === email.toLowerCase(),
+  );
+
+  const contacts = await dbStore.contacts.findMany();
+  const matchedContacts = contacts.filter(
+    (c) =>
+      c.orgId === orgId &&
+      c.email &&
+      c.email.toLowerCase() === email.toLowerCase(),
+  );
+
+  let suppressionsCreated = 0;
+
+  // Insert suppression record for every matched lead
+  for (const lead of matchedLeads) {
+    await dbStore.marketingSequenceSuppressions.insert({
+      orgId,
+      recordType: "lead",
+      recordId: lead.id,
+      pattern: email.toLowerCase(),
+      reason: event,
+    });
+    suppressionsCreated++;
+
+    // Update Lead custom field
+    const currentCustom = lead.custom || {};
+    await dbStore.leads.update(lead.id, {
+      custom: {
+        ...currentCustom,
+        email_status: event === "bounce" ? "bounced" : "complained",
+        email_status_reason: reason || null,
+      },
+    });
+  }
+
+  // Insert suppression record for every matched contact
+  for (const contact of matchedContacts) {
+    await dbStore.marketingSequenceSuppressions.insert({
+      orgId,
+      recordType: "contact",
+      recordId: contact.id,
+      pattern: email.toLowerCase(),
+      reason: event,
+    });
+    suppressionsCreated++;
+
+    // Update Contact custom field
+    const currentCustom = contact.custom || {};
+    await dbStore.contacts.update(contact.id, {
+      custom: {
+        ...currentCustom,
+        email_status: event === "bounce" ? "bounced" : "complained",
+        email_status_reason: reason || null,
+      },
+    });
+  }
+
+  // If no lead or contact matched, still create a general suppression record
+  if (matchedLeads.length === 0 && matchedContacts.length === 0) {
+    await dbStore.marketingSequenceSuppressions.insert({
+      orgId,
+      recordType: "email_domain",
+      recordId: null,
+      pattern: email.toLowerCase(),
+      reason: event,
+    });
+    suppressionsCreated++;
+  }
+
+  // 2. Find and update active/snoozed sequence memberships
+  const memberships = await dbStore.marketingSequenceMemberships.findMany();
+  const matchedRecordIds = new Set([
+    ...matchedLeads.map((l) => l.id),
+    ...matchedContacts.map((c) => c.id),
+  ]);
+
+  const membershipsToExit = memberships.filter(
+    (m) =>
+      m.orgId === orgId &&
+      matchedRecordIds.has(m.recordId) &&
+      (m.status === "active" || m.status === "snoozed"),
+  );
+
+  let membershipsExited = 0;
+  for (const m of membershipsToExit) {
+    const originalStatus = m.status;
+    await dbStore.marketingSequenceMemberships.update(m.id, {
+      status: "exited",
+      nextExecutionAt: null as unknown as Date,
+      snoozeUntil: null,
+      snoozeReason: null,
+    });
+
+    membershipsExited++;
+
+    // Write audit log
+    await dbStore.auditLogs.insert({
+      orgId,
+      recordId: m.id,
+      recordType: "marketing_sequence_memberships",
+      action:
+        event === "bounce"
+          ? "membership_exit_bounce"
+          : "membership_exit_complaint",
+      userId: "00000000-0000-0000-0000-000000000000",
+      changes: {
+        status: { before: originalStatus, after: "exited" },
+        nextExecutionAt: {
+          before: m.nextExecutionAt
+            ? m.nextExecutionAt instanceof Date
+              ? m.nextExecutionAt.toISOString()
+              : String(m.nextExecutionAt)
+            : null,
+          after: null,
+        },
+      },
+    });
+  }
+
+  return { suppressionsCreated, membershipsExited };
+}
