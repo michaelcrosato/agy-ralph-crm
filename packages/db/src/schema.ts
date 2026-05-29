@@ -1368,3 +1368,35 @@ export const marketingSequenceConversions = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
 );
+
+export const marketingSequenceSuppressions = pgTable(
+  "marketing_sequence_suppressions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    recordType: text("record_type").notNull(), // "lead" | "contact" | "email_domain"
+    recordId: uuid("record_id"), // optional reference
+    pattern: text("pattern"), // e.g. "competitor.com", "user@domain.com"
+    reason: text("reason").notNull().default("opt_out"), // "opt_out" | "competitor" | "bounce" | "complaint"
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+);
+
+export const marketingSequenceExclusions = pgTable(
+  "marketing_sequence_exclusions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => marketingSequences.id, { onDelete: "cascade" }),
+    exclusionType: text("exclusion_type").notNull(), // "domain" | "segment" | "email"
+    exclusionValue: text("exclusion_value").notNull(), // e.g. "competitor.com", segmentId, "opt@out.com"
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);

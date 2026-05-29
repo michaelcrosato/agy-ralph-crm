@@ -10334,6 +10334,100 @@ app.post("/api/sequences/:id/goals", tenantAuth, async (c) => {
   return c.json({ success: true, data: goal });
 });
 
+app.get("/api/sequences/suppressions", tenantAuth, async (c) => {
+  const suppressions = await dbStore.marketingSequenceSuppressions.findMany();
+  return c.json({ success: true, data: suppressions });
+});
+
+app.post("/api/sequences/suppressions", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { recordType, recordId, pattern, reason } = body;
+
+  if (!recordType) {
+    return c.json({ success: false, error: "Record type is required" }, 400);
+  }
+
+  const suppression = await dbStore.marketingSequenceSuppressions.insert({
+    orgId: tenant.orgId,
+    recordType,
+    recordId: recordId || null,
+    pattern: pattern || null,
+    reason: reason || "opt_out",
+  });
+
+  return c.json({ success: true, data: suppression });
+});
+
+app.delete("/api/sequences/suppressions/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const deleted = await dbStore.marketingSequenceSuppressions.delete(id);
+  if (!deleted) {
+    return c.json(
+      { success: false, error: "Suppression record not found or unauthorized" },
+      404,
+    );
+  }
+  return c.json({ success: true, message: "Suppression removed" });
+});
+
+app.get("/api/sequences/:id/exclusions", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const exclusions =
+    await dbStore.marketingSequenceExclusions.findForSequence(sequenceId);
+  return c.json({ success: true, data: exclusions });
+});
+
+app.post("/api/sequences/:id/exclusions", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { exclusionType, exclusionValue } = body;
+
+  if (!exclusionType || !exclusionValue) {
+    return c.json(
+      { success: false, error: "Exclusion type and value are required" },
+      400,
+    );
+  }
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const exclusion = await dbStore.marketingSequenceExclusions.insert({
+    orgId: tenant.orgId,
+    sequenceId,
+    exclusionType,
+    exclusionValue,
+  });
+
+  return c.json({ success: true, data: exclusion });
+});
+
+app.delete(
+  "/api/sequences/:id/exclusions/:exclusionId",
+  tenantAuth,
+  async (c) => {
+    const exclusionId = c.req.param("exclusionId");
+    const deleted =
+      await dbStore.marketingSequenceExclusions.delete(exclusionId);
+    if (!deleted) {
+      return c.json(
+        { success: false, error: "Exclusion rule not found or unauthorized" },
+        404,
+      );
+    }
+    return c.json({ success: true, message: "Exclusion removed" });
+  },
+);
+
 app.get("/api/sequences/:id/conversion-analytics", tenantAuth, async (c) => {
   const sequenceId = c.req.param("id");
   const seq = await dbStore.marketingSequences.findOne(sequenceId);

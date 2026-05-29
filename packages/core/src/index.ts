@@ -3989,6 +3989,26 @@ export interface CoreSequenceConversion {
   createdAt: Date;
 }
 
+export interface CoreSequenceSuppression {
+  id: string;
+  orgId: string;
+  recordType: string;
+  recordId: string | null;
+  pattern: string | null;
+  reason: string;
+  createdAt: Date;
+}
+
+export interface CoreSequenceExclusion {
+  id: string;
+  orgId: string;
+  sequenceId: string;
+  exclusionType: string;
+  exclusionValue: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export function shouldExitSequence(params: {
   recordType: "lead" | "contact";
   lead: Record<string, unknown> | null | undefined;
@@ -4027,6 +4047,101 @@ export function shouldExitSequence(params: {
   return false;
 }
 
+export async function isRecordSuppressedOrExcluded(params: {
+  orgId: string;
+  sequenceId: string;
+  recordType: "lead" | "contact";
+  recordId: string;
+  email: string | null | undefined;
+  dbStore: {
+    marketingSequenceSuppressions: {
+      findForOrg: (orgId: string) => Promise<CoreSequenceSuppression[]>;
+    };
+    marketingSequenceExclusions: {
+      findForSequence: (sequenceId: string) => Promise<CoreSequenceExclusion[]>;
+    };
+    marketingSegmentMemberships?: {
+      findForRecord: (
+        recordType: string,
+        recordId: string,
+      ) => Promise<{ segmentId: string }[]>;
+    };
+  };
+}): Promise<{ suppressed: boolean; reason: string | null }> {
+  const emailVal = params.email?.trim().toLowerCase();
+  const domainVal = emailVal ? emailVal.split("@")[1] : null;
+
+  // 1. Check Global Suppressions
+  const suppressions =
+    await params.dbStore.marketingSequenceSuppressions.findForOrg(params.orgId);
+  for (const s of suppressions) {
+    if (s.recordType === params.recordType && s.recordId === params.recordId) {
+      return {
+        suppressed: true,
+        reason: `Global suppression list match for ${params.recordType} ID ${params.recordId} (${s.reason})`,
+      };
+    }
+    if (s.recordType === "email_domain" && s.pattern) {
+      const patternLower = s.pattern.trim().toLowerCase();
+      if (emailVal === patternLower || domainVal === patternLower) {
+        return {
+          suppressed: true,
+          reason: `Global suppression list match for pattern ${s.pattern} (${s.reason})`,
+        };
+      }
+    }
+  }
+
+  // 2. Check Sequence Exclusions
+  const exclusions =
+    await params.dbStore.marketingSequenceExclusions.findForSequence(
+      params.sequenceId,
+    );
+  if (exclusions.length > 0) {
+    let recordSegments: string[] = [];
+    if (params.dbStore.marketingSegmentMemberships) {
+      const memberships =
+        await params.dbStore.marketingSegmentMemberships.findForRecord(
+          params.recordType,
+          params.recordId,
+        );
+      recordSegments = memberships.map((m) => m.segmentId);
+    }
+
+    for (const ex of exclusions) {
+      if (
+        ex.exclusionType === "email" &&
+        emailVal === ex.exclusionValue.trim().toLowerCase()
+      ) {
+        return {
+          suppressed: true,
+          reason: `Sequence exclusion rule: specific email ${ex.exclusionValue}`,
+        };
+      }
+      if (
+        ex.exclusionType === "domain" &&
+        domainVal === ex.exclusionValue.trim().toLowerCase()
+      ) {
+        return {
+          suppressed: true,
+          reason: `Sequence exclusion rule: email domain ${ex.exclusionValue}`,
+        };
+      }
+      if (
+        ex.exclusionType === "segment" &&
+        recordSegments.includes(ex.exclusionValue)
+      ) {
+        return {
+          suppressed: true,
+          reason: `Sequence exclusion rule: member of excluded segment ${ex.exclusionValue}`,
+        };
+      }
+    }
+  }
+
+  return { suppressed: false, reason: null };
+}
+
 export async function enrollInSequence(
   dbStore: {
     marketingSequenceSteps: {
@@ -4037,12 +4152,62 @@ export async function enrollInSequence(
         item: Omit<CoreSequenceMembership, "id" | "createdAt" | "updatedAt">,
       ) => Promise<CoreSequenceMembership>;
     };
+    leads?: {
+      findOne: (id: string) => Promise<unknown | null>;
+    };
+    contacts?: {
+      findOne: (id: string) => Promise<unknown | null>;
+    };
+    marketingSequenceSuppressions?: {
+      findForOrg: (orgId: string) => Promise<CoreSequenceSuppression[]>;
+    };
+    marketingSequenceExclusions?: {
+      findForSequence: (sequenceId: string) => Promise<CoreSequenceExclusion[]>;
+    };
+    marketingSegmentMemberships?: {
+      findForRecord: (
+        recordType: string,
+        recordId: string,
+      ) => Promise<{ segmentId: string }[]>;
+    };
   },
   orgId: string,
   sequenceId: string,
   recordType: "lead" | "contact",
   recordId: string,
 ): Promise<CoreSequenceMembership> {
+  let email: string | undefined;
+  if (dbStore.leads && recordType === "lead") {
+    const lead = (await dbStore.leads.findOne(recordId)) as Record<
+      string,
+      unknown
+    > | null;
+    if (lead) email = lead.email as string | undefined;
+  } else if (dbStore.contacts && recordType === "contact") {
+    const contact = (await dbStore.contacts.findOne(recordId)) as Record<
+      string,
+      unknown
+    > | null;
+    if (contact) email = contact.email as string | undefined;
+  }
+
+  let isSuppressed = false;
+  if (
+    dbStore.marketingSequenceSuppressions &&
+    dbStore.marketingSequenceExclusions
+  ) {
+    const suppResult = await isRecordSuppressedOrExcluded({
+      orgId,
+      sequenceId,
+      recordType,
+      recordId,
+      email,
+      // biome-ignore lint/suspicious/noExplicitAny: dbStore type alignment
+      dbStore: dbStore as any,
+    });
+    isSuppressed = suppResult.suppressed;
+  }
+
   const steps =
     await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
   const firstStep = steps.find((s) => s.stepNumber === 1);
@@ -4056,7 +4221,7 @@ export async function enrollInSequence(
     sequenceId,
     recordType,
     recordId,
-    status: "active",
+    status: isSuppressed ? "suppressed" : "active",
     currentStepNumber: 0,
     lastExecutedAt: null,
     nextExecutionAt,
@@ -4308,6 +4473,18 @@ export async function executePendingSequenceSteps(
         convertedAt: Date;
       }) => Promise<CoreSequenceConversion>;
     };
+    marketingSequenceSuppressions?: {
+      findForOrg: (orgId: string) => Promise<CoreSequenceSuppression[]>;
+    };
+    marketingSequenceExclusions?: {
+      findForSequence: (sequenceId: string) => Promise<CoreSequenceExclusion[]>;
+    };
+    marketingSegmentMemberships?: {
+      findForRecord: (
+        recordType: string,
+        recordId: string,
+      ) => Promise<{ segmentId: string }[]>;
+    };
   },
   currentTime: Date = new Date(),
 ): Promise<number> {
@@ -4338,6 +4515,45 @@ export async function executePendingSequenceSteps(
       const contact = await dbStore.contacts.findOne(membership.recordId);
       if (contact) {
         recipientContext = { contact: contact as Record<string, unknown> };
+      }
+    }
+
+    if (
+      dbStore.marketingSequenceSuppressions &&
+      dbStore.marketingSequenceExclusions
+    ) {
+      const recordEmail =
+        membership.recordType === "lead"
+          ? (recipientContext.lead?.email as string | undefined)
+          : (recipientContext.contact?.email as string | undefined);
+      const suppressionStatus = await isRecordSuppressedOrExcluded({
+        orgId,
+        sequenceId: membership.sequenceId,
+        recordType: membership.recordType,
+        recordId: membership.recordId,
+        email: recordEmail,
+        // biome-ignore lint/suspicious/noExplicitAny: dbStore type alignment
+        dbStore: dbStore as any,
+      });
+
+      if (suppressionStatus.suppressed) {
+        await dbStore.marketingSequenceMemberships.update(membership.id, {
+          status: "suppressed",
+        });
+
+        await dbStore.auditLogs.insert({
+          orgId,
+          recordId: membership.id,
+          recordType: "marketing_sequence_memberships",
+          action: "membership_suppressed",
+          userId: "00000000-0000-0000-0000-000000000000",
+          changes: {
+            status: { before: "active", after: "suppressed" },
+          },
+        });
+
+        processedCount++;
+        continue;
       }
     }
 
