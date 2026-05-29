@@ -680,3 +680,138 @@ export function calculateStageVelocity(
 
   return result;
 }
+
+export type FieldResolutionSource = "master" | "duplicate";
+
+export interface MergeLeadsInput {
+  master: LeadRecord;
+  duplicate: LeadRecord;
+  fieldResolution: Record<string, FieldResolutionSource>;
+}
+
+export function calculateLeadDuplicates(
+  sourceLead: LeadRecord,
+  allLeads: LeadRecord[],
+): LeadRecord[] {
+  if (!sourceLead.orgId) return [];
+
+  const publicDomains = new Set([
+    "gmail.com",
+    "yahoo.com",
+    "outlook.com",
+    "hotmail.com",
+    "aol.com",
+    "icloud.com",
+    "zoho.com",
+    "proton.me",
+    "mail.com",
+  ]);
+
+  const getEmailDomain = (email: string | null): string | null => {
+    if (!email) return null;
+    const parts = email.trim().toLowerCase().split("@");
+    if (parts.length < 2) return null;
+    return parts[1];
+  };
+
+  const cleanString = (val: string | null): string => {
+    return val ? val.trim().toLowerCase() : "";
+  };
+
+  const sourceEmail = cleanString(sourceLead.email);
+  const sourceCompany = cleanString(sourceLead.company);
+  const sourceDomain = getEmailDomain(sourceLead.email);
+
+  return allLeads.filter((lead) => {
+    // 1. Same active organization
+    if (lead.orgId !== sourceLead.orgId) return false;
+    // 2. Different ID
+    if (lead.id === sourceLead.id) return false;
+
+    const leadEmail = cleanString(lead.email);
+    const leadCompany = cleanString(lead.company);
+    const leadDomain = getEmailDomain(lead.email);
+
+    // Rule A: Exact email match
+    if (sourceEmail && leadEmail && sourceEmail === leadEmail) {
+      return true;
+    }
+
+    // Rule B: Company match AND same non-public email domain
+    if (
+      sourceCompany &&
+      leadCompany &&
+      sourceCompany === leadCompany &&
+      sourceDomain &&
+      leadDomain &&
+      sourceDomain === leadDomain &&
+      !publicDomains.has(sourceDomain)
+    ) {
+      return true;
+    }
+
+    return false;
+  });
+}
+
+export function mergeLeads(input: MergeLeadsInput): LeadRecord {
+  const { master, duplicate, fieldResolution } = input;
+
+  if (master.orgId !== duplicate.orgId) {
+    throw new Error("Cannot merge leads from different organizations.");
+  }
+
+  const resolveField = <T>(
+    fieldName: string,
+    masterValue: T,
+    duplicateValue: T,
+  ): T => {
+    const source = fieldResolution[fieldName];
+    if (source === "duplicate") {
+      return duplicateValue;
+    }
+    return masterValue;
+  };
+
+  const email = resolveField("email", master.email, duplicate.email);
+  const company = resolveField("company", master.company, duplicate.company);
+  const status = resolveField("status", master.status, duplicate.status);
+
+  // Merge custom JSONB attributes
+  const custom: Record<string, unknown> = {};
+
+  const masterCustom = master.custom || {};
+  const duplicateCustom = duplicate.custom || {};
+
+  const allCustomKeys = new Set([
+    ...Object.keys(masterCustom),
+    ...Object.keys(duplicateCustom),
+  ]);
+
+  for (const key of allCustomKeys) {
+    const masterVal = masterCustom[key];
+    const duplicateVal = duplicateCustom[key];
+
+    if (key in masterCustom && !(key in duplicateCustom)) {
+      custom[key] = masterVal;
+    } else if (!(key in masterCustom) && key in duplicateCustom) {
+      custom[key] = duplicateVal;
+    } else {
+      // Key is in both: resolve based on "custom.key" or generic master/duplicate resolution
+      const resolutionKey = `custom.${key}`;
+      const source =
+        fieldResolution[resolutionKey] || fieldResolution.custom || "master";
+      custom[key] = source === "duplicate" ? duplicateVal : masterVal;
+    }
+  }
+
+  return {
+    id: master.id,
+    orgId: master.orgId,
+    ownerId: master.ownerId,
+    status,
+    email,
+    company,
+    custom: Object.keys(custom).length > 0 ? custom : null,
+  };
+}

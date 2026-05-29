@@ -521,6 +521,16 @@ export const dbStore = {
       store.leads[index] = { ...store.leads[index], ...updates };
       return store.leads[index];
     },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.leads.findIndex((l) => l.id === id);
+      if (index === -1) return false;
+      if (store.leads[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.leads.splice(index, 1);
+      return true;
+    },
   },
   accounts: {
     findMany: async () => {

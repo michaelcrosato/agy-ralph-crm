@@ -6,6 +6,7 @@ import {
 import {
   calculateCPQPrice,
   calculateCampaignStats,
+  calculateLeadDuplicates,
   calculateOpportunityCommission,
   calculateOpportunitySplits,
   calculateProRatedAmount,
@@ -13,11 +14,12 @@ import {
   convertLead,
   evaluateLeadAssignment,
   evaluateTerritoryRouting,
+  mergeLeads,
   rollupOpportunityAmount,
   validateEmailLogInput,
   validateOpportunityApprovalSubmission,
 } from "@crm/core";
-import { dbStore, mockDb, withTenant } from "@crm/db";
+import { dbStore, mockDb, store, withTenant } from "@crm/db";
 import { compileTemplate } from "@crm/documents";
 import { compileForecastSummary } from "@crm/forecasting";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
@@ -383,6 +385,116 @@ app.get("/api/leads/:id", tenantAuth, async (c) => {
     return c.json({ error: "Lead not found" }, 404);
   }
   return c.json({ success: true, data: lead });
+});
+
+app.get("/api/leads/:id/duplicates", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const sourceLead = await dbStore.leads.findOne(id);
+  if (!sourceLead) {
+    return c.json({ error: "Lead not found" }, 404);
+  }
+  const allLeads = await dbStore.leads.findMany();
+  const duplicates = calculateLeadDuplicates(sourceLead, allLeads);
+  return c.json({ success: true, data: duplicates });
+});
+
+app.post("/api/leads/:id/merge", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { duplicateId, fieldResolution } = body;
+
+  if (!duplicateId || !fieldResolution) {
+    return c.json(
+      { error: "Missing duplicateId or fieldResolution parameters" },
+      400,
+    );
+  }
+
+  const master = await dbStore.leads.findOne(id);
+  const duplicate = await dbStore.leads.findOne(duplicateId);
+
+  if (!master || !duplicate) {
+    return c.json({ error: "Master or duplicate lead not found" }, 404);
+  }
+
+  if (master.orgId !== tenant.orgId || duplicate.orgId !== tenant.orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+
+  // Perform core merge logic
+  const mergedLead = mergeLeads({ master, duplicate, fieldResolution });
+
+  // Update master lead
+  const updatedMaster = await dbStore.leads.update(id, {
+    email: mergedLead.email,
+    company: mergedLead.company,
+    status: mergedLead.status,
+    custom: mergedLead.custom,
+  });
+
+  if (!updatedMaster) {
+    return c.json({ error: "Failed to update master lead" }, 500);
+  }
+
+  // Consolidate activity links
+  for (const link of store.activityLinks) {
+    if (
+      link.orgId === tenant.orgId &&
+      link.targetType === "Lead" &&
+      link.targetId === duplicateId
+    ) {
+      link.targetId = id;
+    }
+  }
+
+  // Consolidate campaign memberships
+  const duplicateMemberships = store.campaignMembers.filter(
+    (m) => m.orgId === tenant.orgId && m.leadId === duplicateId,
+  );
+
+  for (const dupMember of duplicateMemberships) {
+    const masterAlreadyInCampaign = store.campaignMembers.some(
+      (m) =>
+        m.orgId === tenant.orgId &&
+        m.campaignId === dupMember.campaignId &&
+        m.leadId === id,
+    );
+    if (masterAlreadyInCampaign) {
+      // Delete duplicate campaign member
+      const idx = store.campaignMembers.findIndex((m) => m.id === dupMember.id);
+      if (idx !== -1) {
+        store.campaignMembers.splice(idx, 1);
+      }
+    } else {
+      // Update leadId to master ID
+      dupMember.leadId = id;
+    }
+  }
+
+  // Delete duplicate lead
+  await dbStore.leads.delete(duplicateId);
+
+  // Log audit log for master lead update
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "Lead",
+    action: "update",
+    userId: tenant.userId,
+    changes: {
+      merge: { before: duplicateId, after: "merged_into_master" },
+    },
+  });
+
+  // Trigger outbound webhook lead.merged
+  triggerOutboundWebhooks(tenant.orgId, "lead.merged", {
+    leadId: id,
+    mergedLeadId: duplicateId,
+    finalLead: updatedMaster,
+  });
+
+  return c.json({ success: true, data: updatedMaster });
 });
 
 app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
