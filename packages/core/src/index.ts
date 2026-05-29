@@ -114,3 +114,58 @@ export function calculateProRatedAmount(input: ProRateInput): string {
     price * input.quantity * (input.daysUsed / input.daysInPeriod);
   return rawAmount.toFixed(2);
 }
+
+export interface DiscountTier {
+  minQuantity: number;
+  discountPercentage: number;
+}
+
+export interface CPQProductConfig {
+  unitPrice: string;
+  quantity: number;
+  discountTiers?: DiscountTier[];
+  customDiscountPercentage?: number;
+}
+
+export interface CPQPriceCalculation {
+  subtotal: string;
+  discountAmount: string;
+  totalPrice: string;
+}
+
+export function calculateCPQPrice(
+  config: CPQProductConfig,
+): CPQPriceCalculation {
+  const price = Number.parseFloat(config.unitPrice) || 0;
+  const qty = config.quantity;
+  const subtotalVal = price * qty;
+
+  let discountPct = 0;
+  if (config.discountTiers && config.discountTiers.length > 0) {
+    const sortedTiers = [...config.discountTiers].sort(
+      (a, b) => b.minQuantity - a.minQuantity,
+    );
+    const matchedTier = sortedTiers.find((tier) => qty >= tier.minQuantity);
+    if (matchedTier) {
+      discountPct = matchedTier.discountPercentage;
+    }
+  } else {
+    // Default tiering rules if not provided
+    if (qty >= 100) discountPct = 20;
+    else if (qty >= 50) discountPct = 15;
+    else if (qty >= 10) discountPct = 10;
+  }
+
+  if (config.customDiscountPercentage !== undefined) {
+    discountPct = Math.max(discountPct, config.customDiscountPercentage);
+  }
+
+  const discountVal = subtotalVal * (discountPct / 100);
+  const totalVal = subtotalVal - discountVal;
+
+  return {
+    subtotal: subtotalVal.toFixed(2),
+    discountAmount: discountVal.toFixed(2),
+    totalPrice: totalVal.toFixed(2),
+  };
+}
