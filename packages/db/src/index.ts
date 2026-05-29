@@ -577,6 +577,7 @@ export interface DBMarketingSequence {
   sendingDays?: number[] | null;
   allowReenrollment?: boolean | null;
   reenrollmentMinDays?: number | null;
+  dailySendLimit?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

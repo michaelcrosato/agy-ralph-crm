@@ -3899,6 +3899,7 @@ interface CoreSequence {
   sendingDays?: number[] | null;
   allowReenrollment?: boolean | null;
   reenrollmentMinDays?: number | null;
+  dailySendLimit?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4752,6 +4753,26 @@ export async function executePendingSequenceSteps(
 ): Promise<number> {
   const memberships = await dbStore.marketingSequenceMemberships.findMany();
 
+  const sequenceSendsToday = new Map<string, number>();
+
+  function isSameDay(d1: Date, d2: Date): boolean {
+    return (
+      d1.getFullYear() === d2.getFullYear() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getDate() === d2.getDate()
+    );
+  }
+
+  for (const m of memberships) {
+    if (
+      m.lastExecutedAt &&
+      isSameDay(new Date(m.lastExecutedAt), currentTime)
+    ) {
+      const count = sequenceSendsToday.get(m.sequenceId) || 0;
+      sequenceSendsToday.set(m.sequenceId, count + 1);
+    }
+  }
+
   // Auto-resume memberships whose snooze period has expired
   for (const m of memberships) {
     if (
@@ -4850,6 +4871,41 @@ export async function executePendingSequenceSteps(
             },
           });
           continue;
+        }
+
+        const dailyLimit = sequence.dailySendLimit;
+        if (dailyLimit !== undefined && dailyLimit !== null && dailyLimit > 0) {
+          const sentCount = sequenceSendsToday.get(membership.sequenceId) || 0;
+          if (sentCount >= dailyLimit) {
+            const validDeferredTime = new Date(
+              currentTime.getTime() + 24 * 60 * 60 * 1000,
+            );
+            const originalNext = membership.nextExecutionAt;
+            await dbStore.marketingSequenceMemberships.update(membership.id, {
+              nextExecutionAt: validDeferredTime,
+            });
+            await dbStore.auditLogs.insert({
+              orgId: membership.orgId,
+              recordId: membership.id,
+              recordType: "marketing_sequence_memberships",
+              action: "membership_schedule_deferred",
+              userId: "00000000-0000-0000-0000-000000000000",
+              changes: {
+                nextExecutionAt: {
+                  before:
+                    originalNext instanceof Date
+                      ? originalNext.toISOString()
+                      : new Date(originalNext).toISOString(),
+                  after: validDeferredTime.toISOString(),
+                },
+                throttle_reason: {
+                  before: null,
+                  after: `Daily sending throttle reached: limit is ${dailyLimit}`,
+                },
+              },
+            });
+            continue;
+          }
         }
       }
     }
@@ -5205,6 +5261,9 @@ export async function executePendingSequenceSteps(
         status: { before: membership.status, after: nextStatus },
       },
     });
+
+    const count = sequenceSendsToday.get(membership.sequenceId) || 0;
+    sequenceSendsToday.set(membership.sequenceId, count + 1);
 
     processedCount++;
   }

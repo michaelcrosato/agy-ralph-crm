@@ -9828,11 +9828,29 @@ app.get("/api/public/emails/unsubscribe/:token", async (c) => {
 app.post("/api/sequences", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
-  const { name, description, status, allowReenrollment, reenrollmentMinDays } =
-    body;
+  const {
+    name,
+    description,
+    status,
+    allowReenrollment,
+    reenrollmentMinDays,
+    dailySendLimit,
+  } = body;
 
   if (!name) {
     return c.json({ success: false, error: "Sequence name is required" }, 400);
+  }
+
+  let parsedLimit: number | null = null;
+  if (dailySendLimit !== undefined && dailySendLimit !== null) {
+    const num = Number(dailySendLimit);
+    if (!Number.isInteger(num) || num <= 0) {
+      return c.json(
+        { success: false, error: "dailySendLimit must be a positive integer" },
+        400,
+      );
+    }
+    parsedLimit = num;
   }
 
   const seq = await dbStore.marketingSequences.insert({
@@ -9844,6 +9862,7 @@ app.post("/api/sequences", tenantAuth, async (c) => {
     reenrollmentMinDays: reenrollmentMinDays
       ? Number(reenrollmentMinDays)
       : null,
+    dailySendLimit: parsedLimit,
   });
 
   return c.json({ success: true, sequence: seq });
@@ -10695,7 +10714,8 @@ app.post("/api/sequences/:id/schedule", tenantAuth, async (c) => {
   const sequenceId = c.req.param("id");
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
-  const { sendingWindowStart, sendingWindowEnd, sendingDays } = body;
+  const { sendingWindowStart, sendingWindowEnd, sendingDays, dailySendLimit } =
+    body;
 
   const sequence = await dbStore.marketingSequences.findOne(sequenceId);
   if (!sequence || sequence.orgId !== tenant.orgId) {
@@ -10744,9 +10764,29 @@ app.post("/api/sequences/:id/schedule", tenantAuth, async (c) => {
     }
   }
 
+  let parsedLimit: number | null = sequence.dailySendLimit || null;
+  if (dailySendLimit !== undefined) {
+    if (dailySendLimit === null) {
+      parsedLimit = null;
+    } else {
+      const num = Number(dailySendLimit);
+      if (!Number.isInteger(num) || num <= 0) {
+        return c.json(
+          {
+            success: false,
+            error: "dailySendLimit must be a positive integer",
+          },
+          400,
+        );
+      }
+      parsedLimit = num;
+    }
+  }
+
   const originalWindowStart = sequence.sendingWindowStart;
   const originalWindowEnd = sequence.sendingWindowEnd;
   const originalDays = sequence.sendingDays;
+  const originalLimit = sequence.dailySendLimit;
 
   const updated = await dbStore.marketingSequences.update(sequenceId, {
     sendingWindowStart:
@@ -10756,6 +10796,7 @@ app.post("/api/sequences/:id/schedule", tenantAuth, async (c) => {
     sendingWindowEnd:
       sendingWindowEnd !== undefined ? sendingWindowEnd : originalWindowEnd,
     sendingDays: sendingDays !== undefined ? sendingDays : originalDays,
+    dailySendLimit: dailySendLimit !== undefined ? parsedLimit : originalLimit,
   });
 
   await dbStore.auditLogs.insert({
@@ -10771,6 +10812,7 @@ app.post("/api/sequences/:id/schedule", tenantAuth, async (c) => {
       },
       sendingWindowEnd: { before: originalWindowEnd, after: sendingWindowEnd },
       sendingDays: { before: originalDays, after: sendingDays },
+      dailySendLimit: { before: originalLimit, after: parsedLimit },
     },
   });
 

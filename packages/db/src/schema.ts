@@ -1199,6 +1199,7 @@ export const marketingSequences = pgTable("marketing_sequences", {
   sendingDays: jsonb("sending_days"),
   allowReenrollment: boolean("allow_reenrollment").notNull().default(false),
   reenrollmentMinDays: integer("reenrollment_min_days"),
+  dailySendLimit: integer("daily_send_limit"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
