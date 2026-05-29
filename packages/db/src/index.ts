@@ -619,6 +619,19 @@ export interface DBOpportunityStageDurationRule {
   updatedAt: Date;
 }
 
+export interface DBContactConsentPreference {
+  id: string;
+  orgId: string;
+  recordType: "lead" | "contact";
+  recordId: string;
+  channel: "email" | "sms" | "phone";
+  status: "opt_in" | "opt_out" | "pending";
+  source: string;
+  updatedById: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -673,6 +686,7 @@ export const store = {
   stageGuidance: [] as DBStageGuidance[],
   leadAutoConversionRules: [] as DBLeadAutoConversionRule[],
   opportunityStageDurationRules: [] as DBOpportunityStageDurationRule[],
+  contactConsentPreferences: [] as DBContactConsentPreference[],
 };
 
 export const dbStore = {
@@ -2900,6 +2914,54 @@ export const dbStore = {
       return newRule;
     },
   },
+  contactConsentPreferences: {
+    findMany: async (recordType?: "lead" | "contact", recordId?: string) => {
+      const orgId = getActiveOrgId();
+      return store.contactConsentPreferences.filter(
+        (p) =>
+          p.orgId === orgId &&
+          (!recordType || p.recordType === recordType) &&
+          (!recordId || p.recordId === recordId),
+      );
+    },
+    upsert: async (
+      preference: Omit<
+        DBContactConsentPreference,
+        "id" | "createdAt" | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (preference.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const existingIndex = store.contactConsentPreferences.findIndex(
+        (x) =>
+          x.recordType === preference.recordType &&
+          x.recordId === preference.recordId &&
+          x.channel === preference.channel &&
+          x.orgId === orgId,
+      );
+      const now = new Date();
+      if (existingIndex > -1) {
+        store.contactConsentPreferences[existingIndex] = {
+          ...store.contactConsentPreferences[existingIndex],
+          status: preference.status,
+          source: preference.source,
+          updatedById: preference.updatedById,
+          updatedAt: now,
+        };
+        return store.contactConsentPreferences[existingIndex];
+      }
+      const newPref: DBContactConsentPreference = {
+        ...preference,
+        id: `consent-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: now,
+        updatedAt: now,
+      };
+      store.contactConsentPreferences.push(newPref);
+      return newPref;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -2955,5 +3017,6 @@ export const dbStore = {
     store.stageGuidance = [];
     store.leadAutoConversionRules = [];
     store.opportunityStageDurationRules = [];
+    store.contactConsentPreferences = [];
   },
 };

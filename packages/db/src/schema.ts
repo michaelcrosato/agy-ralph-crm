@@ -776,3 +776,23 @@ export const opportunityStageDurationRules = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
 );
+
+export const contactConsentPreferences = pgTable(
+  "contact_consent_preferences",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    recordType: text("record_type").notNull(), // "lead" | "contact"
+    recordId: uuid("record_id").notNull(), // UUID reference to Lead or Contact
+    channel: text("channel").notNull(), // "email" | "sms" | "phone"
+    status: text("status").notNull().default("pending"), // "opt_in" | "opt_out" | "pending"
+    source: text("source").notNull(), // e.g. "web_form", "manual", "api"
+    updatedById: uuid("updated_by_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);

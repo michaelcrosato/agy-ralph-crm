@@ -2187,3 +2187,25 @@ export function calculateStalledOpportunities(
 
   return results;
 }
+
+export interface ConsentPreference {
+  recordType: "lead" | "contact";
+  recordId: string;
+  channel: "email" | "sms" | "phone";
+  status: "opt_in" | "opt_out" | "pending";
+}
+
+export interface ConsentValidationInput {
+  channel: "email" | "sms" | "phone";
+  preferences: ConsentPreference[];
+}
+
+export function validateCommunicationConsent(
+  input: ConsentValidationInput,
+): boolean {
+  const matchingRule = input.preferences.find(
+    (p) => p.channel === input.channel,
+  );
+  if (!matchingRule) return false;
+  return matchingRule.status === "opt_in";
+}
