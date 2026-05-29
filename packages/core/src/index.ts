@@ -3837,6 +3837,112 @@ export interface EmailTemplateInput {
   body: string;
 }
 
+export function personalizeEmailTemplate(
+  template: EmailTemplateInput,
+  context: {
+    lead?: Record<string, unknown> | null;
+    account?: Record<string, unknown> | null;
+    contact?: Record<string, unknown> | null;
+    opportunity?: Record<string, unknown> | null;
+  },
+): { subject: string; body: string } {
+  const resolvePathValue = (path: string): string => {
+    const parts = path.split(".");
+    if (parts.length < 2) return "";
+
+    const objName = parts[0].toLowerCase();
+    const fieldPath = parts.slice(1).join(".");
+
+    let record: Record<string, unknown> | undefined;
+    if (objName === "lead") {
+      record = (context.lead || undefined) as
+        | Record<string, unknown>
+        | undefined;
+    } else if (objName === "account") {
+      record = (context.account || undefined) as
+        | Record<string, unknown>
+        | undefined;
+    } else if (objName === "contact") {
+      record = (context.contact || undefined) as
+        | Record<string, unknown>
+        | undefined;
+    } else if (objName === "opportunity") {
+      record = (context.opportunity || undefined) as
+        | Record<string, unknown>
+        | undefined;
+    }
+
+    if (!record) return "";
+
+    const val = getFieldValue(record, fieldPath);
+    if (val === undefined || val === null) return "";
+    return String(val);
+  };
+
+  const evalCondition = (path: string): boolean => {
+    const val = resolvePathValue(path);
+    return val !== "" && val !== "[N/A]" && val !== "false";
+  };
+
+  const processText = (text: string): string => {
+    if (!text) return "";
+
+    let processed = text;
+
+    // 1. Resolve conditional blocks {% if path %}true{% else %}false{% endif %}
+    const ifElseRegex =
+      /\{%\s*if\s+([A-Za-z0-9._]+)\s*%\}([\s\S]*?)\{%\s*else\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g;
+    processed = processed.replace(
+      ifElseRegex,
+      (match, condPath, trueVal, falseVal) => {
+        return evalCondition(condPath) ? trueVal : falseVal;
+      },
+    );
+
+    const ifRegex =
+      /\{%\s*if\s+([A-Za-z0-9._]+)\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g;
+    processed = processed.replace(ifRegex, (match, condPath, trueVal) => {
+      return evalCondition(condPath) ? trueVal : "";
+    });
+
+    // 2. Resolve placeholders {{path.to.field | filter1 | filter2}}
+    processed = processed.replace(
+      /\{\{\s*([A-Za-z0-9._]+)(?:\s*\|\s*([^}]+))?\s*\}\}/g,
+      (match, pathStr: string, filtersStr: string | undefined) => {
+        let resolved = resolvePathValue(pathStr);
+
+        if (filtersStr) {
+          const filters = filtersStr.split("|").map((f) => f.trim());
+          for (const filter of filters) {
+            if (filter.startsWith("default")) {
+              const defaultMatch = filter.match(/default\((["'])(.*?)\1\)/);
+              if (defaultMatch) {
+                const fallback = defaultMatch[2];
+                if (!resolved || resolved === "[N/A]") {
+                  resolved = fallback;
+                }
+              }
+            } else if (filter === "uppercase") {
+              resolved = resolved.toUpperCase();
+            } else if (filter === "lowercase") {
+              resolved = resolved.toLowerCase();
+            }
+          }
+        }
+
+        return resolved;
+      },
+    );
+
+    return processed;
+  };
+
+  return {
+    subject: processText(template.subject),
+    body: processText(template.body),
+  };
+}
+
 export function compileEmailTemplate(
   template: EmailTemplateInput,
   context: {
@@ -3846,46 +3952,7 @@ export function compileEmailTemplate(
     opportunity?: Record<string, unknown> | null;
   },
 ): { subject: string; body: string } {
-  const replacePlaceholders = (text: string): string => {
-    return text.replace(/\{\{([A-Za-z0-9.]+)\}\}/g, (match, path: string) => {
-      const parts = path.split(".");
-      if (parts.length < 2) return match;
-
-      const objName = parts[0].toLowerCase();
-      const fieldPath = parts.slice(1).join(".");
-
-      let record: Record<string, unknown> | undefined;
-      if (objName === "lead") {
-        record = (context.lead || undefined) as
-          | Record<string, unknown>
-          | undefined;
-      } else if (objName === "account") {
-        record = (context.account || undefined) as
-          | Record<string, unknown>
-          | undefined;
-      } else if (objName === "contact") {
-        record = (context.contact || undefined) as
-          | Record<string, unknown>
-          | undefined;
-      } else if (objName === "opportunity") {
-        record = (context.opportunity || undefined) as
-          | Record<string, unknown>
-          | undefined;
-      }
-
-      if (!record) return "";
-
-      const val = getFieldValue(record, fieldPath);
-      if (val === undefined || val === null) return "";
-
-      return String(val);
-    });
-  };
-
-  return {
-    subject: replacePlaceholders(template.subject),
-    body: replacePlaceholders(template.body),
-  };
+  return personalizeEmailTemplate(template, context);
 }
 
 interface CoreSequence {

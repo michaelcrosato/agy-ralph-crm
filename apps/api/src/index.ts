@@ -10642,6 +10642,67 @@ app.post("/api/sequences/execute", tenantAuth, async (c) => {
   return c.json({ success: true, processedCount: processed });
 });
 
+app.post("/api/sequences/preview", tenantAuth, async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { subject, body: bodyText, recordType, recordId } = body;
+
+  if (!subject && !bodyText) {
+    return c.json(
+      { success: false, error: "Subject or body is required" },
+      400,
+    );
+  }
+  if (!recordType || !recordId) {
+    return c.json(
+      { success: false, error: "recordType and recordId are required" },
+      400,
+    );
+  }
+  if (recordType !== "lead" && recordType !== "contact") {
+    return c.json(
+      { success: false, error: "recordType must be lead or contact" },
+      400,
+    );
+  }
+
+  let record: Record<string, unknown> | null = null;
+  if (recordType === "lead") {
+    record = (await dbStore.leads.findOne(recordId)) as Record<
+      string,
+      unknown
+    > | null;
+  } else if (recordType === "contact") {
+    record = (await dbStore.contacts.findOne(recordId)) as Record<
+      string,
+      unknown
+    > | null;
+  }
+
+  if (!record) {
+    return c.json({ success: false, error: "Record not found" }, 404);
+  }
+
+  let account: Record<string, unknown> | null = null;
+  if (recordType === "contact" && record.accountId) {
+    account = (await dbStore.accounts.findOne(
+      record.accountId as string,
+    )) as Record<string, unknown> | null;
+  }
+
+  const recipientContext = {
+    lead: recordType === "lead" ? record : null,
+    contact: recordType === "contact" ? record : null,
+    account,
+  };
+
+  const compiled = compileEmailTemplate(
+    { subject: subject || "", body: bodyText || "" },
+    recipientContext,
+  );
+
+  return c.json({ success: true, data: compiled });
+});
+
 app.get("/api/sequences/:id/members", tenantAuth, async (c) => {
   const sequenceId = c.req.param("id");
   const seq = await dbStore.marketingSequences.findOne(sequenceId);
