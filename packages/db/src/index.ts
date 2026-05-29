@@ -1136,6 +1136,15 @@ export interface DBEmailClickEvent {
   createdAt: Date;
 }
 
+export interface DBEmailUnsubscribe {
+  id: string;
+  orgId: string;
+  trackerId: string;
+  reason: string;
+  feedback: string | null;
+  createdAt: Date;
+}
+
 export interface DBForecastAdjustment {
   id: string;
   orgId: string;
@@ -1213,6 +1222,7 @@ export const store = {
   marketingSequenceOpenActions: [] as DBMarketingSequenceOpenAction[],
   marketingSequenceReplyActions: [] as DBMarketingSequenceReplyAction[],
   emailClickEvents: [] as DBEmailClickEvent[],
+  emailUnsubscribes: [] as DBEmailUnsubscribe[],
 
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
@@ -5602,6 +5612,32 @@ export const dbStore = {
     },
   },
 
+  emailUnsubscribes: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.emailUnsubscribes.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.emailUnsubscribes.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (item: Omit<DBEmailUnsubscribe, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBEmailUnsubscribe = {
+        ...item,
+        id: `unsub-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.emailUnsubscribes.push(newItem);
+      return newItem;
+    },
+  },
+
   clear: () => {
     store.marketingSegments = [];
     store.marketingSequences = [];
@@ -5620,6 +5656,7 @@ export const dbStore = {
     store.marketingSequenceOpenActions = [];
     store.marketingSequenceReplyActions = [];
     store.emailClickEvents = [];
+    store.emailUnsubscribes = [];
 
     store.emailTemplates = [];
     store.emailTrackers = [];

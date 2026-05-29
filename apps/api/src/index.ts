@@ -9932,6 +9932,66 @@ app.get("/api/public/emails/unsubscribe/:token", async (c) => {
   return c.body(html);
 });
 
+app.post("/api/public/emails/unsubscribe/:token/reason", async (c) => {
+  const { token } = c.req.param();
+  const body = await c.req.json().catch(() => ({}));
+  const { reason, feedback } = body;
+
+  if (!reason) {
+    return c.json({ success: false, error: "Reason is required" }, 400);
+  }
+
+  const allowedReasons = ["frequency", "relevance", "not_requested", "other"];
+  if (!allowedReasons.includes(reason)) {
+    return c.json({ success: false, error: "Invalid unsubscribe reason" }, 400);
+  }
+
+  const tracker = await dbStore.emailTrackers.findByToken(token);
+  if (!tracker) {
+    return c.json({ success: false, error: "Invalid tracking token" }, 404);
+  }
+
+  const newUnsub = await withTenant(tracker.orgId, mockDb, async () => {
+    const inserted = await dbStore.emailUnsubscribes.insert({
+      orgId: tracker.orgId,
+      trackerId: tracker.id,
+      reason,
+      feedback: feedback || null,
+    });
+
+    // Record audit log
+    await dbStore.auditLogs.insert({
+      orgId: tracker.orgId,
+      recordId: tracker.activityId,
+      recordType: "EmailTracking",
+      action: "unsubscribe_reason",
+      userId: "00000000-0000-0000-0000-000000000000",
+      changes: {
+        reason: {
+          before: null,
+          after: reason,
+        },
+        feedback: {
+          before: null,
+          after: feedback || null,
+        },
+      },
+    });
+
+    return inserted;
+  });
+
+  return c.json({ success: true, data: newUnsub });
+});
+
+app.get("/api/unsubscribes", tenantAuth, async (c) => {
+  const unsubs = await dbStore.emailUnsubscribes.findMany();
+  const sorted = unsubs.sort(
+    (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+  );
+  return c.json({ success: true, data: sorted });
+});
+
 // Marketing Sequences & Drip Journeys Endpoints
 
 app.post("/api/sequences", tenantAuth, async (c) => {

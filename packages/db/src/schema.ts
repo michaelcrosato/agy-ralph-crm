@@ -1503,3 +1503,16 @@ export const emailClickEvents = pgTable("email_click_events", {
   utmContent: text("utm_content"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const emailUnsubscribes = pgTable("email_unsubscribes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  trackerId: uuid("tracker_id")
+    .notNull()
+    .references(() => emailTrackers.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(),
+  feedback: text("feedback"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
