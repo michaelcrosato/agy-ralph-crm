@@ -875,6 +875,28 @@ export interface DBPicklistDependency {
   updatedAt: Date;
 }
 
+export interface DBValidationRule {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  objectType: string;
+  errorMessage: string;
+  criteria: {
+    field: string;
+    operator:
+      | "equals"
+      | "not_equal"
+      | "contains"
+      | "greater_than"
+      | "less_than";
+    value: string;
+  }[];
+  isActive: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBForecastAdjustment {
   id: string;
   orgId: string;
@@ -889,6 +911,7 @@ export interface DBForecastAdjustment {
 
 export const store = {
   picklistDependencies: [] as DBPicklistDependency[],
+  validationRules: [] as DBValidationRule[],
   stageForecastMappings: [] as DBStageForecastMapping[],
   forecastAdjustments: [] as DBForecastAdjustment[],
   users: [] as DBUser[],
@@ -4206,8 +4229,66 @@ export const dbStore = {
       return true;
     },
   },
+  validationRules: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.validationRules.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const r = store.validationRules.find((x) => x.id === id);
+      if (r && r.orgId !== orgId) return null;
+      return r || null;
+    },
+    insert: async (
+      r: Omit<DBValidationRule, "id" | "createdAt" | "updatedAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (r.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRule: DBValidationRule = {
+        ...r,
+        id: `valrule-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.validationRules.push(newRule);
+      return newRule;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBValidationRule, "id" | "orgId" | "createdAt" | "updatedAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.validationRules.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      if (store.validationRules[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.validationRules[index] = {
+        ...store.validationRules[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.validationRules[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.validationRules.findIndex((x) => x.id === id);
+      if (index === -1) return false;
+      if (store.validationRules[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.validationRules.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.picklistDependencies = [];
+    store.validationRules = [];
     store.stageForecastMappings = [];
     store.forecastAdjustments = [];
     store.users = [];

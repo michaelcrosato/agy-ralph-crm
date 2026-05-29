@@ -1143,3 +1143,18 @@ export const picklistDependencies = pgTable("picklist_dependencies", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const validationRules = pgTable("validation_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  objectType: text("object_type").notNull(), // "leads" | "accounts" | "contacts" | "opportunities"
+  errorMessage: text("error_message").notNull(),
+  criteria: jsonb("criteria").notNull(), // CriteriaCondition[]
+  isActive: integer("is_active").notNull().default(1), // 0 = inactive, 1 = active
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

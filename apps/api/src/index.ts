@@ -63,6 +63,7 @@ import {
   validateAccountTeamMember,
   validateArticleStatus,
   validateCSATFeedbackInput,
+  validateCustomValidationRules,
   validateEmailLogInput,
   validateInfluencePercentageTotal,
   validateOpportunityApprovalSubmission,
@@ -242,6 +243,17 @@ export async function enforcePicklistDependencies(
   const relevantDeps = deps.filter((d) => d.objectType === objectType);
   if (relevantDeps.length === 0) return { success: true };
   return validatePicklistDependencies(fields, relevantDeps);
+}
+
+// Helper to evaluate custom validation rules validation
+export async function enforceCustomValidationRules(
+  objectType: string,
+  fields: Record<string, unknown>,
+): Promise<{ success: boolean; error?: string }> {
+  const rules = await dbStore.validationRules.findMany();
+  const relevantRules = rules.filter((r) => r.objectType === objectType);
+  if (relevantRules.length === 0) return { success: true };
+  return validateCustomValidationRules(fields, relevantRules);
 }
 
 // Helper to fire outbound webhook notifications asynchronously to all active subscriptions of the tenant
@@ -1100,6 +1112,49 @@ app.delete("/api/metadata/picklist-dependencies/:id", tenantAuth, async (c) => {
   return c.json({ success: true });
 });
 
+app.post("/api/metadata/validation-rules", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, description, objectType, errorMessage, criteria, isActive } =
+    body;
+
+  if (!name || !objectType || !errorMessage || !criteria) {
+    return c.json(
+      { error: "Missing required validation rule parameters" },
+      400,
+    );
+  }
+
+  const rule = await dbStore.validationRules.insert({
+    orgId: tenant.orgId,
+    name,
+    description: description || null,
+    objectType,
+    errorMessage,
+    criteria,
+    isActive: isActive !== undefined ? Number(isActive) : 1,
+  });
+
+  return c.json({ success: true, data: rule });
+});
+
+app.get("/api/metadata/validation-rules", tenantAuth, async (c) => {
+  const rules = await dbStore.validationRules.findMany();
+  return c.json({ success: true, data: rules });
+});
+
+app.delete("/api/metadata/validation-rules/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const deleted = await dbStore.validationRules.delete(id);
+  if (!deleted) {
+    return c.json(
+      { error: "Validation rule not found or tenant mismatch" },
+      404,
+    );
+  }
+  return c.json({ success: true });
+});
+
 app.post("/api/metadata/layouts/:objectType", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const objectType = c.req.param("objectType");
@@ -1763,6 +1818,15 @@ app.post("/api/leads", tenantAuth, async (c) => {
     return c.json({ error: pldValidation.error }, 400);
   }
 
+  // Validate custom validation rules
+  const customValValidation = await enforceCustomValidationRules("leads", {
+    ...body,
+    ...(custom || {}),
+  });
+  if (!customValValidation.success) {
+    return c.json({ error: customValValidation.error }, 400);
+  }
+
   const leadData = {
     orgId: tenant.orgId,
     ownerId: tenant.userId,
@@ -2079,6 +2143,15 @@ app.patch("/api/leads/:id", tenantAuth, async (c) => {
     return c.json({ error: pldValidation.error }, 400);
   }
 
+  // Validate custom validation rules
+  const customValValidation = await enforceCustomValidationRules("leads", {
+    ...combinedForValidation,
+    ...(combinedForValidation.custom || {}),
+  });
+  if (!customValValidation.success) {
+    return c.json({ error: customValValidation.error }, 400);
+  }
+
   const updates: Record<string, unknown> = {};
   if (email !== undefined) updates.email = email;
   if (company !== undefined) updates.company = company;
@@ -2375,6 +2448,15 @@ app.post("/api/accounts", tenantAuth, async (c) => {
     return c.json({ error: pldValidation.error }, 400);
   }
 
+  // Validate custom validation rules
+  const customValValidation = await enforceCustomValidationRules("accounts", {
+    ...body,
+    ...(custom || {}),
+  });
+  if (!customValValidation.success) {
+    return c.json({ error: customValValidation.error }, 400);
+  }
+
   if (parentAccountId) {
     const parent = await dbStore.accounts.findOne(parentAccountId);
     if (!parent) {
@@ -2441,6 +2523,15 @@ app.patch("/api/accounts/:id", tenantAuth, async (c) => {
   });
   if (!pldValidation.success) {
     return c.json({ error: pldValidation.error }, 400);
+  }
+
+  // Validate custom validation rules
+  const customValValidation = await enforceCustomValidationRules("accounts", {
+    ...combinedForValidation,
+    ...(combinedForValidation.custom || {}),
+  });
+  if (!customValValidation.success) {
+    return c.json({ error: customValValidation.error }, 400);
   }
 
   const updates: Partial<Omit<typeof existing, "id" | "orgId" | "ownerId">> =
@@ -2819,6 +2910,15 @@ app.post("/api/contacts", tenantAuth, async (c) => {
     return c.json({ error: pldValidation.error }, 400);
   }
 
+  // Validate custom validation rules
+  const customValValidation = await enforceCustomValidationRules("contacts", {
+    ...body,
+    ...(custom || {}),
+  });
+  if (!customValValidation.success) {
+    return c.json({ error: customValValidation.error }, 400);
+  }
+
   if (reportsToId) {
     const manager = await dbStore.contacts.findOne(reportsToId);
     if (!manager) {
@@ -2878,6 +2978,15 @@ app.patch("/api/contacts/:id", tenantAuth, async (c) => {
   });
   if (!pldValidation.success) {
     return c.json({ error: pldValidation.error }, 400);
+  }
+
+  // Validate custom validation rules
+  const customValValidation = await enforceCustomValidationRules("contacts", {
+    ...combinedForValidation,
+    ...(combinedForValidation.custom || {}),
+  });
+  if (!customValValidation.success) {
+    return c.json({ error: customValValidation.error }, 400);
   }
 
   const updates: Partial<Omit<typeof existing, "id" | "orgId" | "ownerId">> =
@@ -3350,6 +3459,18 @@ app.post("/api/opportunities", tenantAuth, async (c) => {
     return c.json({ error: pldValidation.error }, 400);
   }
 
+  // Validate custom validation rules
+  const customValValidation = await enforceCustomValidationRules(
+    "opportunities",
+    {
+      ...body,
+      ...(body.custom || {}),
+    },
+  );
+  if (!customValValidation.success) {
+    return c.json({ error: customValValidation.error }, 400);
+  }
+
   let localCurrencyCode = currencyCode || "USD";
   let activeExchangeRate = "1.0000";
   const currencyObj = await dbStore.currencies.findByIsoCode(localCurrencyCode);
@@ -3416,6 +3537,18 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
   });
   if (!pldValidation.success) {
     return c.json({ error: pldValidation.error }, 400);
+  }
+
+  // Validate custom validation rules
+  const customValValidation = await enforceCustomValidationRules(
+    "opportunities",
+    {
+      ...combinedForValidation,
+      ...(combinedForValidation.custom || {}),
+    },
+  );
+  if (!customValValidation.success) {
+    return c.json({ error: customValValidation.error }, 400);
   }
 
   const updates: Parameters<typeof dbStore.opportunities.update>[1] = {};
