@@ -27,6 +27,7 @@ import {
   calculateOpportunityCompetitorStats,
   calculateOpportunitySplits,
   calculateProRatedAmount,
+  calculateReplyAnalytics,
   calculateSalesLeaderboard,
   calculateSequenceAnalytics,
   calculateSlaStatus,
@@ -9855,6 +9856,70 @@ app.post("/api/public/emails/track/reply/:token", async (c) => {
         },
       });
 
+      // Record granular reply event
+      const bodyData = await c.req.json().catch(() => ({}));
+      const replyBody = bodyData.replyBody || null;
+      let senderEmail = bodyData.senderEmail;
+
+      // Fallback for senderEmail if not provided: find linked lead/contact email
+      if (!senderEmail) {
+        const allLinks = await dbStore.activityLinks.findMany();
+        const recipientLink = allLinks.find(
+          (l) =>
+            l.activityId === tracker.activityId && l.orgId === tracker.orgId,
+        );
+        if (recipientLink) {
+          if (recipientLink.targetType.toLowerCase() === "lead") {
+            const lead = await dbStore.leads.findOne(recipientLink.targetId);
+            if (lead) senderEmail = lead.email;
+          } else if (recipientLink.targetType.toLowerCase() === "contact") {
+            const contact = await dbStore.contacts.findOne(
+              recipientLink.targetId,
+            );
+            if (contact) senderEmail = contact.email;
+          }
+        }
+      }
+      if (!senderEmail) {
+        senderEmail = "prospect@example.com";
+      }
+
+      // Sentiment categorization
+      let sentiment = "neutral";
+      if (replyBody) {
+        const lowerBody = replyBody.toLowerCase();
+        const positiveKeywords = [
+          "interested",
+          "yes",
+          "please",
+          "great",
+          "thank",
+        ];
+        const negativeKeywords = [
+          "remove",
+          "stop",
+          "unsubscribe",
+          "not interested",
+          "no",
+        ];
+
+        if (negativeKeywords.some((kw) => lowerBody.includes(kw))) {
+          sentiment = "negative";
+        } else if (positiveKeywords.some((kw) => lowerBody.includes(kw))) {
+          sentiment = "positive";
+        }
+      }
+
+      if (dbStore.emailReplyEvents) {
+        await dbStore.emailReplyEvents.insert({
+          orgId: tracker.orgId,
+          trackerId: tracker.id,
+          replyBody,
+          senderEmail,
+          sentiment,
+        });
+      }
+
       // Task 0199: Trigger automated sequence reply actions
       if (dbStore.marketingSequenceReplyActions) {
         await processSequenceEmailReply(
@@ -9866,7 +9931,7 @@ app.post("/api/public/emails/track/reply/:token", async (c) => {
     });
   }
 
-  return c.json({ success: true });
+  return c.json({ success: true, message: "Reply event tracked successfully" });
 });
 
 app.get("/api/public/emails/unsubscribe/:token", async (c) => {
@@ -11725,6 +11790,35 @@ app.get("/api/sequences/:id/opens-analytics", tenantAuth, async (c) => {
 
   const analytics = calculateOpenAnalytics({
     opens,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  });
+
+  return c.json({ success: true, data: analytics });
+});
+
+app.get("/api/sequences/:id/replies-analytics", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const replies = await dbStore.emailReplyEvents.findMany();
+  const trackers = await dbStore.emailTrackers.findMany();
+  const activities = await dbStore.activities.findMany();
+  const activityLinks = await dbStore.activityLinks.findMany();
+  const memberships =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+
+  const analytics = calculateReplyAnalytics({
+    replies,
     trackers,
     activities,
     activityLinks,

@@ -1530,3 +1530,17 @@ export const emailOpenEvents = pgTable("email_open_events", {
   deviceType: text("device_type").notNull().default("desktop"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const emailReplyEvents = pgTable("email_reply_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  trackerId: uuid("tracker_id")
+    .notNull()
+    .references(() => emailTrackers.id, { onDelete: "cascade" }),
+  replyBody: text("reply_body"),
+  senderEmail: text("sender_email").notNull(),
+  sentiment: text("sentiment").notNull().default("neutral"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

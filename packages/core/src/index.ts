@@ -7336,3 +7336,209 @@ export function calculateOpenAnalytics(
     stepOpenRates,
   };
 }
+
+export interface ReplyAnalyticsInput {
+  replies: {
+    id: string;
+    trackerId: string;
+    sentiment: string;
+    orgId: string;
+  }[];
+  trackers: { id: string; activityId: string; orgId: string }[];
+  activities: { id: string; type: string; orgId: string }[];
+  activityLinks: {
+    id: string;
+    activityId: string;
+    targetId: string;
+    targetType: string;
+    orgId: string;
+  }[];
+  memberships: {
+    id: string;
+    sequenceId: string;
+    recordId: string;
+    orgId: string;
+  }[];
+  steps: {
+    id: string;
+    name?: string;
+    stepNumber: number;
+    sequenceId: string;
+    orgId: string;
+  }[];
+  sequenceId: string;
+}
+
+export interface SentimentPerformanceMetric {
+  sentiment: string;
+  replyCount: number;
+  percentage: string;
+}
+
+export interface StepReplyRateMetric {
+  stepId: string;
+  stepName: string;
+  totalSent: number;
+  uniqueReplies: number;
+  replyRate: string;
+}
+
+export interface ReplyAnalyticsResult {
+  totalUniqueReplies: number;
+  totalTrackedReplies: number;
+  replyRate: string;
+  sentimentPerformance: SentimentPerformanceMetric[];
+  stepReplyRates: StepReplyRateMetric[];
+}
+
+export function calculateReplyAnalytics(
+  params: ReplyAnalyticsInput,
+): ReplyAnalyticsResult {
+  const {
+    replies,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  } = params;
+
+  const seqMemberships = memberships.filter((m) => m.sequenceId === sequenceId);
+  const seqSteps = steps.filter((s) => s.sequenceId === sequenceId);
+
+  // 1. Map trackerId -> activityId
+  const trackerToActivity = new Map<string, string>();
+  for (const t of trackers) {
+    trackerToActivity.set(t.id, t.activityId);
+  }
+
+  // 2. Build activityToStep mapping
+  const activityToStep = new Map<string, { id: string; name: string }>();
+  for (const m of seqMemberships) {
+    const linksForRecord = activityLinks.filter(
+      (link) =>
+        link.targetId === m.recordId &&
+        (link.targetType.toLowerCase() === "lead" ||
+          link.targetType.toLowerCase() === "contact"),
+    );
+    const activityIds = linksForRecord.map((l) => l.activityId);
+    const emailActs = activities.filter(
+      (act) => act.type === "email" && activityIds.includes(act.id),
+    );
+    emailActs.sort((a, b) => a.id.localeCompare(b.id));
+
+    emailActs.forEach((act, idx) => {
+      const stepNum = idx + 1;
+      const step = seqSteps.find((s) => s.stepNumber === stepNum);
+      if (step) {
+        activityToStep.set(act.id, {
+          id: step.id,
+          name: step.name || `Step ${step.stepNumber}`,
+        });
+      }
+    });
+  }
+
+  // 3. Count total sent (activities) per step
+  const stepSentCount = new Map<string, number>();
+  for (const step of seqSteps) {
+    stepSentCount.set(step.id, 0);
+  }
+  for (const [actId, stepInfo] of activityToStep.entries()) {
+    stepSentCount.set(stepInfo.id, (stepSentCount.get(stepInfo.id) || 0) + 1);
+  }
+
+  // 4. Group reply events by trackerId to calculate unique replies
+  const uniqueTrackerReplies = new Set<string>();
+  const stepUniqueReplies = new Map<string, Set<string>>();
+  for (const step of seqSteps) {
+    stepUniqueReplies.set(step.id, new Set<string>());
+  }
+
+  const sentimentCounts = new Map<string, number>();
+  let totalTrackedReplies = 0;
+
+  for (const rep of replies) {
+    const activityId = trackerToActivity.get(rep.trackerId);
+    if (activityId) {
+      const stepInfo = activityToStep.get(activityId);
+      if (stepInfo) {
+        // Unique replies globally
+        uniqueTrackerReplies.add(rep.trackerId);
+
+        // Unique replies per step
+        const stepUnique = stepUniqueReplies.get(stepInfo.id);
+        if (stepUnique) {
+          stepUnique.add(rep.trackerId);
+        }
+
+        // Sentiment type counts
+        const sentiment = rep.sentiment || "neutral";
+        sentimentCounts.set(
+          sentiment,
+          (sentimentCounts.get(sentiment) || 0) + 1,
+        );
+
+        totalTrackedReplies++;
+      }
+    }
+  }
+
+  const totalUniqueReplies = uniqueTrackerReplies.size;
+  const totalSentGlobally = Array.from(stepSentCount.values()).reduce(
+    (a, b) => a + b,
+    0,
+  );
+
+  // Calculate sentiment performance breakdown
+  const sentimentPerformance: SentimentPerformanceMetric[] = Array.from(
+    sentimentCounts.entries(),
+  ).map(([sentiment, count]) => ({
+    sentiment,
+    replyCount: count,
+    percentage:
+      totalTrackedReplies > 0
+        ? `${((count / totalTrackedReplies) * 100).toFixed(1)}%`
+        : "0.0%",
+  }));
+  // Ensure all standard sentiments have entries even if 0
+  const sentiments = ["positive", "neutral", "negative"];
+  for (const s of sentiments) {
+    if (!sentimentPerformance.some((x) => x.sentiment === s)) {
+      sentimentPerformance.push({
+        sentiment: s,
+        replyCount: 0,
+        percentage: "0.0%",
+      });
+    }
+  }
+  sentimentPerformance.sort((a, b) => b.replyCount - a.replyCount);
+
+  // Calculate step reply rates
+  const stepReplyRates: StepReplyRateMetric[] = seqSteps.map((step) => {
+    const totalSent = stepSentCount.get(step.id) || 0;
+    const uniqueReplies = stepUniqueReplies.get(step.id)?.size || 0;
+    return {
+      stepId: step.id,
+      stepName: step.name || `Step ${step.stepNumber}`,
+      totalSent,
+      uniqueReplies,
+      replyRate:
+        totalSent > 0
+          ? `${((uniqueReplies / totalSent) * 100).toFixed(1)}%`
+          : "0.0%",
+    };
+  });
+
+  return {
+    totalUniqueReplies,
+    totalTrackedReplies,
+    replyRate:
+      totalSentGlobally > 0
+        ? `${((totalUniqueReplies / totalSentGlobally) * 100).toFixed(1)}%`
+        : "0.0%",
+    sentimentPerformance,
+    stepReplyRates,
+  };
+}
