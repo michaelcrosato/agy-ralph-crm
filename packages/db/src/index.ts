@@ -897,6 +897,16 @@ export interface DBValidationRule {
   updatedAt: Date;
 }
 
+export interface DBEmailTemplate {
+  id: string;
+  orgId: string;
+  name: string;
+  subject: string;
+  body: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBForecastAdjustment {
   id: string;
   orgId: string;
@@ -910,6 +920,7 @@ export interface DBForecastAdjustment {
 }
 
 export const store = {
+  emailTemplates: [] as DBEmailTemplate[],
   picklistDependencies: [] as DBPicklistDependency[],
   validationRules: [] as DBValidationRule[],
   stageForecastMappings: [] as DBStageForecastMapping[],
@@ -4286,7 +4297,65 @@ export const dbStore = {
       return true;
     },
   },
+  emailTemplates: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.emailTemplates.filter((t) => t.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const t = store.emailTemplates.find((x) => x.id === id);
+      if (t && t.orgId !== orgId) return null;
+      return t || null;
+    },
+    insert: async (
+      t: Omit<DBEmailTemplate, "id" | "createdAt" | "updatedAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (t.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newTemplate: DBEmailTemplate = {
+        ...t,
+        id: `emailtpl-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.emailTemplates.push(newTemplate);
+      return newTemplate;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBEmailTemplate, "id" | "orgId" | "createdAt" | "updatedAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.emailTemplates.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      if (store.emailTemplates[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.emailTemplates[index] = {
+        ...store.emailTemplates[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.emailTemplates[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.emailTemplates.findIndex((x) => x.id === id);
+      if (index === -1) return false;
+      if (store.emailTemplates[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.emailTemplates.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
+    store.emailTemplates = [];
     store.picklistDependencies = [];
     store.validationRules = [];
     store.stageForecastMappings = [];

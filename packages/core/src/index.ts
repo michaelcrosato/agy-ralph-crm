@@ -3831,3 +3831,59 @@ export function validateCustomValidationRules(
 
   return { success: true };
 }
+
+export interface EmailTemplateInput {
+  subject: string;
+  body: string;
+}
+
+export function compileEmailTemplate(
+  template: EmailTemplateInput,
+  context: {
+    lead?: Record<string, unknown> | null;
+    account?: Record<string, unknown> | null;
+    contact?: Record<string, unknown> | null;
+    opportunity?: Record<string, unknown> | null;
+  },
+): { subject: string; body: string } {
+  const replacePlaceholders = (text: string): string => {
+    return text.replace(/\{\{([A-Za-z0-9.]+)\}\}/g, (match, path: string) => {
+      const parts = path.split(".");
+      if (parts.length < 2) return match;
+
+      const objName = parts[0].toLowerCase();
+      const fieldPath = parts.slice(1).join(".");
+
+      let record: Record<string, unknown> | undefined;
+      if (objName === "lead") {
+        record = (context.lead || undefined) as
+          | Record<string, unknown>
+          | undefined;
+      } else if (objName === "account") {
+        record = (context.account || undefined) as
+          | Record<string, unknown>
+          | undefined;
+      } else if (objName === "contact") {
+        record = (context.contact || undefined) as
+          | Record<string, unknown>
+          | undefined;
+      } else if (objName === "opportunity") {
+        record = (context.opportunity || undefined) as
+          | Record<string, unknown>
+          | undefined;
+      }
+
+      if (!record) return "";
+
+      const val = getFieldValue(record, fieldPath);
+      if (val === undefined || val === null) return "";
+
+      return String(val);
+    });
+  };
+
+  return {
+    subject: replacePlaceholders(template.subject),
+    body: replacePlaceholders(template.body),
+  };
+}
