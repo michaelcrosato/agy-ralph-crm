@@ -28,6 +28,7 @@ import {
   calculateOpportunityCompetitorStats,
   calculateOpportunitySplits,
   calculateProRatedAmount,
+  calculateReadTimeAnalytics,
   calculateReplyAnalytics,
   calculateSalesLeaderboard,
   calculateSequenceAnalytics,
@@ -9982,6 +9983,59 @@ app.post("/api/public/emails/track/bounce/:token", async (c) => {
   });
 });
 
+app.post("/api/public/emails/track/read-time/:token", async (c) => {
+  const { token } = c.req.param();
+  const tracker = await dbStore.emailTrackers.findByToken(token);
+  if (tracker) {
+    await withTenant(tracker.orgId, mockDb, async () => {
+      const bodyData = await c.req.json().catch(() => ({}));
+      const durationMs = Number(bodyData.durationMs) || 0;
+
+      let readClassification = "glanced";
+      if (durationMs >= 8000) {
+        readClassification = "read";
+      } else if (durationMs >= 2000) {
+        readClassification = "skimmed";
+      }
+
+      await dbStore.emailTrackers.updatePublic(tracker.id, {
+        totalReadTimeMs: tracker.totalReadTimeMs + durationMs,
+        lastReadClassification: readClassification,
+      });
+
+      await dbStore.emailReadTimeEvents.insert({
+        orgId: tracker.orgId,
+        trackerId: tracker.id,
+        durationMs,
+        readClassification,
+      });
+
+      await dbStore.auditLogs.insert({
+        orgId: tracker.orgId,
+        recordId: tracker.activityId,
+        recordType: "EmailTracking",
+        action: "read-time",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          totalReadTimeMs: {
+            before: tracker.totalReadTimeMs,
+            after: tracker.totalReadTimeMs + durationMs,
+          },
+          lastReadClassification: {
+            before: tracker.lastReadClassification,
+            after: readClassification,
+          },
+        },
+      });
+    });
+  }
+
+  return c.json({
+    success: true,
+    message: "Read time event tracked successfully",
+  });
+});
+
 app.get("/api/public/emails/unsubscribe/:token", async (c) => {
   const { token } = c.req.param();
 
@@ -11896,6 +11950,35 @@ app.get("/api/sequences/:id/bounces-analytics", tenantAuth, async (c) => {
 
   const analytics = calculateBounceAnalytics({
     bounces,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  });
+
+  return c.json({ success: true, data: analytics });
+});
+
+app.get("/api/sequences/:id/read-time-analytics", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const readTimeEvents = await dbStore.emailReadTimeEvents.findMany();
+  const trackers = await dbStore.emailTrackers.findMany();
+  const activities = await dbStore.activities.findMany();
+  const activityLinks = await dbStore.activityLinks.findMany();
+  const memberships =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+
+  const analytics = calculateReadTimeAnalytics({
+    readTimeEvents,
     trackers,
     activities,
     activityLinks,

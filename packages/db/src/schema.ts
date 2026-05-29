@@ -1186,6 +1186,8 @@ export const emailTrackers = pgTable("email_trackers", {
   lastClickedAt: timestamp("last_clicked_at"),
   lastRepliedAt: timestamp("last_replied_at"),
   lastBouncedAt: timestamp("last_bounced_at"),
+  totalReadTimeMs: integer("total_read_time_ms").notNull().default(0),
+  lastReadClassification: text("last_read_classification"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1558,5 +1560,18 @@ export const emailBounceEvents = pgTable("email_bounce_events", {
   eventType: text("event_type").notNull(), // 'bounce' | 'complaint'
   bounceType: text("bounce_type").notNull().default("hard"), // 'hard' | 'soft' | 'spam_complaint'
   bounceReason: text("bounce_reason"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const emailReadTimeEvents = pgTable("email_read_time_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  trackerId: uuid("tracker_id")
+    .notNull()
+    .references(() => emailTrackers.id, { onDelete: "cascade" }),
+  durationMs: integer("duration_ms").notNull(),
+  readClassification: text("read_classification").notNull(), // 'glanced' | 'skimmed' | 'read'
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

@@ -1119,6 +1119,8 @@ export interface DBEmailTracker {
   lastClickedAt: Date | null;
   lastRepliedAt: Date | null;
   lastBouncedAt: Date | null;
+  totalReadTimeMs: number;
+  lastReadClassification: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -1174,6 +1176,15 @@ export interface DBEmailBounceEvent {
   eventType: string; // 'bounce' | 'complaint'
   bounceType: string; // 'hard' | 'soft' | 'spam_complaint'
   bounceReason: string | null;
+  createdAt: Date;
+}
+
+export interface DBEmailReadTimeEvent {
+  id: string;
+  orgId: string;
+  trackerId: string;
+  durationMs: number;
+  readClassification: string; // 'glanced' | 'skimmed' | 'read'
   createdAt: Date;
 }
 
@@ -1258,6 +1269,7 @@ export const store = {
   emailOpenEvents: [] as DBEmailOpenEvent[],
   emailReplyEvents: [] as DBEmailReplyEvent[],
   emailBounceEvents: [] as DBEmailBounceEvent[],
+  emailReadTimeEvents: [] as DBEmailReadTimeEvent[],
 
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
@@ -4669,6 +4681,8 @@ export const dbStore = {
         | "clickCount"
         | "replyCount"
         | "bounceCount"
+        | "totalReadTimeMs"
+        | "lastReadClassification"
         | "lastOpenedAt"
         | "lastClickedAt"
         | "lastRepliedAt"
@@ -4688,6 +4702,8 @@ export const dbStore = {
         clickCount: 0,
         replyCount: 0,
         bounceCount: 0,
+        totalReadTimeMs: 0,
+        lastReadClassification: null,
         lastOpenedAt: null,
         lastClickedAt: null,
         lastRepliedAt: null,
@@ -4729,6 +4745,8 @@ export const dbStore = {
           | "clickCount"
           | "replyCount"
           | "bounceCount"
+          | "totalReadTimeMs"
+          | "lastReadClassification"
           | "lastOpenedAt"
           | "lastClickedAt"
           | "lastRepliedAt"
@@ -5775,6 +5793,38 @@ export const dbStore = {
     },
   },
 
+  emailReadTimeEvents: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.emailReadTimeEvents.filter((c) => c.orgId === orgId);
+    },
+    findForTracker: async (trackerId: string) => {
+      const orgId = getActiveOrgId();
+      return store.emailReadTimeEvents.filter(
+        (c) => c.trackerId === trackerId && c.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.emailReadTimeEvents.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (item: Omit<DBEmailReadTimeEvent, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBEmailReadTimeEvent = {
+        ...item,
+        id: `rdt-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.emailReadTimeEvents.push(newItem);
+      return newItem;
+    },
+  },
+
   clear: () => {
     store.marketingSegments = [];
     store.marketingSequences = [];
@@ -5797,6 +5847,7 @@ export const dbStore = {
     store.emailOpenEvents = [];
     store.emailReplyEvents = [];
     store.emailBounceEvents = [];
+    store.emailReadTimeEvents = [];
 
     store.emailTemplates = [];
     store.emailTrackers = [];

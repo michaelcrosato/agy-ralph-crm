@@ -7850,3 +7850,240 @@ export function calculateBounceAnalytics(
     stepBounceRates,
   };
 }
+
+export interface ReadTimeAnalyticsInput {
+  readTimeEvents: {
+    id: string;
+    trackerId: string;
+    durationMs: number;
+    readClassification: string;
+    orgId: string;
+  }[];
+  trackers: {
+    id: string;
+    activityId: string;
+    openCount: number;
+    orgId: string;
+  }[];
+  activities: {
+    id: string;
+    orgId: string;
+    type?: string;
+    createdAt?: Date | string;
+  }[];
+  activityLinks: {
+    activityId: string;
+    targetId: string;
+    targetType: string;
+    orgId: string;
+  }[];
+  memberships: {
+    id: string;
+    sequenceId: string;
+    recordId: string;
+    orgId: string;
+  }[];
+  steps: {
+    id: string;
+    name?: string;
+    stepNumber: number;
+    sequenceId: string;
+    orgId: string;
+  }[];
+  sequenceId: string;
+}
+
+export interface ReadTimePerformanceMetric {
+  classification: string;
+  eventCount: number;
+  percentage: string;
+}
+
+export interface StepReadTimeStatsMetric {
+  stepId: string;
+  stepName: string;
+  openCount: number;
+  glancedCount: number;
+  skimmedCount: number;
+  readCount: number;
+}
+
+export interface ReadTimeAnalyticsResult {
+  totalGlanced: number;
+  totalSkimmed: number;
+  totalRead: number;
+  averageReadTimeMs: number;
+  readTimeClassificationPerformance: ReadTimePerformanceMetric[];
+  stepReadTimeStats: StepReadTimeStatsMetric[];
+}
+
+export function calculateReadTimeAnalytics(
+  params: ReadTimeAnalyticsInput,
+): ReadTimeAnalyticsResult {
+  const {
+    readTimeEvents,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  } = params;
+
+  const seqMemberships = memberships.filter((m) => m.sequenceId === sequenceId);
+  const seqSteps = steps.filter((s) => s.sequenceId === sequenceId);
+
+  // 1. Map trackerId -> activityId and trackerId -> trackerObj
+  const trackerToActivity = new Map<string, string>();
+  for (const t of trackers) {
+    trackerToActivity.set(t.id, t.activityId);
+  }
+
+  // 2. Build activityToStep mapping
+  const activityToStep = new Map<string, { id: string; name: string }>();
+  for (const m of seqMemberships) {
+    const linksForRecord = activityLinks.filter(
+      (link) =>
+        link.targetId === m.recordId &&
+        (link.targetType.toLowerCase() === "lead" ||
+          link.targetType.toLowerCase() === "contact"),
+    );
+    const activityIds = linksForRecord.map((l) => l.activityId);
+    const emailActs = activities.filter(
+      (act) => act.type === "email" && activityIds.includes(act.id),
+    );
+    emailActs.sort(
+      (a, b) =>
+        new Date(a.createdAt || "").getTime() -
+        new Date(b.createdAt || "").getTime(),
+    );
+
+    emailActs.forEach((act, idx) => {
+      const stepNum = idx + 1;
+      const step = seqSteps.find((s) => s.stepNumber === stepNum);
+      if (step) {
+        activityToStep.set(act.id, {
+          id: step.id,
+          name: step.name || `Step ${step.stepNumber}`,
+        });
+      }
+    });
+  }
+
+  // 3. Count total openCount per step and total glanced, skimmed, read
+  const stepOpenCount = new Map<string, number>();
+  const stepGlancedCount = new Map<string, number>();
+  const stepSkimmedCount = new Map<string, number>();
+  const stepReadCount = new Map<string, number>();
+
+  for (const step of seqSteps) {
+    stepOpenCount.set(step.id, 0);
+    stepGlancedCount.set(step.id, 0);
+    stepSkimmedCount.set(step.id, 0);
+    stepReadCount.set(step.id, 0);
+  }
+
+  // Trackers' openCount can be accumulated by step
+  for (const t of trackers) {
+    const activityId = t.activityId;
+    if (activityId) {
+      const stepInfo = activityToStep.get(activityId);
+      if (stepInfo) {
+        stepOpenCount.set(
+          stepInfo.id,
+          (stepOpenCount.get(stepInfo.id) || 0) + t.openCount,
+        );
+      }
+    }
+  }
+
+  let totalGlanced = 0;
+  let totalSkimmed = 0;
+  let totalRead = 0;
+  let totalDurationMs = 0;
+  let totalEventsCount = 0;
+
+  for (const event of readTimeEvents) {
+    const activityId = trackerToActivity.get(event.trackerId);
+    if (activityId) {
+      const stepInfo = activityToStep.get(activityId);
+      if (stepInfo) {
+        totalEventsCount++;
+        totalDurationMs += event.durationMs;
+
+        const classification = event.readClassification;
+        if (classification === "glanced") {
+          totalGlanced++;
+          stepGlancedCount.set(
+            stepInfo.id,
+            (stepGlancedCount.get(stepInfo.id) || 0) + 1,
+          );
+        } else if (classification === "skimmed") {
+          totalSkimmed++;
+          stepSkimmedCount.set(
+            stepInfo.id,
+            (stepSkimmedCount.get(stepInfo.id) || 0) + 1,
+          );
+        } else if (classification === "read") {
+          totalRead++;
+          stepReadCount.set(
+            stepInfo.id,
+            (stepReadCount.get(stepInfo.id) || 0) + 1,
+          );
+        }
+      }
+    }
+  }
+
+  const averageReadTimeMs =
+    totalEventsCount > 0 ? Math.round(totalDurationMs / totalEventsCount) : 0;
+
+  // Build performance breakdown
+  const readTimeClassificationPerformance: ReadTimePerformanceMetric[] = [
+    {
+      classification: "glanced",
+      eventCount: totalGlanced,
+      percentage:
+        totalEventsCount > 0
+          ? `${((totalGlanced / totalEventsCount) * 100).toFixed(1)}%`
+          : "0.0%",
+    },
+    {
+      classification: "skimmed",
+      eventCount: totalSkimmed,
+      percentage:
+        totalEventsCount > 0
+          ? `${((totalSkimmed / totalEventsCount) * 100).toFixed(1)}%`
+          : "0.0%",
+    },
+    {
+      classification: "read",
+      eventCount: totalRead,
+      percentage:
+        totalEventsCount > 0
+          ? `${((totalRead / totalEventsCount) * 100).toFixed(1)}%`
+          : "0.0%",
+    },
+  ];
+
+  // Calculate step read time stats
+  const stepReadTimeStats: StepReadTimeStatsMetric[] = seqSteps.map((step) => {
+    return {
+      stepId: step.id,
+      stepName: step.name || `Step ${step.stepNumber}`,
+      openCount: stepOpenCount.get(step.id) || 0,
+      glancedCount: stepGlancedCount.get(step.id) || 0,
+      skimmedCount: stepSkimmedCount.get(step.id) || 0,
+      readCount: stepReadCount.get(step.id) || 0,
+    };
+  });
+
+  return {
+    totalGlanced,
+    totalSkimmed,
+    totalRead,
+    averageReadTimeMs,
+    readTimeClassificationPerformance,
+    stepReadTimeStats,
+  };
+}
