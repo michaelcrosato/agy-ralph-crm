@@ -700,3 +700,17 @@ export const opportunityStageGates = pgTable("opportunity_stage_gates", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const stageGuidance = pgTable("stage_guidance", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  objectType: text("object_type").notNull(), // "opportunities" | "leads"
+  stage: text("stage").notNull(),
+  keyFields: jsonb("key_fields").notNull(), // string[] (array of field names)
+  guidanceText: text("guidance_text").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

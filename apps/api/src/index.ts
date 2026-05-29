@@ -40,10 +40,12 @@ import {
   validateInfluencePercentageTotal,
   validateOpportunityApprovalSubmission,
   validateOpportunityStageGate,
+  validateStageGuidanceKeyFields,
 } from "@crm/core";
 import {
   type DBCurrency,
   type DBOpportunityStageGate,
+  type DBStageGuidance,
   dbStore,
   mockDb,
   store,
@@ -494,6 +496,76 @@ app.post("/api/currencies", tenantAuth, async (c) => {
   }
 
   return c.json({ success: true, data: currency }, 201);
+});
+
+// Sales Path Stage Guidance REST API Endpoints protected by tenantAuth
+app.get("/api/stage-guidance", tenantAuth, async (c) => {
+  const guidance = await dbStore.stageGuidance.findMany();
+  return c.json({ success: true, data: guidance });
+});
+
+app.get("/api/stage-guidance/:objectType/:stage", tenantAuth, async (c) => {
+  const { objectType, stage } = c.req.param();
+  const allGuidance = await dbStore.stageGuidance.findMany();
+  const active = allGuidance.find(
+    (g) => g.objectType === objectType && g.stage === stage && g.isActive,
+  );
+  return c.json({ success: true, data: active || null });
+});
+
+app.post("/api/stage-guidance", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { id, objectType, stage, keyFields, guidanceText, isActive } = body;
+
+  if (!objectType || !stage || !keyFields || guidanceText === undefined) {
+    return c.json({ error: "Missing required stage guidance parameters" }, 400);
+  }
+
+  let entry: DBStageGuidance | null = null;
+
+  if (id) {
+    const existing = await dbStore.stageGuidance.findOne(id);
+    if (!existing) {
+      return c.json({ error: "Stage guidance not found" }, 404);
+    }
+    entry = await dbStore.stageGuidance.update(id, {
+      objectType,
+      stage,
+      keyFields,
+      guidanceText,
+      isActive: isActive !== undefined ? Boolean(isActive) : existing.isActive,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: id,
+      recordType: "stage_guidance",
+      action: "update",
+      userId: tenant.userId,
+      changes: null,
+    });
+  } else {
+    entry = await dbStore.stageGuidance.insert({
+      orgId: tenant.orgId,
+      objectType,
+      stage,
+      keyFields,
+      guidanceText,
+      isActive: isActive !== undefined ? Boolean(isActive) : true,
+    });
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: entry.id,
+      recordType: "stage_guidance",
+      action: "create",
+      userId: tenant.userId,
+      changes: null,
+    });
+  }
+
+  return c.json({ success: true, data: entry }, id ? 200 : 201);
 });
 
 // Stage Gates REST API Endpoints protected by tenantAuth

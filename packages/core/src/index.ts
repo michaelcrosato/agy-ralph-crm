@@ -1682,3 +1682,38 @@ export function validateOpportunityStageGate(
     errorMessages: errors,
   };
 }
+
+export function validateStageGuidanceKeyFields(
+  record: Record<string, unknown>,
+  keyFields: string[],
+): {
+  isClean: boolean;
+  missingFields: string[];
+} {
+  const missingFields: string[] = [];
+
+  for (const field of keyFields) {
+    let value: unknown = undefined;
+
+    if (field.startsWith("custom.")) {
+      const fieldKey = field.substring("custom.".length);
+      value = (record.custom as Record<string, unknown> | null)?.[fieldKey];
+    } else {
+      value = record[field];
+    }
+
+    const isEmpty =
+      value === undefined ||
+      value === null ||
+      (typeof value === "string" && value.trim() === "");
+
+    if (isEmpty) {
+      missingFields.push(field);
+    }
+  }
+
+  return {
+    isClean: missingFields.length === 0,
+    missingFields,
+  };
+}
