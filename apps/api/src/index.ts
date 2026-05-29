@@ -47,9 +47,11 @@ import {
   parseCSV,
   processCSVImport,
   processESignatureTransition,
+  rollbackStoreMigrations,
   rollupHierarchyPipeline,
   rollupOpportunityAmount,
   rollupOpportunityAmountsInBase,
+  runStoreMigrations,
   setPrimaryOpportunityContactRole,
   syncExternalItems,
   validateAccountTeamMember,
@@ -8562,6 +8564,51 @@ app.post("/api/admin/fuzz", tenantAuth, async (c) => {
     totalRuns: payloads.length,
     failures,
   });
+});
+
+app.get("/api/db/migrations", tenantAuth, async (c) => {
+  const migrations = await dbStore.schemaMigrations.findMany();
+  return c.json({
+    success: true,
+    migrations,
+  });
+});
+
+app.post("/api/db/migrate", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const targetVersion =
+    body.targetVersion !== undefined ? Number(body.targetVersion) : undefined;
+
+  const result = await runStoreMigrations(
+    dbStore,
+    store,
+    tenant.orgId,
+    targetVersion,
+  );
+
+  return c.json(result);
+});
+
+app.post("/api/db/rollback", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  if (body.targetVersion === undefined) {
+    return c.json(
+      { success: false, error: "targetVersion is required for rollback." },
+      400,
+    );
+  }
+  const targetVersion = Number(body.targetVersion);
+
+  const result = await rollbackStoreMigrations(
+    dbStore,
+    store,
+    tenant.orgId,
+    targetVersion,
+  );
+
+  return c.json(result);
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)

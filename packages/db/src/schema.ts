@@ -1065,3 +1065,13 @@ export const ticketMacros = pgTable("ticket_macros", {
   updatePriority: text("update_priority"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const schemaMigrations = pgTable("schema_migrations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  version: integer("version").notNull(),
+  name: text("name").notNull(),
+  appliedAt: timestamp("applied_at").notNull().defaultNow(),
+});

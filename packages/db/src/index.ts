@@ -195,6 +195,14 @@ export interface DBTicketMacro {
   createdAt: Date;
 }
 
+export interface DBSchemaMigration {
+  id: string;
+  orgId: string;
+  version: number;
+  name: string;
+  appliedAt: Date;
+}
+
 export interface DBTicketAssignmentRule {
   id: string;
   orgId: string;
@@ -886,6 +894,7 @@ export const store = {
   ticketEscalationRules: [] as DBTicketEscalationRule[],
   ticketEscalations: [] as DBTicketEscalation[],
   ticketMacros: [] as DBTicketMacro[],
+  schemaMigrations: [] as DBSchemaMigration[],
 };
 
 export const dbStore = {
@@ -3861,6 +3870,47 @@ export const dbStore = {
       return newMacro;
     },
   },
+  schemaMigrations: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.schemaMigrations.filter((m) => m.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.schemaMigrations.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) {
+        return null;
+      }
+      return m || null;
+    },
+    insert: async (
+      migration: Omit<DBSchemaMigration, "id" | "appliedAt"> & {
+        appliedAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (migration.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMigration: DBSchemaMigration = {
+        ...migration,
+        id: `mig-${Math.random().toString(36).substring(2, 11)}`,
+        appliedAt: migration.appliedAt || new Date(),
+      };
+      store.schemaMigrations.push(newMigration);
+      return newMigration;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.schemaMigrations.findIndex((x) => x.id === id);
+      if (index === -1) return false;
+      if (store.schemaMigrations[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.schemaMigrations.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3934,5 +3984,6 @@ export const dbStore = {
     store.ticketEscalationRules = [];
     store.ticketEscalations = [];
     store.ticketMacros = [];
+    store.schemaMigrations = [];
   },
 };
