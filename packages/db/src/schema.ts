@@ -1170,3 +1170,18 @@ export const emailTemplates = pgTable("email_templates", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const emailTrackers = pgTable("email_trackers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  activityId: uuid("activity_id").notNull(),
+  token: text("token").notNull().unique(),
+  openCount: integer("open_count").notNull().default(0),
+  clickCount: integer("click_count").notNull().default(0),
+  lastOpenedAt: timestamp("last_opened_at"),
+  lastClickedAt: timestamp("last_clicked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});

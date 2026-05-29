@@ -9592,6 +9592,136 @@ app.get("/api/forecasts/adjusted-summary", tenantAuth, async (c) => {
   return c.json({ success: true, data: result });
 });
 
+// Email open and click tracking endpoints
+app.post("/api/emails/:activityId/tracker", tenantAuth, async (c) => {
+  const tenant = c.get("tenant") as {
+    orgId: string;
+    userId: string;
+    roleId: string;
+  };
+  const { activityId } = c.req.param();
+
+  const activity = await dbStore.activities.findOne(activityId);
+  if (!activity) {
+    return c.json({ success: false, error: "Email activity not found" }, 404);
+  }
+
+  // Generate unique token
+  const token = `tr-${Math.random().toString(36).substring(2, 11)}${Math.random().toString(36).substring(2, 11)}`;
+
+  const tracker = await dbStore.emailTrackers.insert({
+    orgId: tenant.orgId,
+    activityId,
+    token,
+  });
+
+  return c.json({ success: true, tracker });
+});
+
+app.get("/api/emails/:activityId/tracker", tenantAuth, async (c) => {
+  const tenant = c.get("tenant") as {
+    orgId: string;
+    userId: string;
+    roleId: string;
+  };
+  const { activityId } = c.req.param();
+
+  const trackers = await dbStore.emailTrackers.findMany();
+  const tracker = trackers.find(
+    (t) => t.activityId === activityId && t.orgId === tenant.orgId,
+  );
+
+  if (!tracker) {
+    return c.json({ success: false, error: "Tracker not found" }, 404);
+  }
+
+  return c.json({ success: true, tracker });
+});
+
+app.get("/api/public/emails/track/open/:token", async (c) => {
+  const { token } = c.req.param();
+
+  const tracker = await dbStore.emailTrackers.findByToken(token);
+  if (tracker) {
+    await withTenant(tracker.orgId, mockDb, async () => {
+      // Record open event publicly
+      await dbStore.emailTrackers.updatePublic(tracker.id, {
+        openCount: tracker.openCount + 1,
+        lastOpenedAt: new Date(),
+      });
+
+      // Record audit log for email tracking event
+      await dbStore.auditLogs.insert({
+        orgId: tracker.orgId,
+        recordId: tracker.activityId,
+        recordType: "EmailTracking",
+        action: "open",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          openCount: {
+            before: tracker.openCount,
+            after: tracker.openCount + 1,
+          },
+        },
+      });
+    });
+  }
+
+  // 1x1 transparent GIF
+  const transparentGif = Buffer.from(
+    "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+    "base64",
+  );
+
+  c.header("Content-Type", "image/gif");
+  c.header("Cache-Control", "no-cache, no-store, must-revalidate");
+  c.header("Pragma", "no-cache");
+  c.header("Expires", "0");
+
+  return c.body(new Uint8Array(transparentGif));
+});
+
+app.get("/api/public/emails/track/click/:token", async (c) => {
+  const { token } = c.req.param();
+  const target = c.req.query("target");
+
+  const tracker = await dbStore.emailTrackers.findByToken(token);
+  if (tracker) {
+    await withTenant(tracker.orgId, mockDb, async () => {
+      // Record click event publicly
+      await dbStore.emailTrackers.updatePublic(tracker.id, {
+        clickCount: tracker.clickCount + 1,
+        lastClickedAt: new Date(),
+      });
+
+      // Record audit log
+      await dbStore.auditLogs.insert({
+        orgId: tracker.orgId,
+        recordId: tracker.activityId,
+        recordType: "EmailTracking",
+        action: "click",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          clickCount: {
+            before: tracker.clickCount,
+            after: tracker.clickCount + 1,
+          },
+          targetUrl: {
+            before: "",
+            after: target || "",
+          },
+        },
+      });
+    });
+  }
+
+  if (target) {
+    return c.redirect(target, 302);
+  }
+
+  return c.redirect("/", 302);
+});
+
 // Start Hono Node Server if run directly (excluding test execution environment)
 
 if (process.env.NODE_ENV !== "test") {

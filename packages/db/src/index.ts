@@ -907,6 +907,19 @@ export interface DBEmailTemplate {
   updatedAt: Date;
 }
 
+export interface DBEmailTracker {
+  id: string;
+  orgId: string;
+  activityId: string;
+  token: string;
+  openCount: number;
+  clickCount: number;
+  lastOpenedAt: Date | null;
+  lastClickedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBForecastAdjustment {
   id: string;
   orgId: string;
@@ -921,6 +934,7 @@ export interface DBForecastAdjustment {
 
 export const store = {
   emailTemplates: [] as DBEmailTemplate[],
+  emailTrackers: [] as DBEmailTracker[],
   picklistDependencies: [] as DBPicklistDependency[],
   validationRules: [] as DBValidationRule[],
   stageForecastMappings: [] as DBStageForecastMapping[],
@@ -4354,8 +4368,107 @@ export const dbStore = {
       return true;
     },
   },
+  emailTrackers: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.emailTrackers.filter((t) => t.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const t = store.emailTrackers.find((x) => x.id === id);
+      if (t && t.orgId !== orgId) return null;
+      return t || null;
+    },
+    findByToken: async (token: string) => {
+      return store.emailTrackers.find((x) => x.token === token) || null;
+    },
+    insert: async (
+      t: Omit<
+        DBEmailTracker,
+        | "id"
+        | "openCount"
+        | "clickCount"
+        | "lastOpenedAt"
+        | "lastClickedAt"
+        | "createdAt"
+        | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (t.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newTracker: DBEmailTracker = {
+        ...t,
+        id: `tracker-${Math.random().toString(36).substring(2, 11)}`,
+        openCount: 0,
+        clickCount: 0,
+        lastOpenedAt: null,
+        lastClickedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.emailTrackers.push(newTracker);
+      return newTracker;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<
+          DBEmailTracker,
+          "id" | "orgId" | "activityId" | "token" | "createdAt" | "updatedAt"
+        >
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.emailTrackers.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      if (store.emailTrackers[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.emailTrackers[index] = {
+        ...store.emailTrackers[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.emailTrackers[index];
+    },
+    updatePublic: async (
+      id: string,
+      updates: Partial<
+        Pick<
+          DBEmailTracker,
+          | "openCount"
+          | "clickCount"
+          | "lastOpenedAt"
+          | "lastClickedAt"
+          | "updatedAt"
+        >
+      >,
+    ) => {
+      const index = store.emailTrackers.findIndex((x) => x.id === id);
+      if (index === -1) return null;
+      store.emailTrackers[index] = {
+        ...store.emailTrackers[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.emailTrackers[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.emailTrackers.findIndex((x) => x.id === id);
+      if (index === -1) return false;
+      if (store.emailTrackers[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.emailTrackers.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.emailTemplates = [];
+    store.emailTrackers = [];
     store.picklistDependencies = [];
     store.validationRules = [];
     store.stageForecastMappings = [];
