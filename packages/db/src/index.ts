@@ -184,6 +184,17 @@ export interface DBTicketEscalation {
   createdAt: Date;
 }
 
+export interface DBTicketMacro {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  cannedResponse: string;
+  updateStatus: string | null;
+  updatePriority: string | null;
+  createdAt: Date;
+}
+
 export interface DBTicketAssignmentRule {
   id: string;
   orgId: string;
@@ -873,6 +884,7 @@ export const store = {
   ticketAssignmentRuleEntries: [] as DBTicketAssignmentRuleEntry[],
   ticketEscalationRules: [] as DBTicketEscalationRule[],
   ticketEscalations: [] as DBTicketEscalation[],
+  ticketMacros: [] as DBTicketMacro[],
 };
 
 export const dbStore = {
@@ -3810,6 +3822,37 @@ export const dbStore = {
       return newEscalation;
     },
   },
+  ticketMacros: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketMacros.filter((m) => m.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const macro = store.ticketMacros.find((m) => m.id === id);
+      if (macro && macro.orgId !== orgId) {
+        return null;
+      }
+      return macro || null;
+    },
+    insert: async (
+      macro: Omit<DBTicketMacro, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (macro.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMacro: DBTicketMacro = {
+        ...macro,
+        id: `tmac-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: macro.createdAt || new Date(),
+      };
+      store.ticketMacros.push(newMacro);
+      return newMacro;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3882,5 +3925,6 @@ export const dbStore = {
     store.ticketAssignmentRuleEntries = [];
     store.ticketEscalationRules = [];
     store.ticketEscalations = [];
+    store.ticketMacros = [];
   },
 };

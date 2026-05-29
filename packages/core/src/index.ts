@@ -2681,3 +2681,73 @@ export function evaluateTicketEscalation(
 
   return null;
 }
+
+export interface TicketMacroInput {
+  id: string;
+  orgId: string;
+  name: string;
+  cannedResponse: string;
+  updateStatus: string | null;
+  updatePriority: string | null;
+}
+
+export interface TicketMacroApplyInput {
+  ticket: {
+    id: string;
+    orgId: string;
+    status: string;
+    priority: string;
+  };
+  macro: TicketMacroInput;
+}
+
+export interface TicketMacroApplyResult {
+  updatedStatus: string;
+  updatedPriority: string;
+  commentBody: string;
+  auditMessage: string;
+}
+
+export function applyTicketMacro(
+  input: TicketMacroApplyInput,
+): TicketMacroApplyResult {
+  const { ticket, macro } = input;
+
+  if (ticket.orgId !== macro.orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+
+  const updatedStatus = macro.updateStatus || ticket.status;
+  const updatedPriority = macro.updatePriority || ticket.priority;
+
+  return {
+    updatedStatus,
+    updatedPriority,
+    commentBody: macro.cannedResponse,
+    auditMessage: `Applied macro [${macro.name}]. Status transitioned from '${ticket.status}' to '${updatedStatus}', priority from '${ticket.priority}' to '${updatedPriority}'.`,
+  };
+}
+
+export interface TicketMacroValidationInput {
+  name: string;
+  cannedResponse: string;
+}
+
+export function validateTicketMacroInput(input: TicketMacroValidationInput): {
+  success: boolean;
+  error?: string;
+} {
+  if (!input.name || input.name.trim() === "") {
+    return { success: false, error: "Macro name cannot be empty." };
+  }
+  if (input.name.length > 100) {
+    return {
+      success: false,
+      error: "Macro name cannot exceed 100 characters.",
+    };
+  }
+  if (!input.cannedResponse || input.cannedResponse.trim() === "") {
+    return { success: false, error: "Canned response cannot be empty." };
+  }
+  return { success: true };
+}

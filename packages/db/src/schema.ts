@@ -1049,3 +1049,16 @@ export const ticketEscalations = pgTable("ticket_escalations", {
   reason: text("reason").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const ticketMacros = pgTable("ticket_macros", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  cannedResponse: text("canned_response").notNull(),
+  updateStatus: text("update_status"),
+  updatePriority: text("update_priority"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
