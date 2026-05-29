@@ -1329,3 +1329,42 @@ export const marketingSequenceStepBranches = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
 );
+
+export const marketingSequenceGoals = pgTable("marketing_sequence_goals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  sequenceId: uuid("sequence_id")
+    .notNull()
+    .references(() => marketingSequences.id, { onDelete: "cascade" }),
+  goalType: text("goal_type").notNull(), // "lead_status_equals" | "opportunity_created"
+  targetValue: text("target_value"), // e.g. "Qualified"
+  isActive: integer("is_active").notNull().default(1),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
+export const marketingSequenceConversions = pgTable(
+  "marketing_sequence_conversions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    membershipId: uuid("membership_id")
+      .notNull()
+      .references(() => marketingSequenceMemberships.id, {
+        onDelete: "cascade",
+      }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => marketingSequences.id, { onDelete: "cascade" }),
+    goalId: uuid("goal_id")
+      .notNull()
+      .references(() => marketingSequenceGoals.id, { onDelete: "cascade" }),
+    attributedRevenue: text("attributed_revenue").notNull().default("0.00"),
+    convertedAt: timestamp("converted_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+);

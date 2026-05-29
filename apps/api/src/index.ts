@@ -10289,6 +10289,110 @@ app.delete("/api/sequences/:id/steps/:stepId/branch", tenantAuth, async (c) => {
   return c.json({ success: true });
 });
 
+app.get("/api/sequences/:id/goals", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const goals =
+    await dbStore.marketingSequenceGoals.findForSequence(sequenceId);
+  return c.json({ success: true, data: goals });
+});
+
+app.post("/api/sequences/:id/goals", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { goalType, targetValue } = body;
+
+  if (!goalType) {
+    return c.json({ success: false, error: "Goal type is required" }, 400);
+  }
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  // Deactivate/delete any existing goals for simplicity
+  const existing =
+    await dbStore.marketingSequenceGoals.findForSequence(sequenceId);
+  for (const g of existing) {
+    await dbStore.marketingSequenceGoals.delete(g.id);
+  }
+
+  const goal = await dbStore.marketingSequenceGoals.insert({
+    orgId: tenant.orgId,
+    sequenceId,
+    goalType,
+    targetValue: targetValue || null,
+    isActive: 1,
+  });
+
+  return c.json({ success: true, data: goal });
+});
+
+app.get("/api/sequences/:id/conversion-analytics", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const memberships =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+  const conversions =
+    await dbStore.marketingSequenceConversions.findForSequence(sequenceId);
+
+  const totalEnrolled = memberships.length;
+  const convertedCount = conversions.length;
+  const conversionRate =
+    totalEnrolled > 0
+      ? `${((convertedCount / totalEnrolled) * 100).toFixed(2)}%`
+      : "0.00%";
+
+  const totalAttributedRevenue = conversions
+    .reduce((sum, conv) => {
+      const amt = Number.parseFloat(conv.attributedRevenue || "0.00");
+      return sum + (Number.isNaN(amt) ? 0 : amt);
+    }, 0)
+    .toFixed(2);
+
+  // Calculate average days to convert
+  let totalDays = 0;
+  let convertTimeCount = 0;
+
+  for (const conv of conversions) {
+    const memb = memberships.find((m) => m.id === conv.membershipId);
+    if (memb?.createdAt) {
+      const diffMs =
+        new Date(conv.convertedAt).getTime() -
+        new Date(memb.createdAt).getTime();
+      totalDays += diffMs / (1000 * 60 * 60 * 24);
+      convertTimeCount++;
+    }
+  }
+
+  const averageDaysToConvert =
+    convertTimeCount > 0
+      ? Number.parseFloat((totalDays / convertTimeCount).toFixed(2))
+      : 0;
+
+  return c.json({
+    success: true,
+    data: {
+      sequenceId,
+      totalEnrolled,
+      convertedCount,
+      conversionRate,
+      totalAttributedRevenue,
+      averageDaysToConvert,
+    },
+  });
+});
+
 // Marketing Segments & Dynamic Lists Endpoints
 
 app.post("/api/segments", tenantAuth, async (c) => {

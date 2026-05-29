@@ -3967,6 +3967,28 @@ export interface CoreStepBranch {
   updatedAt?: Date;
 }
 
+export interface CoreSequenceGoal {
+  id: string;
+  orgId: string;
+  sequenceId: string;
+  goalType: string; // "lead_status_equals" | "opportunity_created"
+  targetValue: string | null;
+  isActive: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface CoreSequenceConversion {
+  id: string;
+  orgId: string;
+  membershipId: string;
+  sequenceId: string;
+  goalId: string;
+  attributedRevenue: string;
+  convertedAt: Date;
+  createdAt: Date;
+}
+
 export function shouldExitSequence(params: {
   recordType: "lead" | "contact";
   lead: Record<string, unknown> | null | undefined;
@@ -4041,6 +4063,149 @@ export async function enrollInSequence(
   });
 
   return membership;
+}
+
+export async function evaluateSequenceGoals(
+  dbStore: {
+    marketingSequenceGoals?: {
+      findForSequence: (sequenceId: string) => Promise<CoreSequenceGoal[]>;
+    };
+    marketingSequenceConversions?: {
+      insert: (item: {
+        orgId: string;
+        membershipId: string;
+        sequenceId: string;
+        goalId: string;
+        attributedRevenue: string;
+        convertedAt: Date;
+      }) => Promise<CoreSequenceConversion>;
+    };
+    marketingSequenceMemberships: {
+      update: (
+        id: string,
+        updates: Partial<
+          Omit<
+            CoreSequenceMembership,
+            "id" | "orgId" | "createdAt" | "updatedAt"
+          >
+        >,
+      ) => Promise<CoreSequenceMembership | null>;
+    };
+    opportunities?: {
+      findMany: () => Promise<unknown[]>;
+    };
+    auditLogs: {
+      insert: (item: {
+        orgId: string;
+        recordId: string;
+        recordType: string;
+        action: string;
+        userId: string;
+        changes: Record<string, { before: unknown; after: unknown }>;
+      }) => Promise<unknown>;
+    };
+  },
+  orgId: string,
+  membership: CoreSequenceMembership,
+  recipientContext: {
+    lead?: Record<string, unknown> | null;
+    contact?: Record<string, unknown> | null;
+  },
+): Promise<boolean> {
+  if (
+    !dbStore.marketingSequenceGoals ||
+    !dbStore.marketingSequenceConversions
+  ) {
+    return false;
+  }
+
+  const goals = await dbStore.marketingSequenceGoals.findForSequence(
+    membership.sequenceId,
+  );
+  const activeGoals = goals.filter((g) => g.isActive === 1);
+  if (activeGoals.length === 0) return false;
+
+  for (const goal of activeGoals) {
+    let achieved = false;
+    let revenue = "0.00";
+
+    if (
+      goal.goalType === "lead_status_equals" &&
+      membership.recordType === "lead" &&
+      recipientContext.lead
+    ) {
+      if (recipientContext.lead.status === goal.targetValue) {
+        achieved = true;
+      }
+    } else if (goal.goalType === "opportunity_created") {
+      if (!dbStore.opportunities) continue;
+      const allOpps = (await dbStore.opportunities.findMany()) as Record<
+        string,
+        unknown
+      >[];
+      let relevantOpps: Record<string, unknown>[] = [];
+      if (membership.recordType === "lead") {
+        relevantOpps = allOpps.filter(
+          (opp) =>
+            (opp.custom as Record<string, unknown> | null)?.sourceLeadId ===
+            membership.recordId,
+        );
+      } else if (
+        membership.recordType === "contact" &&
+        recipientContext.contact
+      ) {
+        const contactAccountId = recipientContext.contact.accountId;
+        if (contactAccountId) {
+          relevantOpps = allOpps.filter(
+            (opp) => opp.accountId === contactAccountId,
+          );
+        }
+      }
+
+      if (relevantOpps.length > 0) {
+        achieved = true;
+        const totalAmt = relevantOpps.reduce((sum, opp) => {
+          const amt = Number.parseFloat(String(opp.amount || "0.00"));
+          return sum + (Number.isNaN(amt) ? 0 : amt);
+        }, 0);
+        revenue = totalAmt.toFixed(2);
+      }
+    }
+
+    if (achieved) {
+      // Update status to converted
+      await dbStore.marketingSequenceMemberships.update(membership.id, {
+        status: "converted",
+      });
+
+      // Insert conversion log
+      await dbStore.marketingSequenceConversions.insert({
+        orgId,
+        membershipId: membership.id,
+        sequenceId: membership.sequenceId,
+        goalId: goal.id,
+        attributedRevenue: revenue,
+        convertedAt: new Date(),
+      });
+
+      // Insert audit log
+      await dbStore.auditLogs.insert({
+        orgId,
+        recordId: membership.id,
+        recordType: "marketing_sequence_memberships",
+        action: "goal_conversion",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          status: { before: membership.status, after: "converted" },
+          attributedRevenue: { before: null, after: revenue },
+        },
+      });
+
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export async function executePendingSequenceSteps(
@@ -4130,6 +4295,19 @@ export async function executePendingSequenceSteps(
     marketingSequenceStepBranches?: {
       findForStep: (stepId: string) => Promise<CoreStepBranch | null>;
     };
+    marketingSequenceGoals?: {
+      findForSequence: (sequenceId: string) => Promise<CoreSequenceGoal[]>;
+    };
+    marketingSequenceConversions?: {
+      insert: (item: {
+        orgId: string;
+        membershipId: string;
+        sequenceId: string;
+        goalId: string;
+        attributedRevenue: string;
+        convertedAt: Date;
+      }) => Promise<CoreSequenceConversion>;
+    };
   },
   currentTime: Date = new Date(),
 ): Promise<number> {
@@ -4145,6 +4323,39 @@ export async function executePendingSequenceSteps(
     const steps = await dbStore.marketingSequenceSteps.findForSequence(
       membership.sequenceId,
     );
+
+    let recipientContext: {
+      lead?: Record<string, unknown> | null;
+      contact?: Record<string, unknown> | null;
+    } = {};
+
+    if (membership.recordType === "lead") {
+      const lead = await dbStore.leads.findOne(membership.recordId);
+      if (lead) {
+        recipientContext = { lead: lead as Record<string, unknown> };
+      }
+    } else if (membership.recordType === "contact") {
+      const contact = await dbStore.contacts.findOne(membership.recordId);
+      if (contact) {
+        recipientContext = { contact: contact as Record<string, unknown> };
+      }
+    }
+
+    if (
+      dbStore.marketingSequenceGoals &&
+      dbStore.marketingSequenceConversions
+    ) {
+      const goalConverted = await evaluateSequenceGoals(
+        dbStore,
+        orgId,
+        membership,
+        recipientContext,
+      );
+      if (goalConverted) {
+        processedCount++;
+        continue;
+      }
+    }
 
     let nextStepNumber = membership.currentStepNumber + 1;
 
@@ -4218,23 +4429,6 @@ export async function executePendingSequenceSteps(
       });
       processedCount++;
       continue;
-    }
-
-    let recipientContext: {
-      lead?: Record<string, unknown> | null;
-      contact?: Record<string, unknown> | null;
-    } = {};
-
-    if (membership.recordType === "lead") {
-      const lead = await dbStore.leads.findOne(membership.recordId);
-      if (lead) {
-        recipientContext = { lead: lead as Record<string, unknown> };
-      }
-    } else if (membership.recordType === "contact") {
-      const contact = await dbStore.contacts.findOne(membership.recordId);
-      if (contact) {
-        recipientContext = { contact: contact as Record<string, unknown> };
-      }
     }
 
     // Evaluate Exit Triggers if the stores are provided
