@@ -100,3 +100,17 @@ export function rollupOpportunityAmount(items: LineItemInput[]): string {
   );
   return String(sum);
 }
+
+export interface ProRateInput {
+  unitPrice: string;
+  quantity: number;
+  daysUsed: number;
+  daysInPeriod: number;
+}
+
+export function calculateProRatedAmount(input: ProRateInput): string {
+  const price = Number.parseFloat(input.unitPrice) || 0;
+  const rawAmount =
+    price * input.quantity * (input.daysUsed / input.daysInPeriod);
+  return rawAmount.toFixed(2);
+}

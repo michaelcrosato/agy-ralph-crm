@@ -301,3 +301,36 @@ export const mergedDocuments = pgTable("merged_documents", {
   compiledContent: text("compiled_content").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const subscriptions = pgTable("subscriptions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  planName: text("plan_name").notNull(),
+  status: text("status").notNull().default("active"),
+  billingPeriod: text("billing_period").notNull(), // "monthly" | "annually"
+  unitPrice: text("unit_price").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"),
+});
+
+export const invoices = pgTable("invoices", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  subscriptionId: uuid("subscription_id")
+    .notNull()
+    .references(() => subscriptions.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  amount: text("amount").notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  status: text("status").notNull().default("Unpaid"), // "Unpaid" | "Paid"
+});

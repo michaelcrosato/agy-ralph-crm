@@ -270,6 +270,29 @@ export interface DBMergedDocument {
   createdAt: Date;
 }
 
+export interface DBSubscription {
+  id: string;
+  orgId: string;
+  accountId: string;
+  planName: string;
+  status: string;
+  billingPeriod: string;
+  unitPrice: string;
+  quantity: number;
+  startDate: Date;
+  endDate: Date | null;
+}
+
+export interface DBInvoice {
+  id: string;
+  orgId: string;
+  subscriptionId: string;
+  accountId: string;
+  amount: string;
+  dueDate: Date;
+  status: string;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -293,6 +316,8 @@ export const store = {
   webhookDeliveries: [] as DBWebhookDelivery[],
   documentTemplates: [] as DBDocumentTemplate[],
   mergedDocuments: [] as DBMergedDocument[],
+  subscriptions: [] as DBSubscription[],
+  invoices: [] as DBInvoice[],
 };
 
 export const dbStore = {
@@ -873,6 +898,86 @@ export const dbStore = {
       return newMerged;
     },
   },
+  subscriptions: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.subscriptions.filter((s) => s.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const s = store.subscriptions.find((x) => x.id === id);
+      if (s && s.orgId !== orgId) return null;
+      return s || null;
+    },
+    insert: async (sub: Omit<DBSubscription, "id">) => {
+      const orgId = getActiveOrgId();
+      if (sub.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newSub: DBSubscription = {
+        ...sub,
+        id: `subscription-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.subscriptions.push(newSub);
+      return newSub;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBSubscription, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.subscriptions.findIndex((s) => s.id === id);
+      if (index === -1) return null;
+      if (store.subscriptions[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.subscriptions[index] = {
+        ...store.subscriptions[index],
+        ...updates,
+      };
+      return store.subscriptions[index];
+    },
+  },
+  invoices: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.invoices.filter((i) => i.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const i = store.invoices.find((x) => x.id === id);
+      if (i && i.orgId !== orgId) return null;
+      return i || null;
+    },
+    insert: async (inv: Omit<DBInvoice, "id">) => {
+      const orgId = getActiveOrgId();
+      if (inv.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newInv: DBInvoice = {
+        ...inv,
+        id: `invoice-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.invoices.push(newInv);
+      return newInv;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBInvoice, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.invoices.findIndex((i) => i.id === id);
+      if (index === -1) return null;
+      if (store.invoices[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.invoices[index] = {
+        ...store.invoices[index],
+        ...updates,
+      };
+      return store.invoices[index];
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -896,5 +1001,7 @@ export const dbStore = {
     store.webhookDeliveries = [];
     store.documentTemplates = [];
     store.mergedDocuments = [];
+    store.subscriptions = [];
+    store.invoices = [];
   },
 };

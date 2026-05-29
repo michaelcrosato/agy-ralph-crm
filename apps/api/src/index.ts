@@ -1,5 +1,9 @@
 import { type TenantContext, verifySessionToken } from "@crm/auth";
-import { convertLead, rollupOpportunityAmount } from "@crm/core";
+import {
+  calculateProRatedAmount,
+  convertLead,
+  rollupOpportunityAmount,
+} from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { compileTemplate } from "@crm/documents";
 import { compileForecastSummary } from "@crm/forecasting";
@@ -1353,6 +1357,126 @@ app.post("/api/documents/merge", tenantAuth, async (c) => {
 app.get("/api/documents/merged", tenantAuth, async (c) => {
   const merged = await dbStore.mergedDocuments.findMany();
   return c.json({ success: true, data: merged });
+});
+
+// Subscription Management Endpoints
+app.post("/api/subscriptions", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const {
+    accountId,
+    planName,
+    billingPeriod,
+    unitPrice,
+    quantity,
+    startDate,
+    endDate,
+  } = body;
+
+  if (!accountId || !planName || !billingPeriod || !unitPrice || !startDate) {
+    return c.json({ error: "Missing required subscription parameters" }, 400);
+  }
+
+  const sub = await dbStore.subscriptions.insert({
+    orgId: tenant.orgId,
+    accountId,
+    planName,
+    status: "active",
+    billingPeriod,
+    unitPrice: String(unitPrice),
+    quantity: quantity !== undefined ? Number(quantity) : 1,
+    startDate: new Date(startDate),
+    endDate: endDate ? new Date(endDate) : null,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: sub.id,
+    recordType: "Subscription",
+    action: "create",
+    userId: tenant.userId,
+    changes: null,
+  });
+
+  triggerOutboundWebhooks(
+    tenant.orgId,
+    "subscription.created",
+    sub as unknown as Record<string, unknown>,
+  );
+
+  return c.json({ success: true, data: sub });
+});
+
+app.get("/api/subscriptions", tenantAuth, async (c) => {
+  const subs = await dbStore.subscriptions.findMany();
+  return c.json({ success: true, data: subs });
+});
+
+// Invoice Generation Endpoints
+app.post("/api/invoices/generate", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { dueDate, daysUsed, daysInPeriod } = body;
+
+  const subs = await dbStore.subscriptions.findMany();
+  const activeSubs = subs.filter((s) => s.status === "active");
+
+  const generatedInvoices = [];
+  for (const sub of activeSubs) {
+    const existingInvoices = await dbStore.invoices.findMany();
+    const alreadyInvoiced = existingInvoices.some(
+      (inv) =>
+        inv.subscriptionId === sub.id &&
+        (dueDate
+          ? new Date(inv.dueDate).getTime() === new Date(dueDate).getTime()
+          : true),
+    );
+    if (alreadyInvoiced && !body.force) {
+      continue;
+    }
+
+    let amount = String(Number.parseFloat(sub.unitPrice) * sub.quantity);
+    if (daysUsed !== undefined && daysInPeriod !== undefined) {
+      amount = calculateProRatedAmount({
+        unitPrice: sub.unitPrice,
+        quantity: sub.quantity,
+        daysUsed,
+        daysInPeriod,
+      });
+    }
+
+    const inv = await dbStore.invoices.insert({
+      orgId: tenant.orgId,
+      subscriptionId: sub.id,
+      accountId: sub.accountId,
+      amount,
+      dueDate: dueDate ? new Date(dueDate) : new Date(),
+      status: "Unpaid",
+    });
+    generatedInvoices.push(inv);
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: inv.id,
+      recordType: "Invoice",
+      action: "create",
+      userId: tenant.userId,
+      changes: null,
+    });
+
+    triggerOutboundWebhooks(
+      tenant.orgId,
+      "invoice.created",
+      inv as unknown as Record<string, unknown>,
+    );
+  }
+
+  return c.json({ success: true, data: generatedInvoices });
+});
+
+app.get("/api/invoices", tenantAuth, async (c) => {
+  const invs = await dbStore.invoices.findMany();
+  return c.json({ success: true, data: invs });
 });
 
 export default app;
