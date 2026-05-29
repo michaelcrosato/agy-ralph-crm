@@ -38,6 +38,7 @@ import {
   detectCircularAccountRelation,
   detectCircularContactRelation,
   enrollInSequence,
+  enrollSegmentInSequence,
   evaluateLeadAssignment,
   evaluateLeadAutoConversion,
   evaluateMilestoneCompletion,
@@ -10020,6 +10021,66 @@ app.get("/api/segments/:id/members", tenantAuth, async (c) => {
         error: msg || "Failed to resolve segment members",
       },
       404,
+    );
+  }
+});
+
+app.post("/api/segments/:id/enroll-sequence", tenantAuth, async (c) => {
+  const segmentId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { sequenceId } = body;
+
+  if (!sequenceId) {
+    return c.json({ success: false, error: "sequenceId is required" }, 400);
+  }
+
+  try {
+    const result = await enrollSegmentInSequence(
+      dbStore,
+      tenant.orgId,
+      segmentId,
+      sequenceId,
+    );
+    return c.json({ success: true, ...result });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json(
+      {
+        success: false,
+        error: msg || "Failed to enroll segment in sequence",
+      },
+      400,
+    );
+  }
+});
+
+app.post("/api/sequences/:id/enroll-segment", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { segmentId } = body;
+
+  if (!segmentId) {
+    return c.json({ success: false, error: "segmentId is required" }, 400);
+  }
+
+  try {
+    const result = await enrollSegmentInSequence(
+      dbStore,
+      tenant.orgId,
+      segmentId,
+      sequenceId,
+    );
+    return c.json({ success: true, ...result });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json(
+      {
+        success: false,
+        error: msg || "Failed to enroll segment in sequence",
+      },
+      400,
     );
   }
 });
