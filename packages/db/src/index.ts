@@ -609,6 +609,7 @@ export interface DBMarketingSequenceMembership {
   recordId: string;
   status: string; // "active" | "completed" | "unsubscribed" | "error"
   currentStepNumber: number;
+  engagementScore?: number;
   lastExecutedAt: Date | null;
   nextExecutionAt: Date;
   snoozeUntil: Date | null;
@@ -4988,6 +4989,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceMembership = {
         ...item,
+        engagementScore: item.engagementScore ?? 0,
         id: `memb-${Math.random().toString(36).substring(2, 11)}`,
         createdAt: new Date(),
         updatedAt: new Date(),

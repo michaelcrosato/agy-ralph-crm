@@ -8087,3 +8087,55 @@ export function calculateReadTimeAnalytics(
     stepReadTimeStats,
   };
 }
+
+export interface EngagementScoreEventsInput {
+  openCount: number;
+  clickCount: number;
+  replyCount: number;
+  readTimeEvents: { durationMs: number; readClassification: string }[];
+  bounceEvents: { eventType: string; bounceType: string }[];
+  isUnsubscribed: boolean;
+}
+
+export function calculateRecipientEngagementScore(
+  events: EngagementScoreEventsInput,
+): number {
+  let score = 0;
+
+  // 1. Opens (+1 per event)
+  score += events.openCount * 1;
+
+  // 2. Clicks (+3 per event)
+  score += events.clickCount * 3;
+
+  // 3. Replies (+10 per event)
+  score += events.replyCount * 10;
+
+  // 4. Read times
+  for (const event of events.readTimeEvents) {
+    if (event.readClassification === "skimmed") {
+      score += 2;
+    } else if (event.readClassification === "read") {
+      score += 5;
+    }
+  }
+
+  // 5. Bounces & Complaints
+  for (const event of events.bounceEvents) {
+    if (
+      event.eventType === "complaint" ||
+      event.bounceType === "spam_complaint"
+    ) {
+      score -= 10;
+    } else if (event.eventType === "bounce") {
+      score -= 5;
+    }
+  }
+
+  // 6. Unsubscribed penalty (-15 points)
+  if (events.isUnsubscribed) {
+    score -= 15;
+  }
+
+  return score;
+}

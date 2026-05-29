@@ -29,6 +29,7 @@ import {
   calculateOpportunitySplits,
   calculateProRatedAmount,
   calculateReadTimeAnalytics,
+  calculateRecipientEngagementScore,
   calculateReplyAnalytics,
   calculateSalesLeaderboard,
   calculateSequenceAnalytics,
@@ -9741,6 +9742,9 @@ app.get("/api/public/emails/track/open/:token", async (c) => {
           tracker.activityId,
         );
       }
+
+      // Recalculate recipient engagement score
+      await recalculateEngagementScoreByTrackerToken(token);
     });
   }
 
@@ -9821,6 +9825,9 @@ app.get("/api/public/emails/track/click/:token", async (c) => {
           target || "",
         );
       }
+
+      // Recalculate recipient engagement score
+      await recalculateEngagementScoreByTrackerToken(token);
     });
   }
 
@@ -9930,6 +9937,9 @@ app.post("/api/public/emails/track/reply/:token", async (c) => {
           tracker.activityId,
         );
       }
+
+      // Recalculate recipient engagement score
+      await recalculateEngagementScoreByTrackerToken(token);
     });
   }
 
@@ -9974,6 +9984,9 @@ app.post("/api/public/emails/track/bounce/:token", async (c) => {
         bounceType: bounceType || undefined,
         trackerId: tracker.id,
       });
+
+      // Recalculate recipient engagement score
+      await recalculateEngagementScoreByTrackerToken(token);
     });
   }
 
@@ -10027,6 +10040,9 @@ app.post("/api/public/emails/track/read-time/:token", async (c) => {
           },
         },
       });
+
+      // Recalculate recipient engagement score
+      await recalculateEngagementScoreByTrackerToken(token);
     });
   }
 
@@ -10089,6 +10105,21 @@ app.get("/api/public/emails/unsubscribe/:token", async (c) => {
           },
         },
       });
+
+      // Transition any active marketing sequence memberships to unsubscribed
+      const allMemberships =
+        await dbStore.marketingSequenceMemberships.findMany();
+      const matchingMemberships = allMemberships.filter(
+        (m) =>
+          m.recordId === recipient.targetId &&
+          m.recordType.toLowerCase() === type.toLowerCase(),
+      );
+      for (const m of matchingMemberships) {
+        await dbStore.marketingSequenceMemberships.update(m.id, {
+          status: "unsubscribed",
+        });
+        await recalculateMemberEngagementScore(m.id);
+      }
     }
   });
 
@@ -11989,6 +12020,159 @@ app.get("/api/sequences/:id/read-time-analytics", tenantAuth, async (c) => {
 
   return c.json({ success: true, data: analytics });
 });
+
+async function recalculateMemberEngagementScore(
+  membershipId: string,
+): Promise<number> {
+  const membership =
+    await dbStore.marketingSequenceMemberships.findOne(membershipId);
+  if (!membership) return 0;
+
+  const allLinks = await dbStore.activityLinks.findMany();
+  const memberLinks = allLinks.filter(
+    (l) =>
+      l.targetId === membership.recordId &&
+      l.targetType.toLowerCase() === membership.recordType.toLowerCase(),
+  );
+
+  const activityIds = memberLinks.map((l) => l.activityId);
+
+  const allTrackers = await dbStore.emailTrackers.findMany();
+  const memberTrackers = allTrackers.filter(
+    (t) => t.activityId && activityIds.includes(t.activityId),
+  );
+
+  const trackerIds = memberTrackers.map((t) => t.id);
+
+  const allReadTimeEvents = await dbStore.emailReadTimeEvents.findMany();
+  const memberReadTimeEvents = allReadTimeEvents.filter((e) =>
+    trackerIds.includes(e.trackerId),
+  );
+
+  const allBounceEvents = await dbStore.emailBounceEvents.findMany();
+  const memberBounceEvents = allBounceEvents.filter((e) =>
+    trackerIds.includes(e.trackerId),
+  );
+
+  let openCount = 0;
+  let clickCount = 0;
+  let replyCount = 0;
+  for (const t of memberTrackers) {
+    openCount += t.openCount;
+    clickCount += t.clickCount;
+    replyCount += t.replyCount;
+  }
+
+  const isUnsubscribed = membership.status === "unsubscribed";
+
+  const score = calculateRecipientEngagementScore({
+    openCount,
+    clickCount,
+    replyCount,
+    readTimeEvents: memberReadTimeEvents.map((e) => ({
+      durationMs: e.durationMs,
+      readClassification: e.readClassification,
+    })),
+    bounceEvents: memberBounceEvents.map((e) => ({
+      eventType: e.eventType,
+      bounceType: e.bounceType,
+    })),
+    isUnsubscribed,
+  });
+
+  await dbStore.marketingSequenceMemberships.update(membershipId, {
+    engagementScore: score,
+  });
+
+  return score;
+}
+
+async function recalculateEngagementScoreByTrackerToken(
+  token: string,
+): Promise<void> {
+  const tracker = await dbStore.emailTrackers.findByToken(token);
+  if (!tracker) return;
+
+  const allLinks = await dbStore.activityLinks.findMany();
+  const link = allLinks.find((l) => l.activityId === tracker.activityId);
+  if (!link) return;
+
+  const allMemberships = await dbStore.marketingSequenceMemberships.findMany();
+  const membership = allMemberships.find(
+    (m) =>
+      m.recordId === link.targetId &&
+      m.recordType.toLowerCase() === link.targetType.toLowerCase(),
+  );
+
+  if (membership) {
+    await withTenant(membership.orgId, mockDb, async () => {
+      await recalculateMemberEngagementScore(membership.id);
+    });
+  }
+}
+
+app.get("/api/sequences/:id/engagement-scores", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const memberships =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+
+  const data = [];
+  for (const m of memberships) {
+    let name = "Unknown";
+    let email = "prospect@example.com";
+
+    if (m.recordType === "lead") {
+      const lead = await dbStore.leads.findOne(m.recordId);
+      if (lead) {
+        name = lead.company || lead.email || "Unknown";
+        email = lead.email || "prospect@example.com";
+      }
+    } else if (m.recordType === "contact") {
+      const contact = await dbStore.contacts.findOne(m.recordId);
+      if (contact) {
+        name = `${contact.firstName} ${contact.lastName}`.trim() || "Unknown";
+        email = contact.email || "prospect@example.com";
+      }
+    }
+
+    data.push({
+      membershipId: m.id,
+      recordType: m.recordType,
+      recordId: m.recordId,
+      recordName: name,
+      email,
+      status: m.status,
+      engagementScore: m.engagementScore ?? 0,
+    });
+  }
+
+  return c.json({ success: true, data });
+});
+
+app.post(
+  "/api/sequences/members/:id/recalculate-score",
+  tenantAuth,
+  async (c) => {
+    const membershipId = c.req.param("id");
+    const membership =
+      await dbStore.marketingSequenceMemberships.findOne(membershipId);
+    if (!membership) {
+      return c.json({ success: false, error: "Membership not found" }, 404);
+    }
+
+    const score = await recalculateMemberEngagementScore(membershipId);
+    return c.json({
+      success: true,
+      message: "Engagement score recalculated successfully",
+      engagementScore: score,
+    });
+  },
+);
 
 // Start Hono Node Server if run directly (excluding test execution environment)
 

@@ -1247,6 +1247,7 @@ export const marketingSequenceMemberships = pgTable(
     recordId: uuid("record_id").notNull(),
     status: text("status").notNull().default("active"), // "active" | "completed" | "unsubscribed" | "error"
     currentStepNumber: integer("current_step_number").notNull().default(0),
+    engagementScore: integer("engagement_score").notNull().default(0),
     lastExecutedAt: timestamp("last_executed_at"),
     nextExecutionAt: timestamp("next_execution_at").notNull().defaultNow(),
     snoozeUntil: timestamp("snooze_until"),
