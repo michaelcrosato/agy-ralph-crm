@@ -10514,12 +10514,13 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     stepType !== "email" &&
     stepType !== "webhook" &&
     stepType !== "task" &&
-    stepType !== "sms"
+    stepType !== "sms" &&
+    stepType !== "call"
   ) {
     return c.json(
       {
         success: false,
-        error: "stepType must be email, webhook, task, or sms",
+        error: "stepType must be email, webhook, task, sms, or call",
       },
       400,
     );
@@ -10562,6 +10563,13 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     if (!body.smsMessage || typeof body.smsMessage !== "string") {
       return c.json(
         { success: false, error: "smsMessage is required for sms steps" },
+        400,
+      );
+    }
+  } else if (stepType === "call") {
+    if (!body.callScript || typeof body.callScript !== "string") {
+      return c.json(
+        { success: false, error: "callScript is required for call steps" },
         400,
       );
     }
@@ -10679,6 +10687,7 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
           : null
         : null,
     smsMessage: stepType === "sms" ? body.smsMessage || null : null,
+    callScript: stepType === "call" ? body.callScript || null : null,
   });
 
   return c.json({ success: true, step });

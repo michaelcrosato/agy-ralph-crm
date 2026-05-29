@@ -1,13 +1,15 @@
-# Verification Command Configuration (CLAUDE.md)
+# Tooling & Verification Configuration (CLAUDE.md)
 
-## Development Commands
+> [!IMPORTANT]
+> This repository is fully optimized for **autonomous AFK-ready coding agents**.
+> All canonical rules, boundaries, repeatable agent loops, coding conventions, and command references are defined in the central:
+> **[AGENTS.md](file:///C:/dev/agy-ralph-crm/AGENTS.md)**
 
-* **Build Workspace**: `pnpm build`
-* **Run Verification Pipeline**: `pnpm verify`
-* **Run Linting**: `pnpm lint`
-* **Run Tests**: `pnpm test`
-* **Lint & Format**: `npx biome check --write .`
+## Immediate Command Cheat Sheet
+- **Verify Workspace**: `pnpm verify`
+- **Build Packages**: `pnpm build`
+- **Run Test Suite**: `pnpm test`
+- **Run Specific Test**: `npx vitest run packages/testing/src/<test-name>.test.ts`
+- **Format Code**: `npx biome check --write .`
 
-## Package Execution Constraints
-
-Ensure every child package contains a discrete `verify`, `build`, and `test` script defined in its respective `package.json` to integrate with `turbo`.
+Refer to **[AGENTS.md](file:///C:/dev/agy-ralph-crm/AGENTS.md)** for absolute architectural constraints and developer loop instructions.

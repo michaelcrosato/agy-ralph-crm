@@ -1,0 +1,32 @@
+# .aiignore - Paths autonomous agents must skip to maximize token efficiency
+
+# Version Control
+.git/
+.gitignore
+
+# Package Manager & Caches
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+.cache/
+.turbo/
+pnpm-lock.yaml
+
+# Build & Compilation Outputs
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Test Outputs & Logs
+test_output.log
+*.log
+coverage/
+.nyc_output/
+
+# Heavy Metadata / Task Scratchpads
+.ralph/tasks/
+.ralph/memories/
+scratch/

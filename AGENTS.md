@@ -35,4 +35,50 @@ Every change must successfully execute the verification sequence before pull-req
 * **Keep Files Slim:** Keep standard file lines under 400 lines (governed by the `ralph.yml` budget).
 
 ---
-*Last Updated: May 28, 2026*
+
+## 5. Canonical Agent Guidance
+
+### 5.1 Read-First Order
+Agents must read the following files in sequence upon startup:
+1. `AGENTS.md` (Self, this file) - Execution boundaries, rules, repeatable loop.
+2. `GOAL.md` - System architectural blueprint, high-level scope, definition of done.
+3. `ROADMAP.md` - Phased implementation plans, risk maps, unblocked tickets.
+4. `docs/ai/REPO_MAP.md` - Current code layout, core modules, testing entry points.
+5. The highest priority unblocked ticket in `tickets/TICKET0NN.md`.
+
+### 5.2 The Repeatable Agent Loop
+Agents must execute tasks recursively by strictly repeating this workflow:
+1. **Status Check**: Run `git status` first; ensure zero local changes are modified or overwritten.
+2. **Reconnaissance**: Read the read-first order files + the active spec in `.ralph/specs/` matching the ticket.
+3. **Ticket Selection**: Claim the lowest-numbered unblocked ticket in `tickets/`. Mark it as `Status: in_progress`.
+4. **Execution**: Perform the smallest, cleanest change to satisfy the specification. Write targeted unit/integration tests.
+5. **Targeted Checks**: Run local validation commands targeting the edited code (e.g. `npx vitest run <file>`).
+6. **Broad Checks**: Run workspace-wide verification checks (`pnpm verify` and `pnpm test`).
+7. **Ticket Resolution**: Update the ticket to `Status: completed`. Record verification command exit status.
+8. **Follow-ups**: Update the `ROADMAP.md` and document any unresolved follow-up items.
+9. **Synthesis**: Concisely summarize found, changed, ran commands, and the single best next ticket.
+
+### 5.3 Full Command Reference
+- **Bootstrap Workspace**: `pnpm install`
+- **Verify Clean Code & Format**: `pnpm verify`
+- **Run Unit/Integration Tests**: `pnpm test`
+- **Build Workspace**: `pnpm build`
+- **Targeted Test Execution**: `npx vitest run <test-file-path>`
+- **Biome Format & Lint Fix**: `npx biome check --write .`
+
+### 5.4 Coding Conventions
+- **TypeScript**: Pinned to Node 22 baseline. Strict type checks. Ensure clean module boundaries.
+- **REST APIs**: Pinned to Hono engine routes under `apps/api/src/index.ts`. All step-specific properties must have Zod-like validations.
+- **Row-Level Security (RLS)**: Crucial database security boundary. Tenant organization isolation context is mandatory. Always wrap transactional blocks in `withTenant` matching the organization context.
+- **Drizzle ORM**: Schemas are declared in `packages/db/src/schema.ts`. Mock db stores in `packages/db/src/index.ts` must exactly align with actual schema definitions.
+
+### 5.5 Autonomous vs. Ask Boundary Rules
+- **Proceed Autonomously**: Creating/modifying files, fixing bugs, creating test suites, building, resolving tickets.
+- **Stop and Ask**: Ambiguous missing credentials, real legal/security vulnerabilities, paid/production deployments, potential data-loss operations.
+
+### 5.6 Token Efficiency Protocols
+- **Never Blind-Scan**: Use `docs/ai/REPO_MAP.md` and target specific subdirectories. Avoid scanning massive node_modules or dist folders.
+- **Use Ripgrep strategically**: Target searches specifically using `grep_search` rather than reading large files line-by-line.
+- **Skip Noise**: Always respect the rules outlined in `.aiignore`.
+
+*Last Updated: May 29, 2026*

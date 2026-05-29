@@ -598,13 +598,14 @@ export interface DBMarketingSequenceStep {
     timeOfDay?: string;
   } | null;
   replyToStepNumber?: number | null;
-  stepType: "email" | "webhook" | "task" | "sms";
+  stepType: "email" | "webhook" | "task" | "sms" | "call";
   webhookUrl?: string | null;
   webhookPayload?: string | null;
   taskSubject?: string | null;
   taskBody?: string | null;
   taskDueDays?: number | null;
   smsMessage?: string | null;
+  callScript?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
