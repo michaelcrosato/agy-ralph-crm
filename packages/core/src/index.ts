@@ -1717,3 +1717,38 @@ export function validateStageGuidanceKeyFields(
     missingFields,
   };
 }
+
+export const SUPPORTED_OPPORTUNITY_TEAM_ROLES = [
+  "Opportunity Owner",
+  "Sales Representative",
+  "Sales Engineer",
+  "Executive Sponsor",
+  "Other",
+];
+
+export function validateOpportunityTeamMember(
+  opportunityId: string,
+  userId: string,
+  role: string,
+): { success: boolean; error?: string } {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const mockRegex = /^(opportunities|opportunity|opp|user|team)-[a-z0-9]+$/i;
+
+  if (
+    !opportunityId ||
+    (!uuidRegex.test(opportunityId) && !mockRegex.test(opportunityId))
+  ) {
+    return { success: false, error: "Invalid Opportunity ID format." };
+  }
+  if (!userId || (!uuidRegex.test(userId) && !mockRegex.test(userId))) {
+    return { success: false, error: "Invalid User ID format." };
+  }
+  if (!SUPPORTED_OPPORTUNITY_TEAM_ROLES.includes(role)) {
+    return {
+      success: false,
+      error: `Invalid role. Supported roles are: ${SUPPORTED_OPPORTUNITY_TEAM_ROLES.join(", ")}`,
+    };
+  }
+  return { success: true };
+}

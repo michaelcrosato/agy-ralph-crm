@@ -506,6 +506,15 @@ export interface DBAccountTeamMember {
   createdAt: Date;
 }
 
+export interface DBOpportunityTeamMember {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
+}
+
 export interface DBLeadScoringRule {
   id: string;
   orgId: string;
@@ -619,6 +628,7 @@ export const store = {
   leadSlaTargets: [] as DBLeadSlaTarget[],
   leadSlaTrackers: [] as DBLeadSlaTracker[],
   accountTeams: [] as DBAccountTeamMember[],
+  opportunityTeams: [] as DBOpportunityTeamMember[],
   leadScoringRules: [] as DBLeadScoringRule[],
   opportunityCompetitors: [] as DBOpportunityCompetitor[],
   leadConversionMappings: [] as DBLeadConversionMapping[],
@@ -2298,6 +2308,83 @@ export const dbStore = {
       store.accountTeams.splice(index, 1);
     },
   },
+  opportunityTeams: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityTeams.filter((t) => t.orgId === orgId);
+    },
+    findForOpportunity: async (opportunityId: string) => {
+      const orgId = getActiveOrgId();
+      return store.opportunityTeams.filter(
+        (t) => t.opportunityId === opportunityId && t.orgId === orgId,
+      );
+    },
+    insert: async (
+      member: Omit<DBOpportunityTeamMember, "id" | "createdAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (member.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMember: DBOpportunityTeamMember = {
+        ...member,
+        id: `team-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.opportunityTeams.push(newMember);
+      return newMember;
+    },
+    addOrUpdateMember: async (
+      opportunityId: string,
+      userId: string,
+      role: string,
+    ) => {
+      const orgId = getActiveOrgId();
+      // Verify opportunity belongs to organization
+      const opportunity = store.opportunities.find(
+        (o) => o.id === opportunityId,
+      );
+      if (!opportunity || opportunity.orgId !== orgId) {
+        throw new Error(
+          "RLS Isolation Violation: Opportunity not found or tenant mismatch.",
+        );
+      }
+      const index = store.opportunityTeams.findIndex(
+        (t) =>
+          t.opportunityId === opportunityId &&
+          t.userId === userId &&
+          t.orgId === orgId,
+      );
+      if (index !== -1) {
+        store.opportunityTeams[index] = {
+          ...store.opportunityTeams[index],
+          role,
+        };
+        return store.opportunityTeams[index];
+      }
+      const newMember: DBOpportunityTeamMember = {
+        id: `team-${Math.random().toString(36).substring(2, 11)}`,
+        orgId,
+        opportunityId,
+        userId,
+        role,
+        createdAt: new Date(),
+      };
+      store.opportunityTeams.push(newMember);
+      return newMember;
+    },
+    removeMember: async (opportunityId: string, userId: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityTeams.findIndex(
+        (t) =>
+          t.opportunityId === opportunityId &&
+          t.userId === userId &&
+          t.orgId === orgId,
+      );
+      if (index === -1) return;
+      store.opportunityTeams.splice(index, 1);
+    },
+  },
   leadScoringRules: {
     findMany: async () => {
       const orgId = getActiveOrgId();
@@ -2667,6 +2754,7 @@ export const dbStore = {
     store.leadSlaTargets = [];
     store.leadSlaTrackers = [];
     store.accountTeams = [];
+    store.opportunityTeams = [];
     store.leadScoringRules = [];
     store.opportunityCompetitors = [];
     store.leadConversionMappings = [];
