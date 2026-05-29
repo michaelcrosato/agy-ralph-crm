@@ -1576,3 +1576,17 @@ export const emailReadTimeEvents = pgTable("email_read_time_events", {
   readClassification: text("read_classification").notNull(), // 'glanced' | 'skimmed' | 'read'
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const marketingSequenceGlobalVariables = pgTable(
+  "marketing_sequence_global_variables",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);

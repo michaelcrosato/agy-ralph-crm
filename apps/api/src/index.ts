@@ -10689,10 +10689,17 @@ app.post("/api/sequences/preview", tenantAuth, async (c) => {
     )) as Record<string, unknown> | null;
   }
 
+  const globalVars = await dbStore.marketingSequenceGlobalVariables.findMany();
+  const globalVariablesMap: Record<string, string> = {};
+  for (const v of globalVars) {
+    globalVariablesMap[v.key] = v.value;
+  }
+
   const recipientContext = {
     lead: recordType === "lead" ? record : null,
     contact: recordType === "contact" ? record : null,
     account,
+    globalVariables: globalVariablesMap,
   };
 
   const compiled = compileEmailTemplate(
@@ -11700,6 +11707,65 @@ app.post("/api/sequences/email-event", tenantAuth, async (c) => {
   });
 
   return c.json({ success: true, data: result });
+});
+
+app.get("/api/sequences/settings/variables", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const variables = await dbStore.marketingSequenceGlobalVariables.findMany();
+  return c.json({ success: true, data: variables });
+});
+
+app.post("/api/sequences/settings/variables", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { key, value } = body;
+
+  if (!key || typeof key !== "string" || !/^[A-Za-z0-9_]+$/.test(key)) {
+    return c.json(
+      {
+        success: false,
+        error:
+          "key is required and must contain only alphanumeric characters and underscores",
+      },
+      400,
+    );
+  }
+
+  if (value === undefined || typeof value !== "string") {
+    return c.json(
+      {
+        success: false,
+        error: "value is required and must be a string",
+      },
+      400,
+    );
+  }
+
+  const variable = await dbStore.marketingSequenceGlobalVariables.insert({
+    orgId: tenant.orgId,
+    key,
+    value,
+  });
+
+  return c.json({ success: true, data: variable }, 201);
+});
+
+app.delete("/api/sequences/settings/variables/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const variable = await dbStore.marketingSequenceGlobalVariables.findOne(id);
+  if (!variable) {
+    return c.json({ success: false, error: "Global variable not found" }, 404);
+  }
+
+  const deleted = await dbStore.marketingSequenceGlobalVariables.delete(id);
+  if (!deleted) {
+    return c.json({ success: false, error: "Global variable not found" }, 404);
+  }
+
+  return c.json({
+    success: true,
+    message: "Global variable deleted successfully",
+  });
 });
 
 app.get("/api/sequences/settings/caps", tenantAuth, async (c) => {

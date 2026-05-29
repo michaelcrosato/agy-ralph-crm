@@ -644,6 +644,15 @@ export interface DBMarketingSequenceScoreTrigger {
   updatedAt: Date;
 }
 
+export interface DBMarketingSequenceGlobalVariable {
+  id: string;
+  orgId: string;
+  key: string;
+  value: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBMarketingSequenceStepSplitTest {
   id: string;
   orgId: string;
@@ -1276,6 +1285,7 @@ export const store = {
   marketingSequenceSuppressions: [] as DBMarketingSequenceSuppression[],
   marketingSequenceExclusions: [] as DBMarketingSequenceExclusion[],
   marketingSequenceScoreTriggers: [] as DBMarketingSequenceScoreTrigger[],
+  marketingSequenceGlobalVariables: [] as DBMarketingSequenceGlobalVariable[],
   marketingSequenceAbAllocations: [] as DBMarketingSequenceAbAllocation[],
   marketingSequenceCaps: [] as DBMarketingSequenceCap[],
   marketingSequenceLinkActions: [] as DBMarketingSequenceLinkAction[],
@@ -5140,6 +5150,63 @@ export const dbStore = {
       return true;
     },
   },
+  marketingSequenceGlobalVariables: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceGlobalVariables.filter(
+        (c) => c.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.marketingSequenceGlobalVariables.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (
+      item: Omit<
+        DBMarketingSequenceGlobalVariable,
+        "id" | "createdAt" | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const existingIndex = store.marketingSequenceGlobalVariables.findIndex(
+        (c) => c.orgId === orgId && c.key === item.key,
+      );
+      if (existingIndex !== -1) {
+        const updated = {
+          ...store.marketingSequenceGlobalVariables[existingIndex],
+          value: item.value,
+          updatedAt: new Date(),
+        };
+        store.marketingSequenceGlobalVariables[existingIndex] = updated;
+        return updated;
+      }
+      const newItem: DBMarketingSequenceGlobalVariable = {
+        ...item,
+        id: `msvg-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSequenceGlobalVariables.push(newItem);
+      return newItem;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceGlobalVariables.findIndex(
+        (c) => c.id === id,
+      );
+      if (index === -1) return false;
+      if (store.marketingSequenceGlobalVariables[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceGlobalVariables.splice(index, 1);
+      return true;
+    },
+  },
   marketingSequenceStepSplitTests: {
     findMany: async () => {
       const orgId = getActiveOrgId();
@@ -5907,6 +5974,7 @@ export const dbStore = {
     store.marketingSequenceSuppressions = [];
     store.marketingSequenceExclusions = [];
     store.marketingSequenceScoreTriggers = [];
+    store.marketingSequenceGlobalVariables = [];
     store.marketingSequenceAbAllocations = [];
     store.marketingSequenceCaps = [];
     store.marketingSequenceLinkActions = [];

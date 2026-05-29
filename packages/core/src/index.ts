@@ -3844,6 +3844,7 @@ export function personalizeEmailTemplate(
     account?: Record<string, unknown> | null;
     contact?: Record<string, unknown> | null;
     opportunity?: Record<string, unknown> | null;
+    globalVariables?: Record<string, string> | null;
   },
 ): { subject: string; body: string } {
   const resolvePathValue = (path: string): string => {
@@ -3852,6 +3853,12 @@ export function personalizeEmailTemplate(
 
     const objName = parts[0].toLowerCase();
     const fieldPath = parts.slice(1).join(".");
+
+    if (objName === "global") {
+      const val = context.globalVariables?.[fieldPath];
+      if (val === undefined || val === null) return "";
+      return String(val);
+    }
 
     let record: Record<string, unknown> | undefined;
     if (objName === "lead") {
@@ -3950,6 +3957,7 @@ export function compileEmailTemplate(
     account?: Record<string, unknown> | null;
     contact?: Record<string, unknown> | null;
     opportunity?: Record<string, unknown> | null;
+    globalVariables?: Record<string, string> | null;
   },
 ): { subject: string; body: string } {
   return personalizeEmailTemplate(template, context);
