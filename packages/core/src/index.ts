@@ -3909,6 +3909,8 @@ interface CoreSequenceMembership {
   currentStepNumber: number;
   lastExecutedAt: Date | null;
   nextExecutionAt: Date;
+  snoozeUntil: Date | null;
+  snoozeReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4225,6 +4227,8 @@ export async function enrollInSequence(
     currentStepNumber: 0,
     lastExecutedAt: null,
     nextExecutionAt,
+    snoozeUntil: null,
+    snoozeReason: null,
   });
 
   return membership;
@@ -4489,6 +4493,47 @@ export async function executePendingSequenceSteps(
   currentTime: Date = new Date(),
 ): Promise<number> {
   const memberships = await dbStore.marketingSequenceMemberships.findMany();
+
+  // Auto-resume memberships whose snooze period has expired
+  for (const m of memberships) {
+    if (
+      m.status === "snoozed" &&
+      m.snoozeUntil &&
+      new Date(m.snoozeUntil) <= currentTime
+    ) {
+      const originalSnoozeUntil = m.snoozeUntil;
+      await dbStore.marketingSequenceMemberships.update(m.id, {
+        status: "active",
+        snoozeUntil: null,
+        snoozeReason: null,
+        nextExecutionAt: currentTime,
+      });
+
+      // Update local object so it can be executed immediately in this cycle if eligible
+      m.status = "active";
+      m.snoozeUntil = null;
+      m.snoozeReason = null;
+      m.nextExecutionAt = currentTime;
+
+      await dbStore.auditLogs.insert({
+        orgId: m.orgId,
+        recordId: m.id,
+        recordType: "marketing_sequence_memberships",
+        action: "membership_resumed",
+        userId: "00000000-0000-0000-0000-000000000000",
+        changes: {
+          status: { before: "snoozed", after: "active" },
+          snoozeUntil: {
+            before: originalSnoozeUntil
+              ? new Date(originalSnoozeUntil).toISOString()
+              : null,
+            after: null,
+          },
+        },
+      });
+    }
+  }
+
   const pendingMemberships = memberships.filter(
     (m) => m.status === "active" && new Date(m.nextExecutionAt) <= currentTime,
   );

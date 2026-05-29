@@ -10632,6 +10632,113 @@ app.post("/api/sequences/:id/enroll-segment", tenantAuth, async (c) => {
   }
 });
 
+app.post(
+  "/api/sequences/memberships/:membershipId/snooze",
+  tenantAuth,
+  async (c) => {
+    const membershipId = c.req.param("membershipId");
+    const tenant = c.get("tenant");
+    const body = await c.req.json().catch(() => ({}));
+    const { snoozeUntil, reason } = body;
+
+    if (!snoozeUntil) {
+      return c.json({ success: false, error: "snoozeUntil is required" }, 400);
+    }
+
+    const membership =
+      await dbStore.marketingSequenceMemberships.findOne(membershipId);
+    if (!membership || membership.orgId !== tenant.orgId) {
+      return c.json({ success: false, error: "Membership not found" }, 404);
+    }
+
+    const snoozeDate = new Date(snoozeUntil);
+    if (Number.isNaN(snoozeDate.getTime())) {
+      return c.json(
+        { success: false, error: "Invalid snoozeUntil date format" },
+        400,
+      );
+    }
+
+    const originalStatus = membership.status;
+    const originalSnoozeUntil = membership.snoozeUntil;
+
+    const updated = await dbStore.marketingSequenceMemberships.update(
+      membershipId,
+      {
+        status: "snoozed",
+        snoozeUntil: snoozeDate,
+        snoozeReason: reason || null,
+      },
+    );
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: membershipId,
+      recordType: "marketing_sequence_memberships",
+      action: "membership_snoozed",
+      userId: "00000000-0000-0000-0000-000000000000",
+      changes: {
+        status: { before: originalStatus, after: "snoozed" },
+        snoozeUntil: {
+          before: originalSnoozeUntil
+            ? new Date(originalSnoozeUntil).toISOString()
+            : null,
+          after: snoozeDate.toISOString(),
+        },
+      },
+    });
+
+    return c.json({ success: true, data: updated });
+  },
+);
+
+app.post(
+  "/api/sequences/memberships/:membershipId/resume",
+  tenantAuth,
+  async (c) => {
+    const membershipId = c.req.param("membershipId");
+    const tenant = c.get("tenant");
+
+    const membership =
+      await dbStore.marketingSequenceMemberships.findOne(membershipId);
+    if (!membership || membership.orgId !== tenant.orgId) {
+      return c.json({ success: false, error: "Membership not found" }, 404);
+    }
+
+    const originalStatus = membership.status;
+    const originalSnoozeUntil = membership.snoozeUntil;
+
+    const updated = await dbStore.marketingSequenceMemberships.update(
+      membershipId,
+      {
+        status: "active",
+        snoozeUntil: null,
+        snoozeReason: null,
+        nextExecutionAt: new Date(),
+      },
+    );
+
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: membershipId,
+      recordType: "marketing_sequence_memberships",
+      action: "membership_resumed",
+      userId: "00000000-0000-0000-0000-000000000000",
+      changes: {
+        status: { before: originalStatus, after: "active" },
+        snoozeUntil: {
+          before: originalSnoozeUntil
+            ? originalSnoozeUntil.toISOString()
+            : null,
+          after: null,
+        },
+      },
+    });
+
+    return c.json({ success: true, data: updated });
+  },
+);
+
 // Start Hono Node Server if run directly (excluding test execution environment)
 
 if (process.env.NODE_ENV !== "test") {

@@ -597,6 +597,8 @@ export interface DBMarketingSequenceMembership {
   currentStepNumber: number;
   lastExecutedAt: Date | null;
   nextExecutionAt: Date;
+  snoozeUntil: Date | null;
+  snoozeReason: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1231,6 +1231,8 @@ export const marketingSequenceMemberships = pgTable(
     currentStepNumber: integer("current_step_number").notNull().default(0),
     lastExecutedAt: timestamp("last_executed_at"),
     nextExecutionAt: timestamp("next_execution_at").notNull().defaultNow(),
+    snoozeUntil: timestamp("snooze_until"),
+    snoozeReason: text("snooze_reason"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
