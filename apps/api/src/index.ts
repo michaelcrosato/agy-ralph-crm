@@ -4,6 +4,7 @@ import {
   verifySessionToken,
 } from "@crm/auth";
 import {
+  calculateAccountDuplicates,
   calculateCPQPrice,
   calculateCampaignRevenueShare,
   calculateCampaignStats,
@@ -22,6 +23,7 @@ import {
   evaluateTerritoryRouting,
   generateRenewalOpportunity,
   isContractInRenewalWindow,
+  mergeAccounts,
   mergeLeads,
   rollupHierarchyPipeline,
   rollupOpportunityAmount,
@@ -924,6 +926,136 @@ app.patch("/api/accounts/:id", tenantAuth, async (c) => {
   }
 
   return c.json({ success: true, data: updated });
+});
+
+app.get("/api/accounts/:id/duplicates", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const sourceAccount = await dbStore.accounts.findOne(id);
+  if (!sourceAccount) {
+    return c.json({ error: "Account not found" }, 404);
+  }
+  const allAccounts = await dbStore.accounts.findMany();
+  const duplicates = calculateAccountDuplicates(sourceAccount, allAccounts);
+  return c.json({ success: true, data: duplicates });
+});
+
+app.post("/api/accounts/:id/merge", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { duplicateId, fieldResolution } = body;
+
+  if (!duplicateId || !fieldResolution) {
+    return c.json(
+      { error: "Missing duplicateId or fieldResolution parameters" },
+      400,
+    );
+  }
+
+  const master = await dbStore.accounts.findOne(id);
+  const duplicate = await dbStore.accounts.findOne(duplicateId);
+
+  if (!master || !duplicate) {
+    return c.json({ error: "Master or duplicate account not found" }, 404);
+  }
+
+  if (master.orgId !== tenant.orgId || duplicate.orgId !== tenant.orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+
+  // Perform core merge logic
+  const mergedAccount = mergeAccounts({ master, duplicate, fieldResolution });
+
+  // Update master account
+  const updatedMaster = await dbStore.accounts.update(id, {
+    name: mergedAccount.name,
+    domain: mergedAccount.domain,
+    custom: mergedAccount.custom,
+  });
+
+  if (!updatedMaster) {
+    return c.json({ error: "Failed to update master account" }, 500);
+  }
+
+  // Consolidate Contacts
+  for (const contact of store.contacts) {
+    if (contact.orgId === tenant.orgId && contact.accountId === duplicateId) {
+      contact.accountId = id;
+    }
+  }
+
+  // Consolidate Opportunities
+  for (const opp of store.opportunities) {
+    if (opp.orgId === tenant.orgId && opp.accountId === duplicateId) {
+      opp.accountId = id;
+    }
+  }
+
+  // Consolidate Contracts
+  for (const contract of store.contracts) {
+    if (contract.orgId === tenant.orgId && contract.accountId === duplicateId) {
+      contract.accountId = id;
+    }
+  }
+
+  // Consolidate activity links
+  for (const link of store.activityLinks) {
+    if (
+      link.orgId === tenant.orgId &&
+      link.targetType === "Account" &&
+      link.targetId === duplicateId
+    ) {
+      link.targetId = id;
+    }
+  }
+
+  // Consolidate Account Team members
+  const duplicateTeamMembers = store.accountTeams.filter(
+    (m) => m.orgId === tenant.orgId && m.accountId === duplicateId,
+  );
+
+  for (const dupMember of duplicateTeamMembers) {
+    const masterAlreadyHasUser = store.accountTeams.some(
+      (m) =>
+        m.orgId === tenant.orgId &&
+        m.accountId === id &&
+        m.userId === dupMember.userId,
+    );
+    if (masterAlreadyHasUser) {
+      // Remove duplicate team member
+      const idx = store.accountTeams.findIndex((m) => m.id === dupMember.id);
+      if (idx !== -1) {
+        store.accountTeams.splice(idx, 1);
+      }
+    } else {
+      // Update accountId to master ID
+      dupMember.accountId = id;
+    }
+  }
+
+  // Delete duplicate account
+  await dbStore.accounts.delete(duplicateId);
+
+  // Log audit log for master account update
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "accounts",
+    action: "update",
+    userId: tenant.userId,
+    changes: {
+      merge: { before: duplicateId, after: "merged_into_master" },
+    },
+  });
+
+  // Trigger outbound webhook account.merged
+  await triggerOutboundWebhooks(tenant.orgId, "account.merged", {
+    accountId: id,
+    mergedAccountId: duplicateId,
+    finalAccount: updatedMaster,
+  });
+
+  return c.json({ success: true, data: updatedMaster });
 });
 
 app.get("/api/accounts/:id/hierarchy", tenantAuth, async (c) => {

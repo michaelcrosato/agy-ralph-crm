@@ -679,6 +679,16 @@ export const dbStore = {
       }
       return path;
     },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.accounts.findIndex((a) => a.id === id);
+      if (index === -1) return false;
+      if (store.accounts[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.accounts.splice(index, 1);
+      return true;
+    },
   },
   contacts: {
     findMany: async () => {

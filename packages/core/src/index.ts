@@ -1211,3 +1211,114 @@ export function calculateLeadScore(
 
   return score;
 }
+
+export interface AccountRecord {
+  id: string;
+  orgId: string;
+  ownerId: string;
+  name: string;
+  domain: string | null;
+  custom: Record<string, unknown> | null;
+  parentAccountId?: string | null;
+}
+
+export interface MergeAccountsInput {
+  master: AccountRecord;
+  duplicate: AccountRecord;
+  fieldResolution: Record<string, FieldResolutionSource>;
+}
+
+export function calculateAccountDuplicates(
+  sourceAccount: AccountRecord,
+  allAccounts: AccountRecord[],
+): AccountRecord[] {
+  if (!sourceAccount.orgId) return [];
+
+  const cleanString = (val: string | null): string => {
+    return val ? val.trim().toLowerCase() : "";
+  };
+
+  const sourceName = cleanString(sourceAccount.name);
+  const sourceDomain = cleanString(sourceAccount.domain);
+
+  return allAccounts.filter((acc) => {
+    if (acc.orgId !== sourceAccount.orgId) return false;
+    if (acc.id === sourceAccount.id) return false;
+
+    const accName = cleanString(acc.name);
+    const accDomain = cleanString(acc.domain);
+
+    // Rule A: Exact name match
+    if (sourceName && accName && sourceName === accName) {
+      return true;
+    }
+
+    // Rule B: Exact domain match (if not empty/null)
+    if (sourceDomain && accDomain && sourceDomain === accDomain) {
+      return true;
+    }
+
+    return false;
+  });
+}
+
+export function mergeAccounts(input: MergeAccountsInput): AccountRecord {
+  const { master, duplicate, fieldResolution } = input;
+
+  if (master.orgId !== duplicate.orgId) {
+    throw new Error("Cannot merge accounts from different organizations.");
+  }
+
+  const resolveField = <T>(
+    fieldName: string,
+    masterValue: T,
+    duplicateValue: T,
+  ): T => {
+    const source = fieldResolution[fieldName];
+    if (source === "duplicate") {
+      return duplicateValue;
+    }
+    return masterValue;
+  };
+
+  const name = resolveField("name", master.name, duplicate.name);
+  const domain = resolveField("domain", master.domain, duplicate.domain);
+
+  // Merge custom JSONB attributes
+  const custom: Record<string, unknown> = {};
+
+  const masterCustom = master.custom || {};
+  const duplicateCustom = duplicate.custom || {};
+
+  const allCustomKeys = new Set([
+    ...Object.keys(masterCustom),
+    ...Object.keys(duplicateCustom),
+  ]);
+
+  for (const key of allCustomKeys) {
+    const masterVal = masterCustom[key];
+    const duplicateVal = duplicateCustom[key];
+
+    if (key in masterCustom && !(key in duplicateCustom)) {
+      custom[key] = masterVal;
+    } else if (!(key in masterCustom) && key in duplicateCustom) {
+      custom[key] = duplicateVal;
+    } else {
+      // Key is in both: resolve based on "custom.key" or generic master/duplicate resolution
+      const resolutionKey = `custom.${key}`;
+      const source =
+        fieldResolution[resolutionKey] || fieldResolution.custom || "master";
+      custom[key] = source === "duplicate" ? duplicateVal : masterVal;
+    }
+  }
+
+  return {
+    id: master.id,
+    orgId: master.orgId,
+    ownerId: master.ownerId,
+    name,
+    domain,
+    parentAccountId: master.parentAccountId || null,
+    custom: Object.keys(custom).length > 0 ? custom : null,
+  };
+}
