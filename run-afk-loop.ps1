@@ -3,7 +3,7 @@
 # build, verify, and commit high-value features, wrapped in a strict Phase 7 CI pre-flight check.
 
 $AgyPath = "C:\Users\Michael Crosato\AppData\Local\agy\bin\agy.exe"
-$Prompt = "/goal Read C:\Users\Michael Crosato\.gemini\antigravity-cli\brain\8dbbde2b-9dd7-487d-bd77-c3d0ed09e639\afk_execution_blueprint.md, find the next unimplemented specification task, write its specification, implement the code, write thorough RLS and integration tests, verify the workspace compiles and lint checks pass cleanly using pnpm verify, commit the changes to git, and stop so the script can execute the next step."
+$Prompt = "/goal Read the next pending task inside 'plan/PROGRESS.md', locate its specification task in 'plan/specs/TASK0NN.md', implement the code according to 'plan/AGENTS.md' guidelines, write thorough RLS and integration tests, verify the workspace compiles and lint checks pass cleanly using pnpm verify, commit the changes to git, merge the task branch into main, push to origin, update 'plan/PROGRESS.md' status, and stop so the script can execute the next step."
 
 Write-Host "========================================================" -ForegroundColor Green
 Write-Host "Starting CRM Core Automation Loop in AFK Mode..." -ForegroundColor Green
