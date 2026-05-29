@@ -3955,6 +3955,18 @@ export interface CoreAbAllocation {
   createdAt: Date;
 }
 
+export interface CoreStepBranch {
+  id: string;
+  orgId: string;
+  stepId: string;
+  branchType: string; // "email_open" | "email_click"
+  evaluationWindowDays: number;
+  trueNextStepNumber: number;
+  falseNextStepNumber: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export function shouldExitSequence(params: {
   recordType: "lead" | "contact";
   lead: Record<string, unknown> | null | undefined;
@@ -4115,6 +4127,9 @@ export async function executePendingSequenceSteps(
         allocatedTemplateId: string;
       }) => Promise<CoreAbAllocation>;
     };
+    marketingSequenceStepBranches?: {
+      findForStep: (stepId: string) => Promise<CoreStepBranch | null>;
+    };
   },
   currentTime: Date = new Date(),
 ): Promise<number> {
@@ -4127,11 +4142,73 @@ export async function executePendingSequenceSteps(
 
   for (const membership of pendingMemberships) {
     const orgId = membership.orgId;
-    const nextStepNumber = membership.currentStepNumber + 1;
-
     const steps = await dbStore.marketingSequenceSteps.findForSequence(
       membership.sequenceId,
     );
+
+    let nextStepNumber = membership.currentStepNumber + 1;
+
+    // Check if the current step has a branching rule to evaluate
+    if (
+      membership.currentStepNumber > 0 &&
+      dbStore.marketingSequenceStepBranches
+    ) {
+      const currentStepObj = steps.find(
+        (s) => s.stepNumber === membership.currentStepNumber,
+      );
+      if (currentStepObj) {
+        const branchRule =
+          await dbStore.marketingSequenceStepBranches.findForStep(
+            currentStepObj.id,
+          );
+        if (branchRule) {
+          // Evaluate branching condition
+          // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic
+          const allLinks = await (dbStore as any).activityLinks.findMany();
+          // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic
+          const allActivities = await (dbStore as any).activities.findMany();
+          // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic
+          const allTrackers = await (dbStore as any).emailTrackers.findMany();
+
+          const recordLinks = allLinks.filter(
+            // biome-ignore lint/suspicious/noExplicitAny: link dynamic
+            (link: any) =>
+              link.targetId === membership.recordId &&
+              (link.targetType === "Lead" || link.targetType === "Contact"),
+          );
+          // biome-ignore lint/suspicious/noExplicitAny: link dynamic
+          const recordActivityIds = recordLinks.map((l: any) => l.activityId);
+          const emailActs = allActivities.filter(
+            // biome-ignore lint/suspicious/noExplicitAny: act dynamic
+            (act: any) =>
+              act.type === "email" && recordActivityIds.includes(act.id),
+          );
+          // biome-ignore lint/suspicious/noExplicitAny: act dynamic
+          emailActs.sort((a: any, b: any) => a.id.localeCompare(b.id));
+
+          const stepActivity = emailActs[membership.currentStepNumber - 1];
+          let conditionMet = false;
+          if (stepActivity) {
+            const tracker = allTrackers.find(
+              // biome-ignore lint/suspicious/noExplicitAny: tracker dynamic
+              (t: any) => t.activityId === stepActivity.id,
+            );
+            if (tracker) {
+              if (branchRule.branchType === "email_open") {
+                conditionMet = tracker.openCount > 0;
+              } else if (branchRule.branchType === "email_click") {
+                conditionMet = tracker.clickCount > 0;
+              }
+            }
+          }
+
+          nextStepNumber = conditionMet
+            ? branchRule.trueNextStepNumber
+            : branchRule.falseNextStepNumber;
+        }
+      }
+    }
+
     const step = steps.find((s) => s.stepNumber === nextStepNumber);
 
     if (!step) {
@@ -4311,16 +4388,31 @@ export async function executePendingSequenceSteps(
       });
     }
 
-    const nextStep = steps.find((s) => s.stepNumber === nextStepNumber + 1);
     let nextStatus = "active";
     let nextExecTime = new Date();
 
-    if (!nextStep) {
-      nextStatus = "completed";
-    } else {
+    const stepJustExecuted = steps.find((s) => s.stepNumber === nextStepNumber);
+    const branchForExecutedStep =
+      stepJustExecuted && dbStore.marketingSequenceStepBranches
+        ? await dbStore.marketingSequenceStepBranches.findForStep(
+            stepJustExecuted.id,
+          )
+        : null;
+
+    if (branchForExecutedStep) {
       nextExecTime = new Date(
-        currentTime.getTime() + nextStep.delayDays * 24 * 60 * 60 * 1000,
+        currentTime.getTime() +
+          branchForExecutedStep.evaluationWindowDays * 24 * 60 * 60 * 1000,
       );
+    } else {
+      const nextStep = steps.find((s) => s.stepNumber === nextStepNumber + 1);
+      if (!nextStep) {
+        nextStatus = "completed";
+      } else {
+        nextExecTime = new Date(
+          currentTime.getTime() + nextStep.delayDays * 24 * 60 * 60 * 1000,
+        );
+      }
     }
 
     await dbStore.marketingSequenceMemberships.update(membership.id, {

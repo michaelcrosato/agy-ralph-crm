@@ -10184,6 +10184,111 @@ app.post(
   },
 );
 
+// Marketing Sequence Dynamic Branching Endpoints
+
+app.get("/api/sequences/:id/steps/:stepId/branch", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const stepId = c.req.param("stepId");
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const step = await dbStore.marketingSequenceSteps.findOne(stepId);
+  if (!step || step.sequenceId !== sequenceId) {
+    return c.json({ success: false, error: "Sequence step not found" }, 404);
+  }
+
+  const branch =
+    await dbStore.marketingSequenceStepBranches.findForStep(stepId);
+  if (!branch) {
+    return c.json({ success: false, error: "Branch not found" }, 404);
+  }
+  return c.json({ success: true, data: branch });
+});
+
+app.post("/api/sequences/:id/steps/:stepId/branch", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const stepId = c.req.param("stepId");
+  const tenant = c.get("tenant");
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const step = await dbStore.marketingSequenceSteps.findOne(stepId);
+  if (!step || step.sequenceId !== sequenceId) {
+    return c.json({ success: false, error: "Sequence step not found" }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const {
+    branchType,
+    evaluationWindowDays,
+    trueNextStepNumber,
+    falseNextStepNumber,
+  } = body;
+
+  if (
+    !branchType ||
+    typeof trueNextStepNumber !== "number" ||
+    typeof falseNextStepNumber !== "number"
+  ) {
+    return c.json(
+      {
+        success: false,
+        error:
+          "branchType, trueNextStepNumber, and falseNextStepNumber are required",
+      },
+      400,
+    );
+  }
+
+  const existing =
+    await dbStore.marketingSequenceStepBranches.findForStep(stepId);
+  if (existing) {
+    await dbStore.marketingSequenceStepBranches.delete(existing.id);
+  }
+
+  const branch = await dbStore.marketingSequenceStepBranches.insert({
+    orgId: tenant.orgId,
+    stepId,
+    branchType,
+    evaluationWindowDays:
+      typeof evaluationWindowDays === "number" ? evaluationWindowDays : 3,
+    trueNextStepNumber,
+    falseNextStepNumber,
+  });
+
+  return c.json({ success: true, data: branch });
+});
+
+app.delete("/api/sequences/:id/steps/:stepId/branch", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const stepId = c.req.param("stepId");
+
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const step = await dbStore.marketingSequenceSteps.findOne(stepId);
+  if (!step || step.sequenceId !== sequenceId) {
+    return c.json({ success: false, error: "Sequence step not found" }, 404);
+  }
+
+  const branch =
+    await dbStore.marketingSequenceStepBranches.findForStep(stepId);
+  if (!branch) {
+    return c.json({ success: false, error: "Branch not found" }, 404);
+  }
+
+  await dbStore.marketingSequenceStepBranches.delete(branch.id);
+  return c.json({ success: true });
+});
+
 // Marketing Segments & Dynamic Lists Endpoints
 
 app.post("/api/segments", tenantAuth, async (c) => {

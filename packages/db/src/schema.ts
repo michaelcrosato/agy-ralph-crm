@@ -1308,3 +1308,24 @@ export const marketingSequenceAbAllocations = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
 );
+
+export const marketingSequenceStepBranches = pgTable(
+  "marketing_sequence_step_branches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => marketingSequenceSteps.id, { onDelete: "cascade" }),
+    branchType: text("branch_type").notNull(), // "email_open" | "email_click"
+    evaluationWindowDays: integer("evaluation_window_days")
+      .notNull()
+      .default(3),
+    trueNextStepNumber: integer("true_next_step_number").notNull(),
+    falseNextStepNumber: integer("false_next_step_number").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);
