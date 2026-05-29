@@ -38,7 +38,7 @@ while ($true) {
     $VerifyExitCode = $LASTEXITCODE
     if ($VerifyExitCode -ne 0) {
         Write-Host "[CI Error] pnpm verify failed with exit status $VerifyExitCode. Halting loop to prevent drift!" -ForegroundColor Red
-        $ErrorMsg = "[$Time] Run #$RunCount: CI pnpm verify failed with status $VerifyExitCode."
+        $ErrorMsg = "[$Time] Run #${RunCount}: CI pnpm verify failed with status $VerifyExitCode."
         Add-Content -Path "afk_error.log" -Value $ErrorMsg
         break
     }
@@ -50,7 +50,7 @@ while ($true) {
     $TestExitCode = $LASTEXITCODE
     if ($TestExitCode -ne 0) {
         Write-Host "[CI Error] pnpm test failed with exit status $TestExitCode. Halting loop to prevent regression!" -ForegroundColor Red
-        $ErrorMsg = "[$Time] Run #$RunCount: CI pnpm test failed with status $TestExitCode."
+        $ErrorMsg = "[$Time] Run #${RunCount}: CI pnpm test failed with status $TestExitCode."
         Add-Content -Path "afk_error.log" -Value $ErrorMsg
         break
     }
