@@ -367,3 +367,36 @@ export const webhookDlq = pgTable("webhook_dlq", {
   attempts: integer("attempts").notNull(),
   lastError: text("last_error"),
 });
+
+export const opportunityApprovals = pgTable("opportunity_approvals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  opportunityId: uuid("opportunity_id")
+    .notNull()
+    .references(() => opportunities.id, { onDelete: "cascade" }),
+  submitterId: uuid("submitter_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("Pending"), // "Pending" | "Approved" | "Rejected"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const opportunityApprovalSteps = pgTable("opportunity_approval_steps", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  approvalId: uuid("approval_id")
+    .notNull()
+    .references(() => opportunityApprovals.id, { onDelete: "cascade" }),
+  stepName: text("step_name").notNull(),
+  approverRoleId: text("approver_role_id").notNull(),
+  status: text("status").notNull().default("Pending"), // "Pending" | "Approved" | "Rejected"
+  decidedByUserId: uuid("decided_by_user_id").references(() => users.id, {
+    onDelete: "set null",
+  }),
+  comments: text("comments"),
+  decidedAt: timestamp("decided_at"),
+});

@@ -223,3 +223,32 @@ export function validateEmailLogInput(input: EmailLogInput): {
   }
   return { success: true };
 }
+
+export interface OpportunityRecord {
+  id: string;
+  orgId: string;
+  stage: string;
+  amount: string | null;
+}
+
+export function validateOpportunityApprovalSubmission(
+  opportunity: OpportunityRecord,
+): { success: boolean; error?: string } {
+  if (
+    opportunity.stage === "Closed Won" ||
+    opportunity.stage === "Closed Lost"
+  ) {
+    return {
+      success: false,
+      error: "Opportunity is already closed.",
+    };
+  }
+  const amount = Number.parseFloat(opportunity.amount || "0");
+  if (amount <= 0 || Number.isNaN(amount)) {
+    return {
+      success: false,
+      error: "Opportunity must have an amount greater than zero.",
+    };
+  }
+  return { success: true };
+}

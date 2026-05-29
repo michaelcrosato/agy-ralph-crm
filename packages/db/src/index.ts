@@ -319,6 +319,27 @@ export interface DBWebhookDlq {
   lastError: string | null;
 }
 
+export interface DBOpportunityApproval {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  submitterId: string;
+  status: string;
+  createdAt: Date;
+}
+
+export interface DBOpportunityApprovalStep {
+  id: string;
+  orgId: string;
+  approvalId: string;
+  stepName: string;
+  approverRoleId: string;
+  status: string;
+  decidedByUserId: string | null;
+  comments: string | null;
+  decidedAt: Date | null;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -346,6 +367,8 @@ export const store = {
   invoices: [] as DBInvoice[],
   webhookOutbox: [] as DBWebhookOutbox[],
   webhookDlq: [] as DBWebhookDlq[],
+  opportunityApprovals: [] as DBOpportunityApproval[],
+  opportunityApprovalSteps: [] as DBOpportunityApprovalStep[],
 };
 
 export const dbStore = {
@@ -1082,6 +1105,91 @@ export const dbStore = {
       return newDlq;
     },
   },
+  opportunityApprovals: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityApprovals.filter((a) => a.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const a = store.opportunityApprovals.find((x) => x.id === id);
+      if (a && a.orgId !== orgId) return null;
+      return a || null;
+    },
+    insert: async (appr: Omit<DBOpportunityApproval, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (appr.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newAppr: DBOpportunityApproval = {
+        ...appr,
+        id: `approval-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.opportunityApprovals.push(newAppr);
+      return newAppr;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBOpportunityApproval, "id" | "orgId" | "createdAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityApprovals.findIndex((a) => a.id === id);
+      if (index === -1) return null;
+      if (store.opportunityApprovals[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityApprovals[index] = {
+        ...store.opportunityApprovals[index],
+        ...updates,
+      };
+      return store.opportunityApprovals[index];
+    },
+  },
+  opportunityApprovalSteps: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityApprovalSteps.filter((s) => s.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const s = store.opportunityApprovalSteps.find((x) => x.id === id);
+      if (s && s.orgId !== orgId) return null;
+      return s || null;
+    },
+    insert: async (step: Omit<DBOpportunityApprovalStep, "id">) => {
+      const orgId = getActiveOrgId();
+      if (step.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newStep: DBOpportunityApprovalStep = {
+        ...step,
+        id: `step-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.opportunityApprovalSteps.push(newStep);
+      return newStep;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBOpportunityApprovalStep, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityApprovalSteps.findIndex(
+        (s) => s.id === id,
+      );
+      if (index === -1) return null;
+      if (store.opportunityApprovalSteps[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityApprovalSteps[index] = {
+        ...store.opportunityApprovalSteps[index],
+        ...updates,
+      };
+      return store.opportunityApprovalSteps[index];
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1109,5 +1217,7 @@ export const dbStore = {
     store.invoices = [];
     store.webhookOutbox = [];
     store.webhookDlq = [];
+    store.opportunityApprovals = [];
+    store.opportunityApprovalSteps = [];
   },
 };
