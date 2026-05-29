@@ -219,6 +219,21 @@ export interface DBOpportunityProduct {
   totalPrice: string;
 }
 
+export interface DBQuota {
+  id: string;
+  orgId: string;
+  userId: string;
+  period: string;
+  targetAmount: string;
+}
+
+export interface DBStageProbability {
+  id: string;
+  orgId: string;
+  stage: string;
+  probability: number;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -236,6 +251,8 @@ export const store = {
   pricebooks: [] as DBPricebook[],
   pricebookEntries: [] as DBPricebookEntry[],
   opportunityProducts: [] as DBOpportunityProduct[],
+  quotas: [] as DBQuota[],
+  stageProbabilities: [] as DBStageProbability[],
 };
 
 export const dbStore = {
@@ -692,6 +709,49 @@ export const dbStore = {
       return true;
     },
   },
+  quotas: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.quotas.filter((q) => q.orgId === orgId);
+    },
+    insert: async (quota: Omit<DBQuota, "id">) => {
+      const orgId = getActiveOrgId();
+      if (quota.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newQuota: DBQuota = {
+        ...quota,
+        id: `quota-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.quotas.push(newQuota);
+      return newQuota;
+    },
+  },
+  stageProbabilities: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.stageProbabilities.filter((sp) => sp.orgId === orgId);
+    },
+    upsert: async (sp: Omit<DBStageProbability, "id">) => {
+      const orgId = getActiveOrgId();
+      if (sp.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const existingIndex = store.stageProbabilities.findIndex(
+        (x) => x.orgId === orgId && x.stage === sp.stage,
+      );
+      if (existingIndex !== -1) {
+        store.stageProbabilities[existingIndex].probability = sp.probability;
+        return store.stageProbabilities[existingIndex];
+      }
+      const newSp: DBStageProbability = {
+        ...sp,
+        id: `sp-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.stageProbabilities.push(newSp);
+      return newSp;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -709,5 +769,7 @@ export const dbStore = {
     store.pricebooks = [];
     store.pricebookEntries = [];
     store.opportunityProducts = [];
+    store.quotas = [];
+    store.stageProbabilities = [];
   },
 };

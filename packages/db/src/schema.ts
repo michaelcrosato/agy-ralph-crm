@@ -242,3 +242,24 @@ export const opportunityProducts = pgTable("opportunity_products", {
   unitPrice: text("unit_price").notNull(),
   totalPrice: text("total_price").notNull(),
 });
+
+export const quotas = pgTable("quotas", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  period: text("period").notNull(),
+  targetAmount: text("target_amount").notNull(),
+});
+
+export const stageProbabilities = pgTable("stage_probabilities", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  stage: text("stage").notNull(),
+  probability: integer("probability").notNull(),
+});

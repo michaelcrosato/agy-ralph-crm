@@ -16,7 +16,8 @@
     "@crm/metadata": "workspace:*",
     "@crm/workflow": "workspace:*",
     "@crm/module-service-lite": "workspace:*",
-    "@crm/reporting": "workspace:*"
+    "@crm/reporting": "workspace:*",
+    "@crm/forecasting": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

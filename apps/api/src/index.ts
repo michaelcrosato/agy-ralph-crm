@@ -1,6 +1,7 @@
 import { type TenantContext, verifySessionToken } from "@crm/auth";
 import { convertLead, rollupOpportunityAmount } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
+import { compileForecastSummary } from "@crm/forecasting";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { createTicket, resolveTicket } from "@crm/module-service-lite";
 import { runReport } from "@crm/reporting";
@@ -1043,5 +1044,115 @@ app.delete(
     return c.json({ success: true, opportunityAmount: newAmount });
   },
 );
+
+// Quota Configuration REST API Route
+app.post("/api/quotas", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { userId, period, targetAmount } = body;
+
+  if (!userId || !period || targetAmount === undefined) {
+    return c.json({ error: "Missing required quota parameters" }, 400);
+  }
+
+  const newQuota = await dbStore.quotas.insert({
+    orgId: tenant.orgId,
+    userId,
+    period,
+    targetAmount: String(targetAmount),
+  });
+
+  return c.json({ success: true, data: newQuota });
+});
+
+app.get("/api/quotas", tenantAuth, async (c) => {
+  const quotas = await dbStore.quotas.findMany();
+  return c.json({ success: true, data: quotas });
+});
+
+// Custom Stage Probabilities Configuration REST API Route
+app.post("/api/forecasting/probabilities", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { stage, probability } = body;
+
+  if (!stage || probability === undefined) {
+    return c.json({ error: "Missing required probability fields" }, 400);
+  }
+
+  const val = Number.parseInt(probability);
+  if (Number.isNaN(val) || val < 0 || val > 100) {
+    return c.json(
+      { error: "Probability must be an integer between 0 and 100" },
+      400,
+    );
+  }
+
+  const newProb = await dbStore.stageProbabilities.upsert({
+    orgId: tenant.orgId,
+    stage,
+    probability: val,
+  });
+
+  return c.json({ success: true, data: newProb });
+});
+
+app.get("/api/forecasting/probabilities", tenantAuth, async (c) => {
+  const probs = await dbStore.stageProbabilities.findMany();
+  return c.json({ success: true, data: probs });
+});
+
+// Forecast Summary Aggregate REST API Route
+app.get("/api/forecasting/summary", tenantAuth, async (c) => {
+  const periodParam = c.req.query("period"); // e.g. ?period=2026-05
+
+  const opportunities = await dbStore.opportunities.findMany();
+  const quotas = await dbStore.quotas.findMany();
+  const dbProbs = await dbStore.stageProbabilities.findMany();
+
+  const customProbabilities: Record<string, number> = {};
+  for (const p of dbProbs) {
+    customProbabilities[p.stage] = p.probability;
+  }
+
+  const oppInputs = opportunities.map((opp) => ({
+    id: opp.id,
+    stage: opp.stage,
+    amount: opp.amount,
+    closeDate: opp.closeDate,
+  }));
+
+  let filteredOpps = oppInputs;
+  if (periodParam) {
+    filteredOpps = oppInputs.filter((opp) => {
+      if (!opp.closeDate) return false;
+      try {
+        const d = new Date(opp.closeDate);
+        return (
+          !Number.isNaN(d.getTime()) &&
+          d.toISOString().substring(0, 7) === periodParam
+        );
+      } catch (e) {
+        return false;
+      }
+    });
+  }
+
+  let totalQuota = 0;
+  const filteredQuotas = periodParam
+    ? quotas.filter((q) => q.period === periodParam)
+    : quotas;
+  for (const q of filteredQuotas) {
+    totalQuota += Number.parseFloat(q.targetAmount) || 0;
+  }
+
+  const summary = compileForecastSummary({
+    opportunities: filteredOpps,
+    targetQuota: totalQuota,
+    customProbabilities,
+  });
+
+  return c.json({ success: true, data: summary });
+});
 
 export default app;
