@@ -1103,3 +1103,21 @@ export const scheduledReportRuns = pgTable("scheduled_report_runs", {
   errorMessage: text("error_message"),
   runAt: timestamp("run_at").notNull().defaultNow(),
 });
+
+export const forecastAdjustments = pgTable("forecast_adjustments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  adjustedByUserId: uuid("adjusted_by_user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  period: text("period").notNull(), // e.g. "2026-05"
+  amount: text("amount").notNull(),
+  adjustmentType: text("adjustment_type").notNull(), // "override_quota" | "override_weighted" | "manager_adjustment"
+  comments: text("comments"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

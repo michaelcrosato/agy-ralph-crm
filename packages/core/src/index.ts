@@ -3533,3 +3533,68 @@ export function calculateSalesLeaderboard(params: {
     leaderboard,
   };
 }
+
+export interface ForecastAdjustmentInput {
+  userId: string;
+  period: string;
+  amount: string;
+  adjustmentType: string;
+}
+
+export interface AdjustedForecastSummaryResult {
+  period: string;
+  baseQuota: number;
+  adjustedQuota: number;
+  baseWeightedAmount: number;
+  adjustedWeightedAmount: number;
+  baseAttainment: number;
+  adjustedAttainment: number;
+}
+
+export function calculateAdjustedForecast(params: {
+  period: string;
+  baseQuota: number;
+  baseWeightedAmount: number;
+  closedWonAmount: number;
+  adjustments: ForecastAdjustmentInput[];
+}): AdjustedForecastSummaryResult {
+  const {
+    period,
+    baseQuota,
+    baseWeightedAmount,
+    closedWonAmount,
+    adjustments,
+  } = params;
+
+  let adjustedQuota = baseQuota;
+  let adjustedWeightedAmount = baseWeightedAmount;
+
+  for (const adj of adjustments) {
+    if (adj.period !== period) continue;
+    const amountVal = Number.parseFloat(adj.amount) || 0;
+    if (adj.adjustmentType === "override_quota") {
+      adjustedQuota = amountVal;
+    } else if (adj.adjustmentType === "override_weighted") {
+      adjustedWeightedAmount = amountVal;
+    } else if (adj.adjustmentType === "manager_adjustment") {
+      adjustedWeightedAmount += amountVal;
+    }
+  }
+
+  const baseAttainment =
+    baseQuota > 0 ? Math.round((closedWonAmount / baseQuota) * 10000) / 100 : 0;
+  const adjustedAttainment =
+    adjustedQuota > 0
+      ? Math.round((closedWonAmount / adjustedQuota) * 10000) / 100
+      : 0;
+
+  return {
+    period,
+    baseQuota: Math.round(baseQuota * 100) / 100,
+    adjustedQuota: Math.round(adjustedQuota * 100) / 100,
+    baseWeightedAmount: Math.round(baseWeightedAmount * 100) / 100,
+    adjustedWeightedAmount: Math.round(adjustedWeightedAmount * 100) / 100,
+    baseAttainment,
+    adjustedAttainment,
+  };
+}

@@ -857,7 +857,20 @@ export interface DBScheduledReportRun {
   runAt: Date;
 }
 
+export interface DBForecastAdjustment {
+  id: string;
+  orgId: string;
+  userId: string;
+  adjustedByUserId: string;
+  period: string;
+  amount: string;
+  adjustmentType: string;
+  comments: string | null;
+  createdAt: Date;
+}
+
 export const store = {
+  forecastAdjustments: [] as DBForecastAdjustment[],
   users: [] as DBUser[],
   memberships: [] as DBMembership[],
   leads: [] as DBLead[],
@@ -1565,6 +1578,25 @@ export const dbStore = {
       };
       store.quotas.push(newQuota);
       return newQuota;
+    },
+  },
+  forecastAdjustments: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.forecastAdjustments.filter((fa) => fa.orgId === orgId);
+    },
+    insert: async (fa: Omit<DBForecastAdjustment, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (fa.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newFa: DBForecastAdjustment = {
+        ...fa,
+        id: `fa-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.forecastAdjustments.push(newFa);
+      return newFa;
     },
   },
   stageProbabilities: {
@@ -4072,6 +4104,7 @@ export const dbStore = {
     },
   },
   clear: () => {
+    store.forecastAdjustments = [];
     store.users = [];
     store.memberships = [];
     store.leads = [];
