@@ -19,6 +19,8 @@
     "@crm/module-service-lite": "workspace:*",
     "@crm/search": "workspace:*",
     "@crm/forecasting": "workspace:*",
+    "@crm/webhooks": "workspace:*",
+    "@crm/documents": "workspace:*",
     "hono": "^4.0.0",
     "drizzle-orm": "^0.30.0"
   },

@@ -1,10 +1,12 @@
 import { type TenantContext, verifySessionToken } from "@crm/auth";
 import { convertLead, rollupOpportunityAmount } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
+import { compileTemplate } from "@crm/documents";
 import { compileForecastSummary } from "@crm/forecasting";
 import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { createTicket, resolveTicket } from "@crm/module-service-lite";
 import { runReport } from "@crm/reporting";
+import { simulateWebhookDispatch } from "@crm/webhooks";
 import { executeWorkflows } from "@crm/workflow";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
@@ -67,6 +69,41 @@ export const tenantAuth = createMiddleware<Env>(async (c, next) => {
     return await next();
   });
 });
+
+// Helper to fire outbound webhook notifications asynchronously to all active subscriptions of the tenant
+export async function triggerOutboundWebhooks(
+  orgId: string,
+  event: string,
+  payload: Record<string, unknown>,
+) {
+  // Query all active webhooks for this tenant under RLS context
+  await withTenant(orgId, mockDb, async () => {
+    const activeSubs = await dbStore.webhooks.findMany().catch(() => []);
+    for (const sub of activeSubs) {
+      if (sub.status === "active") {
+        simulateWebhookDispatch({
+          targetUrl: sub.targetUrl,
+          secret: sub.secret,
+          event,
+          payload,
+        })
+          .then(async (result) => {
+            // Log outcome in delivery history log
+            await withTenant(orgId, mockDb, async () => {
+              await dbStore.webhookDeliveries.insert({
+                orgId,
+                webhookId: sub.id,
+                event,
+                statusCode: result.statusCode,
+                payload: result.payloadString,
+              });
+            }).catch(() => {});
+          })
+          .catch(() => {});
+      }
+    }
+  });
+}
 
 app.get("/health", (c) =>
   c.json({ status: "ok", timestamp: new Date().toISOString() }),
@@ -249,6 +286,14 @@ app.post("/api/tickets/:id/resolve", tenantAuth, async (c) => {
     status: resolved.status,
   });
 
+  if (updated) {
+    triggerOutboundWebhooks(
+      updated.orgId,
+      "ticket.resolved",
+      updated as unknown as Record<string, unknown>,
+    );
+  }
+
   return c.json({ success: true, data: updated });
 });
 
@@ -300,6 +345,13 @@ app.post("/api/leads", tenantAuth, async (c) => {
     userId: tenant.userId,
     changes: null,
   });
+
+  // Trigger Webhook
+  triggerOutboundWebhooks(
+    tenant.orgId,
+    "lead.created",
+    newLead as unknown as Record<string, unknown>,
+  );
 
   return c.json({ success: true, data: newLead });
 });
@@ -414,6 +466,14 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
     changes: {
       status: { before: lead.status, after: "Converted" },
     },
+  });
+
+  // Trigger Webhook
+  triggerOutboundWebhooks(tenant.orgId, "lead.converted", {
+    leadId: id,
+    accountId: account.id,
+    contactId: contact.id,
+    opportunityId,
   });
 
   return c.json({
@@ -537,6 +597,13 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
         actions: rule.actions,
       })),
     );
+
+    // Trigger Outbound Webhook
+    triggerOutboundWebhooks(updated.orgId, "opportunity.stage_changed", {
+      id: updated.id,
+      stage: updated.stage,
+      amount: updated.amount,
+    });
   }
 
   return c.json({
@@ -1153,6 +1220,139 @@ app.get("/api/forecasting/summary", tenantAuth, async (c) => {
   });
 
   return c.json({ success: true, data: summary });
+});
+
+// Outbound Webhooks REST API Routes
+app.post("/api/webhooks", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { targetUrl, secret } = body;
+
+  if (!targetUrl) {
+    return c.json(
+      { error: "Missing required webhook targetUrl parameter" },
+      400,
+    );
+  }
+
+  const webhook = await dbStore.webhooks.insert({
+    orgId: tenant.orgId,
+    targetUrl,
+    secret: secret || null,
+    status: "active",
+  });
+
+  return c.json({ success: true, data: webhook });
+});
+
+app.get("/api/webhooks", tenantAuth, async (c) => {
+  const webhooks = await dbStore.webhooks.findMany();
+  return c.json({ success: true, data: webhooks });
+});
+
+app.get("/api/webhooks/deliveries", tenantAuth, async (c) => {
+  const deliveries = await dbStore.webhookDeliveries.findMany();
+  return c.json({ success: true, data: deliveries });
+});
+
+// Document Templates Configuration REST API Routes
+app.post("/api/documents/templates", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, content } = body;
+
+  if (!name || !content) {
+    return c.json({ error: "Missing required document template fields" }, 400);
+  }
+
+  const template = await dbStore.documentTemplates.insert({
+    orgId: tenant.orgId,
+    name,
+    content,
+  });
+
+  return c.json({ success: true, data: template });
+});
+
+app.get("/api/documents/templates", tenantAuth, async (c) => {
+  const templates = await dbStore.documentTemplates.findMany();
+  return c.json({ success: true, data: templates });
+});
+
+// Mail Merge Compiler Execution Route
+app.post("/api/documents/merge", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { templateId, recordType, recordId } = body;
+
+  if (!templateId || !recordType || !recordId) {
+    return c.json({ error: "Missing required merge parameters" }, 400);
+  }
+
+  const template = await dbStore.documentTemplates.findOne(templateId);
+  if (!template) {
+    return c.json({ error: "Document template not found" }, 404);
+  }
+
+  let record: Record<string, unknown> | null = null;
+  if (recordType === "Lead") {
+    const lead = await dbStore.leads.findOne(recordId);
+    if (lead) {
+      const emailParts = lead.email
+        ? lead.email.split("@")[0].split(".")
+        : ["Unknown"];
+      const firstName = emailParts[0] || "Unknown";
+      const lastName = emailParts[1] || "Contact";
+      record = {
+        ...(lead as unknown as Record<string, unknown>),
+        firstName,
+        lastName,
+      };
+    }
+  } else if (recordType === "Account") {
+    record = (await dbStore.accounts.findOne(recordId)) as unknown as Record<
+      string,
+      unknown
+    >;
+  } else if (recordType === "Contact") {
+    record = (await dbStore.contacts.findOne(recordId)) as unknown as Record<
+      string,
+      unknown
+    >;
+  } else if (recordType === "Opportunity") {
+    record = (await dbStore.opportunities.findOne(
+      recordId,
+    )) as unknown as Record<string, unknown>;
+  } else if (recordType === "Ticket") {
+    record = (await dbStore.tickets.findOne(recordId)) as unknown as Record<
+      string,
+      unknown
+    >;
+  }
+
+  if (!record) {
+    return c.json(
+      { error: `Target record ${recordType} with ID ${recordId} not found` },
+      404,
+    );
+  }
+
+  const compiledContent = compileTemplate(template.content, record);
+
+  const merged = await dbStore.mergedDocuments.insert({
+    orgId: tenant.orgId,
+    templateId,
+    recordType,
+    recordId,
+    compiledContent,
+  });
+
+  return c.json({ success: true, data: merged });
+});
+
+app.get("/api/documents/merged", tenantAuth, async (c) => {
+  const merged = await dbStore.mergedDocuments.findMany();
+  return c.json({ success: true, data: merged });
 });
 
 export default app;

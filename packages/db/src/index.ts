@@ -234,6 +234,42 @@ export interface DBStageProbability {
   probability: number;
 }
 
+export interface DBWebhook {
+  id: string;
+  orgId: string;
+  targetUrl: string;
+  secret: string | null;
+  status: string;
+}
+
+export interface DBWebhookDelivery {
+  id: string;
+  orgId: string;
+  webhookId: string;
+  event: string;
+  statusCode: number;
+  payload: string;
+  createdAt: Date;
+}
+
+export interface DBDocumentTemplate {
+  id: string;
+  orgId: string;
+  name: string;
+  content: string;
+  createdAt: Date;
+}
+
+export interface DBMergedDocument {
+  id: string;
+  orgId: string;
+  templateId: string;
+  recordType: string;
+  recordId: string;
+  compiledContent: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -253,6 +289,10 @@ export const store = {
   opportunityProducts: [] as DBOpportunityProduct[],
   quotas: [] as DBQuota[],
   stageProbabilities: [] as DBStageProbability[],
+  webhooks: [] as DBWebhook[],
+  webhookDeliveries: [] as DBWebhookDelivery[],
+  documentTemplates: [] as DBDocumentTemplate[],
+  mergedDocuments: [] as DBMergedDocument[],
 };
 
 export const dbStore = {
@@ -752,6 +792,87 @@ export const dbStore = {
       return newSp;
     },
   },
+  webhooks: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.webhooks.filter((w) => w.orgId === orgId);
+    },
+    insert: async (webhook: Omit<DBWebhook, "id">) => {
+      const orgId = getActiveOrgId();
+      if (webhook.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newWebhook: DBWebhook = {
+        ...webhook,
+        id: `webhook-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.webhooks.push(newWebhook);
+      return newWebhook;
+    },
+  },
+  webhookDeliveries: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.webhookDeliveries.filter((d) => d.orgId === orgId);
+    },
+    insert: async (delivery: Omit<DBWebhookDelivery, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (delivery.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newDelivery: DBWebhookDelivery = {
+        ...delivery,
+        id: `delivery-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.webhookDeliveries.push(newDelivery);
+      return newDelivery;
+    },
+  },
+  documentTemplates: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.documentTemplates.filter((t) => t.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const t = store.documentTemplates.find((x) => x.id === id);
+      if (t && t.orgId !== orgId) return null;
+      return t || null;
+    },
+    insert: async (template: Omit<DBDocumentTemplate, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (template.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newTemplate: DBDocumentTemplate = {
+        ...template,
+        id: `template-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.documentTemplates.push(newTemplate);
+      return newTemplate;
+    },
+  },
+  mergedDocuments: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.mergedDocuments.filter((d) => d.orgId === orgId);
+    },
+    insert: async (merged: Omit<DBMergedDocument, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (merged.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMerged: DBMergedDocument = {
+        ...merged,
+        id: `merged-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.mergedDocuments.push(newMerged);
+      return newMerged;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -771,5 +892,9 @@ export const dbStore = {
     store.opportunityProducts = [];
     store.quotas = [];
     store.stageProbabilities = [];
+    store.webhooks = [];
+    store.webhookDeliveries = [];
+    store.documentTemplates = [];
+    store.mergedDocuments = [];
   },
 };

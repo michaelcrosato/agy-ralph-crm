@@ -263,3 +263,41 @@ export const stageProbabilities = pgTable("stage_probabilities", {
   stage: text("stage").notNull(),
   probability: integer("probability").notNull(),
 });
+
+export const webhookDeliveries = pgTable("webhook_deliveries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  webhookId: uuid("webhook_id")
+    .notNull()
+    .references(() => webhooks.id, { onDelete: "cascade" }),
+  event: text("event").notNull(),
+  statusCode: integer("status_code").notNull(),
+  payload: text("payload").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const documentTemplates = pgTable("document_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const mergedDocuments = pgTable("merged_documents", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  templateId: uuid("template_id")
+    .notNull()
+    .references(() => documentTemplates.id, { onDelete: "cascade" }),
+  recordType: text("record_type").notNull(),
+  recordId: uuid("record_id").notNull(),
+  compiledContent: text("compiled_content").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

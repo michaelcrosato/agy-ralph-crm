@@ -26,6 +26,9 @@ importers:
       '@crm/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@crm/documents':
+        specifier: workspace:*
+        version: link:../../packages/documents
       '@crm/forecasting':
         specifier: workspace:*
         version: link:../../packages/forecasting
@@ -38,6 +41,9 @@ importers:
       '@crm/reporting':
         specifier: workspace:*
         version: link:../../packages/reporting
+      '@crm/webhooks':
+        specifier: workspace:*
+        version: link:../../packages/webhooks
       '@crm/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow
@@ -206,6 +212,25 @@ importers:
         specifier: ^1.6.0
         version: 1.6.1(@types/node@22.19.19)
 
+  packages/documents:
+    dependencies:
+      '@crm/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^1.8.0
+        version: 1.9.4
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@22.19.19)
+
   packages/forecasting:
     dependencies:
       '@crm/db':
@@ -287,6 +312,9 @@ importers:
       '@crm/db':
         specifier: workspace:*
         version: link:../db
+      '@crm/documents':
+        specifier: workspace:*
+        version: link:../documents
       '@crm/forecasting':
         specifier: workspace:*
         version: link:../forecasting
@@ -299,6 +327,9 @@ importers:
       '@crm/search':
         specifier: workspace:*
         version: link:../search
+      '@crm/webhooks':
+        specifier: workspace:*
+        version: link:../webhooks
       '@crm/workflow':
         specifier: workspace:*
         version: link:../workflow
@@ -328,6 +359,25 @@ importers:
       '@biomejs/biome':
         specifier: ^1.8.0
         version: 1.9.4
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^1.6.0
+        version: 1.6.1(@types/node@22.19.19)
+
+  packages/webhooks:
+    dependencies:
+      '@crm/db':
+        specifier: workspace:*
+        version: link:../db
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^1.8.0
+        version: 1.9.4
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.19.19
       typescript:
         specifier: ^5.0.0
         version: 5.9.3
