@@ -7019,3 +7019,143 @@ export function calculateUnsubscribeAnalytics(
     sequenceBreakdown,
   };
 }
+
+export interface LinkEngagementInput {
+  clicks: {
+    id: string;
+    trackerId: string;
+    clickedUrl: string;
+    orgId: string;
+  }[];
+  trackers: { id: string; activityId: string; orgId: string }[];
+  activities: { id: string; type: string; orgId: string }[];
+  activityLinks: {
+    activityId: string;
+    targetId: string;
+    targetType: string;
+    orgId: string;
+  }[];
+  memberships: {
+    sequenceId: string;
+    recordId: string;
+    status: string;
+    orgId: string;
+  }[];
+  steps: {
+    id: string;
+    sequenceId: string;
+    stepNumber: number;
+    name?: string;
+    orgId: string;
+  }[];
+  sequenceId: string;
+}
+
+export interface LinkPerformanceMetric {
+  clickedUrl: string;
+  stepId: string;
+  stepName: string;
+  clickCount: number;
+  percentage: string;
+}
+
+export interface LinkEngagementResult {
+  totalTrackedClicks: number;
+  linkPerformance: LinkPerformanceMetric[];
+}
+
+export function calculateLinkEngagementAnalytics(
+  params: LinkEngagementInput,
+): LinkEngagementResult {
+  const {
+    clicks,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  } = params;
+
+  const seqMemberships = memberships.filter((m) => m.sequenceId === sequenceId);
+  const seqSteps = steps.filter((s) => s.sequenceId === sequenceId);
+
+  const trackerToActivity = new Map<string, string>();
+  for (const t of trackers) {
+    trackerToActivity.set(t.id, t.activityId);
+  }
+
+  const activityToStep = new Map<string, { id: string; name: string }>();
+
+  for (const m of seqMemberships) {
+    const linksForRecord = activityLinks.filter(
+      (link) =>
+        link.targetId === m.recordId &&
+        (link.targetType === "Lead" || link.targetType === "Contact"),
+    );
+    const activityIds = linksForRecord.map((l) => l.activityId);
+    const emailActs = activities.filter(
+      (act) => act.type === "email" && activityIds.includes(act.id),
+    );
+    emailActs.sort((a, b) => a.id.localeCompare(b.id));
+
+    emailActs.forEach((act, idx) => {
+      const stepNum = idx + 1;
+      const step = seqSteps.find((s) => s.stepNumber === stepNum);
+      if (step) {
+        activityToStep.set(act.id, {
+          id: step.id,
+          name: step.name || `Step ${step.stepNumber}`,
+        });
+      }
+    });
+  }
+
+  const performanceMap = new Map<
+    string,
+    { count: number; stepId: string; stepName: string; clickedUrl: string }
+  >();
+  let totalTrackedClicks = 0;
+
+  for (const click of clicks) {
+    const activityId = trackerToActivity.get(click.trackerId);
+    if (activityId) {
+      const stepInfo = activityToStep.get(activityId);
+      if (stepInfo) {
+        const key = `${stepInfo.id}||${click.clickedUrl}`;
+        const existing = performanceMap.get(key);
+        if (existing) {
+          existing.count++;
+        } else {
+          performanceMap.set(key, {
+            count: 1,
+            stepId: stepInfo.id,
+            stepName: stepInfo.name,
+            clickedUrl: click.clickedUrl,
+          });
+        }
+        totalTrackedClicks++;
+      }
+    }
+  }
+
+  const linkPerformance: LinkPerformanceMetric[] = Array.from(
+    performanceMap.values(),
+  ).map((item) => ({
+    clickedUrl: item.clickedUrl,
+    stepId: item.stepId,
+    stepName: item.stepName,
+    clickCount: item.count,
+    percentage:
+      totalTrackedClicks > 0
+        ? `${((item.count / totalTrackedClicks) * 100).toFixed(1)}%`
+        : "0.0%",
+  }));
+
+  linkPerformance.sort((a, b) => b.clickCount - a.clickCount);
+
+  return {
+    totalTrackedClicks,
+    linkPerformance,
+  };
+}

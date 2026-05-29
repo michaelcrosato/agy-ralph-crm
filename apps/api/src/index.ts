@@ -19,6 +19,7 @@ import {
   calculateGlobalCompetitorAnalytics,
   calculateLeadDuplicates,
   calculateLeadScore,
+  calculateLinkEngagementAnalytics,
   calculateMilestoneDueDate,
   calculateNextRunDate,
   calculateOpportunityCommission,
@@ -11645,6 +11646,35 @@ app.delete("/api/sequences/steps/reply-actions/:id", tenantAuth, async (c) => {
     );
   }
   return c.json({ success: true });
+});
+
+app.get("/api/sequences/:id/links-analytics", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const clicks = await dbStore.emailClickEvents.findMany();
+  const trackers = await dbStore.emailTrackers.findMany();
+  const activities = await dbStore.activities.findMany();
+  const activityLinks = await dbStore.activityLinks.findMany();
+  const memberships =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+
+  const analytics = calculateLinkEngagementAnalytics({
+    clicks,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  });
+
+  return c.json({ success: true, data: analytics });
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)
