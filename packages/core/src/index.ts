@@ -606,3 +606,77 @@ export function calculateCampaignStats(
     netRevenueRoi: roiVal.toFixed(2),
   };
 }
+
+export interface StageHistoryInput {
+  opportunityId: string;
+  fromStage: string | null;
+  toStage: string;
+  createdAt: Date;
+}
+
+export interface StageDuration {
+  stage: string;
+  totalDurationMs: number;
+  transitionCount: number;
+  averageDurationDays: number;
+}
+
+export function calculateStageVelocity(
+  history: StageHistoryInput[],
+  now: Date = new Date(),
+): Record<string, StageDuration> {
+  const oppHistories: Record<string, StageHistoryInput[]> = {};
+  for (const h of history) {
+    if (!oppHistories[h.opportunityId]) {
+      oppHistories[h.opportunityId] = [];
+    }
+    oppHistories[h.opportunityId].push(h);
+  }
+
+  const stageDurations: Record<string, { totalMs: number; count: number }> = {};
+
+  for (const oppId in oppHistories) {
+    const sorted = [...oppHistories[oppId]].sort(
+      (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+    );
+
+    for (let i = 0; i < sorted.length; i++) {
+      const current = sorted[i];
+      const stage = current.toStage;
+      let durationMs = 0;
+
+      if (i < sorted.length - 1) {
+        durationMs =
+          sorted[i + 1].createdAt.getTime() - current.createdAt.getTime();
+      } else {
+        // Last stage: if it's not Closed Won or Closed Lost, measure up to now
+        if (stage !== "Closed Won" && stage !== "Closed Lost") {
+          durationMs = Math.max(0, now.getTime() - current.createdAt.getTime());
+        } else {
+          durationMs = 0;
+        }
+      }
+
+      if (!stageDurations[stage]) {
+        stageDurations[stage] = { totalMs: 0, count: 0 };
+      }
+      stageDurations[stage].totalMs += durationMs;
+      stageDurations[stage].count += 1;
+    }
+  }
+
+  const result: Record<string, StageDuration> = {};
+  for (const stage in stageDurations) {
+    const { totalMs, count } = stageDurations[stage];
+    const averageDurationDaysRaw =
+      count > 0 ? totalMs / (1000 * 60 * 60 * 24) / count : 0;
+    result[stage] = {
+      stage,
+      totalDurationMs: totalMs,
+      transitionCount: count,
+      averageDurationDays: Math.round(averageDurationDaysRaw * 100) / 100,
+    };
+  }
+
+  return result;
+}

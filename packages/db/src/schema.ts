@@ -524,3 +524,20 @@ export const campaignMembers = pgTable("campaign_members", {
   status: text("status").notNull().default("Sent"), // "Sent" | "Responded" | "Registered"
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const opportunityStageHistory = pgTable("opportunity_stage_history", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  opportunityId: uuid("opportunity_id")
+    .notNull()
+    .references(() => opportunities.id, { onDelete: "cascade" }),
+  fromStage: text("from_stage"),
+  toStage: text("to_stage").notNull(),
+  amount: text("amount"),
+  changedById: uuid("changed_by_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

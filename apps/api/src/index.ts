@@ -9,6 +9,7 @@ import {
   calculateOpportunityCommission,
   calculateOpportunitySplits,
   calculateProRatedAmount,
+  calculateStageVelocity,
   convertLead,
   evaluateLeadAssignment,
   evaluateTerritoryRouting,
@@ -568,6 +569,15 @@ app.post("/api/opportunities", tenantAuth, async (c) => {
     custom: null,
   });
 
+  await dbStore.opportunityStageHistory.insert({
+    orgId: tenant.orgId,
+    opportunityId: opp.id,
+    fromStage: null,
+    toStage: opp.stage,
+    amount: opp.amount,
+    changedById: tenant.userId,
+  });
+
   return c.json({ success: true, data: opp });
 });
 
@@ -600,6 +610,15 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
     | undefined = undefined;
 
   if (stage !== undefined && stage !== existing.stage) {
+    await dbStore.opportunityStageHistory.insert({
+      orgId: tenant.orgId,
+      opportunityId: updated.id,
+      fromStage: existing.stage,
+      toStage: updated.stage,
+      amount: updated.amount,
+      changedById: tenant.userId,
+    });
+
     const rules = await dbStore.workflows.findMany();
     workflowExecution = await executeWorkflows(
       {
@@ -636,6 +655,31 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
     data: updated,
     workflow: workflowExecution,
   });
+});
+
+app.get("/api/opportunities/:id/stage-history", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const opportunity = await dbStore.opportunities.findOne(id);
+  if (!opportunity) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+  const history = await dbStore.opportunityStageHistory.findForOpportunity(id);
+  const sorted = [...history].sort(
+    (a, b) => a.createdAt.getTime() - b.createdAt.getTime(),
+  );
+  return c.json({ success: true, data: sorted });
+});
+
+app.get("/api/reports/stage-velocity", tenantAuth, async (c) => {
+  const history = await dbStore.opportunityStageHistory.findMany();
+  const historyInputs = history.map((h) => ({
+    opportunityId: h.opportunityId,
+    fromStage: h.fromStage,
+    toStage: h.toStage,
+    createdAt: h.createdAt,
+  }));
+  const velocityReport = calculateStageVelocity(historyInputs, new Date());
+  return c.json({ success: true, data: velocityReport });
 });
 
 // Activities & Chronological Task Timelines REST API Endpoints
@@ -2021,6 +2065,15 @@ app.post("/api/approvals/:id/decide", tenantAuth, async (c) => {
       const nextStage =
         newApprovalStatus === "Approved" ? "Closed Won" : "Closed Lost";
       await dbStore.opportunities.update(opportunity.id, { stage: nextStage });
+
+      await dbStore.opportunityStageHistory.insert({
+        orgId: tenant.orgId,
+        opportunityId: opportunity.id,
+        fromStage: opportunity.stage,
+        toStage: nextStage,
+        amount: opportunity.amount,
+        changedById: tenant.userId,
+      });
 
       // Log opportunity audit log for automatic stage conversion
       await dbStore.auditLogs.insert({

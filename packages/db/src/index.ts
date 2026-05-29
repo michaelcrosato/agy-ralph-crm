@@ -431,6 +431,17 @@ export interface DBCampaignMember {
   createdAt: Date;
 }
 
+export interface DBOpportunityStageHistory {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  fromStage: string | null;
+  toStage: string;
+  amount: string | null;
+  changedById: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -468,6 +479,7 @@ export const store = {
   opportunitySplits: [] as DBOpportunitySplit[],
   campaigns: [] as DBCampaign[],
   campaignMembers: [] as DBCampaignMember[],
+  opportunityStageHistory: [] as DBOpportunityStageHistory[],
 };
 
 export const dbStore = {
@@ -1692,6 +1704,33 @@ export const dbStore = {
       return true;
     },
   },
+  opportunityStageHistory: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityStageHistory.filter((h) => h.orgId === orgId);
+    },
+    findForOpportunity: async (opportunityId: string) => {
+      const orgId = getActiveOrgId();
+      return store.opportunityStageHistory.filter(
+        (h) => h.opportunityId === opportunityId && h.orgId === orgId,
+      );
+    },
+    insert: async (
+      history: Omit<DBOpportunityStageHistory, "id" | "createdAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (history.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newHistory: DBOpportunityStageHistory = {
+        ...history,
+        id: `history-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.opportunityStageHistory.push(newHistory);
+      return newHistory;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1729,5 +1768,6 @@ export const dbStore = {
     store.opportunitySplits = [];
     store.campaigns = [];
     store.campaignMembers = [];
+    store.opportunityStageHistory = [];
   },
 };
