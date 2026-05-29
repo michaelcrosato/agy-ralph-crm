@@ -10168,11 +10168,56 @@ app.post(
     }
 
     const body = await c.req.json().catch(() => ({}));
-    const { variantTemplateId, splitWeight, isActive } = body;
+    const {
+      variantTemplateId,
+      splitWeight,
+      isActive,
+      autoPromoteWinner,
+      minSendsToEvaluate,
+      evaluationMetric,
+    } = body;
 
     if (!variantTemplateId) {
       return c.json(
         { success: false, error: "variantTemplateId is required" },
+        400,
+      );
+    }
+
+    if (
+      autoPromoteWinner !== undefined &&
+      autoPromoteWinner !== 0 &&
+      autoPromoteWinner !== 1
+    ) {
+      return c.json(
+        { success: false, error: "autoPromoteWinner must be 0 or 1" },
+        400,
+      );
+    }
+
+    if (
+      minSendsToEvaluate !== undefined &&
+      (typeof minSendsToEvaluate !== "number" || minSendsToEvaluate <= 0)
+    ) {
+      return c.json(
+        {
+          success: false,
+          error: "minSendsToEvaluate must be a positive integer",
+        },
+        400,
+      );
+    }
+
+    if (
+      evaluationMetric !== undefined &&
+      evaluationMetric !== "open_rate" &&
+      evaluationMetric !== "click_rate"
+    ) {
+      return c.json(
+        {
+          success: false,
+          error: "evaluationMetric must be open_rate or click_rate",
+        },
         400,
       );
     }
@@ -10197,6 +10242,12 @@ app.post(
       variantTemplateId,
       splitWeight: typeof splitWeight === "number" ? splitWeight : 50,
       isActive: isActive === 0 ? 0 : 1,
+      autoPromoteWinner:
+        typeof autoPromoteWinner === "number" ? autoPromoteWinner : 0,
+      minSendsToEvaluate:
+        typeof minSendsToEvaluate === "number" ? minSendsToEvaluate : 10,
+      evaluationMetric:
+        typeof evaluationMetric === "string" ? evaluationMetric : "open_rate",
     });
 
     return c.json({ success: true, data: splitTest });

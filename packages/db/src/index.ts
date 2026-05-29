@@ -632,6 +632,9 @@ export interface DBMarketingSequenceStepSplitTest {
   variantTemplateId: string;
   splitWeight: number;
   isActive: number;
+  autoPromoteWinner?: number;
+  minSendsToEvaluate?: number;
+  evaluationMetric?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4778,6 +4781,28 @@ export const dbStore = {
       store.marketingSequenceSteps.push(newItem);
       return newItem;
     },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<
+          DBMarketingSequenceStep,
+          "id" | "orgId" | "createdAt" | "updatedAt"
+        >
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceSteps.findIndex((c) => c.id === id);
+      if (index === -1) return null;
+      if (store.marketingSequenceSteps[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceSteps[index] = {
+        ...store.marketingSequenceSteps[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.marketingSequenceSteps[index];
+    },
     delete: async (id: string) => {
       const orgId = getActiveOrgId();
       const index = store.marketingSequenceSteps.findIndex((c) => c.id === id);
@@ -4935,6 +4960,9 @@ export const dbStore = {
         throw new Error("RLS Isolation Violation: Tenant mismatch.");
       }
       const newItem: DBMarketingSequenceStepSplitTest = {
+        autoPromoteWinner: 0,
+        minSendsToEvaluate: 10,
+        evaluationMetric: "open_rate",
         ...item,
         id: `split-${Math.random().toString(36).substring(2, 11)}`,
         createdAt: new Date(),
@@ -4942,6 +4970,30 @@ export const dbStore = {
       };
       store.marketingSequenceStepSplitTests.push(newItem);
       return newItem;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<
+          DBMarketingSequenceStepSplitTest,
+          "id" | "orgId" | "createdAt" | "updatedAt"
+        >
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceStepSplitTests.findIndex(
+        (c) => c.id === id,
+      );
+      if (index === -1) return null;
+      if (store.marketingSequenceStepSplitTests[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceStepSplitTests[index] = {
+        ...store.marketingSequenceStepSplitTests[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
+      return store.marketingSequenceStepSplitTests[index];
     },
     delete: async (id: string) => {
       const orgId = getActiveOrgId();
