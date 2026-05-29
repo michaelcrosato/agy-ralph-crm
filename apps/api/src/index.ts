@@ -5062,6 +5062,34 @@ app.get("/api/search", tenantAuth, async (c) => {
   return c.json({ success: true, data: results });
 });
 
+// Global Multi-Field Fuzzy Trigram Search Endpoint (Fuzzy Alias)
+app.get("/api/search/fuzzy", tenantAuth, async (c) => {
+  const q = c.req.query("q") || "";
+  const typesParam = c.req.query("types");
+  const thresholdParam = c.req.query("threshold");
+
+  const types = typesParam
+    ? (typesParam.split(",") as (
+        | "Lead"
+        | "Account"
+        | "Contact"
+        | "Opportunity"
+      )[])
+    : undefined;
+
+  const threshold = thresholdParam
+    ? Number.parseFloat(thresholdParam)
+    : undefined;
+
+  const results = await globalFuzzySearch(q, {
+    types,
+    threshold,
+    dbStore,
+  });
+
+  return c.json({ success: true, data: results });
+});
+
 // Opportunity Approval Endpoints
 
 app.post("/api/opportunities/:id/submit-approval", tenantAuth, async (c) => {
@@ -6053,7 +6081,8 @@ app.post("/api/public/campaigns/:id/track-utm", async (c) => {
 
     // 2. Upsert Campaign Member status to 'Responded' if leadId or contactId is provided
     if (dbStore.campaignMembers && (leadId || contactId)) {
-      const existingMembers = await dbStore.campaignMembers.findForCampaign(campaignId);
+      const existingMembers =
+        await dbStore.campaignMembers.findForCampaign(campaignId);
       const member = existingMembers.find(
         (m) =>
           (leadId && m.leadId === leadId) ||

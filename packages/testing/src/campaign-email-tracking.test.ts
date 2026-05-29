@@ -166,18 +166,21 @@ describe("Outbound Email Open & Click Tracking API", () => {
       });
 
       // 2. Track public UTM click event (unauthenticated client-side webhook call)
-      const trackRes = await app.request(`/api/public/campaigns/${campaignId}/track-utm`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      const trackRes = await app.request(
+        `/api/public/campaigns/${campaignId}/track-utm`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            utmSource: "newsletter",
+            utmMedium: "email",
+            utmCampaign: "q2_promo",
+            leadId,
+          }),
         },
-        body: JSON.stringify({
-          utmSource: "newsletter",
-          utmMedium: "email",
-          utmCampaign: "q2_promo",
-          leadId,
-        }),
-      });
+      );
 
       expect(trackRes.status).toBe(200);
       const trackBody = await trackRes.json();
@@ -187,14 +190,17 @@ describe("Outbound Email Open & Click Tracking API", () => {
       await withTenant(orgA, mockDb, async () => {
         // CRM Activity verification
         const activities = await dbStore.activities.findMany();
-        const utmAct = activities.find((a) => a.subject.includes("UTM Campaign Link Click"));
+        const utmAct = activities.find((a) =>
+          a.subject.includes("UTM Campaign Link Click"),
+        );
         expect(utmAct).toBeDefined();
         expect(utmAct?.body).toContain("Source: newsletter");
         expect(utmAct?.body).toContain("Medium: email");
         expect(utmAct?.body).toContain("Campaign: q2_promo");
 
         // Campaign member verification
-        const members = await dbStore.campaignMembers.findForCampaign(campaignId);
+        const members =
+          await dbStore.campaignMembers.findForCampaign(campaignId);
         expect(members).toHaveLength(1);
         expect(members[0].leadId).toBe(leadId);
         expect(members[0].status).toBe("Responded");

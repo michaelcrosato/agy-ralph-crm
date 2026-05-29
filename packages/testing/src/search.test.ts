@@ -1,6 +1,9 @@
 import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import {
+  TrigramIndex,
+  computeLevenshteinDistance,
+  computeLevenshteinSimilarity,
   computeTrigramSimilarity,
   fuzzySearchRecords,
   generateTrigrams,
@@ -255,6 +258,84 @@ describe("Global Multi-Field Trigram Search Integration & RLS Tests", () => {
           (r: { recordType: string }) => r.recordType === "Contact",
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("API Route Integration GET /api/search/fuzzy", () => {
+    it("should enforce authentication on fuzzy search API", async () => {
+      const res = await app.request("/api/search/fuzzy?q=acme", {
+        method: "GET",
+      });
+      expect(res.status).toBe(401);
+    });
+
+    it("should fetch ranked and isolated matches for Tenant A on fuzzy search", async () => {
+      const res = await app.request("/api/search/fuzzy?q=acme", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${tokenTenantA}`,
+        },
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.length).toBeGreaterThanOrEqual(2);
+
+      // Verify strict separation
+      const names = body.data.map(
+        (r: { record: { name?: string; firstName?: string } }) =>
+          r.record.name || r.record.firstName,
+      );
+      expect(names).toContain("Acme Corp Ltd");
+      expect(names).not.toContain("Acme Partners Inc");
+    });
+
+    it("should handle partial casing and slight typo matches using hybrid Levenshtein search", async () => {
+      // "Acme" with slight typo: "acmee" or "acm"
+      const res = await app.request("/api/search/fuzzy?q=acmee", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${tokenTenantA}`,
+        },
+      });
+
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.success).toBe(true);
+      expect(body.data.length).toBeGreaterThanOrEqual(1);
+      expect(body.data[0].record.name).toBe("Acme Corp Ltd");
+    });
+  });
+
+  describe("Direct Levenshtein Distance & TrigramIndex Unit Tests", () => {
+    it("should compute exact Levenshtein distances correctly", () => {
+      expect(computeLevenshteinDistance("kitten", "sitting")).toBe(3);
+      expect(computeLevenshteinDistance("book", "back")).toBe(2);
+      expect(computeLevenshteinDistance("acme", "acme")).toBe(0);
+      expect(computeLevenshteinDistance("", "test")).toBe(4);
+    });
+
+    it("should compute Levenshtein similarity percentages accurately", () => {
+      expect(computeLevenshteinSimilarity("acme", "acme")).toBe(1.0);
+      expect(computeLevenshteinSimilarity("acme", "acmee")).toBe(0.8); // distance 1, max len 5
+      expect(computeLevenshteinSimilarity("acme", "xyz")).toBe(0.0);
+    });
+
+    it("should successfully build and query a TrigramIndex directly", () => {
+      const records = [
+        { id: "1", name: "Apple Inc", category: "Tech" },
+        { id: "2", name: "Banana Corp", category: "Fruit" },
+      ];
+      const index = new TrigramIndex(records, ["name", "category"]);
+
+      const searchFruit = index.search("Fruit");
+      expect(searchFruit.length).toBe(1);
+      expect(searchFruit[0].record.id).toBe("2");
+
+      const searchAppleTypo = index.search("aple"); // slight typo
+      expect(searchAppleTypo.length).toBe(1);
+      expect(searchAppleTypo[0].record.id).toBe("1");
     });
   });
 });

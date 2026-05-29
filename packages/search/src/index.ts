@@ -38,40 +38,189 @@ export function computeTrigramSimilarity(a: string, b: string): number {
   return union.size > 0 ? intersection.size / union.size : 0;
 }
 
-// Search across a list of records for a query string, returning matched items sorted by score
-export function fuzzySearchRecords(
-  records: Record<string, unknown>[],
-  query: string,
-  searchFields: string[],
-  threshold = 0.1,
-): { record: Record<string, unknown>; score: number }[] {
-  if (!query) {
-    return records.map((r) => ({ record: r, score: 1 }));
+// Support typing distance scoring algorithms (Levenshtein)
+export function computeLevenshteinDistance(a: string, b: string): number {
+  const lenA = a.length;
+  const lenB = b.length;
+  if (lenA === 0) return lenB;
+  if (lenB === 0) return lenA;
+
+  const matrix: number[][] = [];
+  for (let i = 0; i <= lenA; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= lenB; j++) {
+    matrix[0][j] = j;
   }
 
-  const results = records
-    .map((rec) => {
-      let maxScore = 0;
-      for (const field of searchFields) {
+  for (let i = 1; i <= lenA; i++) {
+    for (let j = 1; j <= lenB; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1, // deletion
+        matrix[i][j - 1] + 1, // insertion
+        matrix[i - 1][j - 1] + cost, // substitution
+      );
+    }
+  }
+  return matrix[lenA][lenB];
+}
+
+// Compute word-by-word or global Levenshtein similarity to handle typing distance scoring with typing fuzziness
+export function computeLevenshteinSimilarity(a: string, b: string): number {
+  const cleanA = a.toLowerCase().trim();
+  const cleanB = b.toLowerCase().trim();
+  if (!cleanA && !cleanB) return 1;
+  if (!cleanA || !cleanB) return 0;
+  const distance = computeLevenshteinDistance(cleanA, cleanB);
+  const maxLength = Math.max(cleanA.length, cleanB.length);
+  return maxLength > 0 ? 1 - distance / maxLength : 0;
+}
+
+// Handle multi-word search fields gracefully by evaluating Levenshtein similarity on word boundaries
+export function computeFuzzyWordLevenshteinSimilarity(
+  fieldVal: string,
+  query: string,
+): number {
+  const queryClean = query.toLowerCase().replace(/[^a-z0-9]/g, "");
+  if (!queryClean) return 0;
+
+  const words = fieldVal
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w) => w.replace(/[^a-z0-9]/g, ""))
+    .filter(Boolean);
+  if (words.length === 0) return 0;
+
+  let maxWordSim = 0;
+  for (const word of words) {
+    const distance = computeLevenshteinDistance(word, queryClean);
+    const maxLength = Math.max(word.length, queryClean.length);
+    const sim = maxLength > 0 ? 1 - distance / maxLength : 0;
+    if (sim > maxWordSim) {
+      maxWordSim = sim;
+    }
+  }
+
+  // Also calculate global Levenshtein similarity for exact or complete-phrase matching
+  const globalFieldClean = fieldVal.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const globalDistance = computeLevenshteinDistance(
+    globalFieldClean,
+    queryClean,
+  );
+  const globalMaxLength = Math.max(globalFieldClean.length, queryClean.length);
+  const globalSim =
+    globalMaxLength > 0 ? 1 - globalDistance / globalMaxLength : 0;
+
+  return Math.max(maxWordSim, globalSim);
+}
+
+// Combine trigram Jaccard and Levenshtein similarity indices
+export function computeHybridSimilarity(
+  fieldVal: string,
+  query: string,
+): number {
+  const trigramSim = computeTrigramSimilarity(fieldVal, query);
+  const levSimRaw = computeFuzzyWordLevenshteinSimilarity(fieldVal, query);
+  // Apply a minimum similarity threshold for Levenshtein typo-matching (e.g. 0.70)
+  // to avoid false-positive matches for totally different words.
+  const levSim = levSimRaw >= 0.7 ? levSimRaw : 0;
+  return Math.max(trigramSim, levSim);
+}
+
+// High-Performance Trigram Matching Index
+export class TrigramIndex<T extends Record<string, unknown>> {
+  private index = new Map<string, Set<number>>();
+  private records: T[] = [];
+  private searchFields: string[];
+
+  constructor(records: T[], searchFields: string[]) {
+    this.records = records;
+    this.searchFields = searchFields;
+    this.buildIndex();
+  }
+
+  private buildIndex() {
+    for (let i = 0; i < this.records.length; i++) {
+      const rec = this.records[i];
+      for (const field of this.searchFields) {
         let val = rec[field];
         if (val === undefined && rec.custom && typeof rec.custom === "object") {
           const customObj = rec.custom as Record<string, unknown>;
           val = customObj[field];
         }
         if (val !== undefined && val !== null) {
-          const score = computeTrigramSimilarity(String(val), query);
+          const trigrams = generateTrigrams(String(val));
+          for (const tg of trigrams) {
+            if (!this.index.has(tg)) {
+              this.index.set(tg, new Set());
+            }
+            this.index.get(tg)?.add(i);
+          }
+        }
+      }
+    }
+  }
+
+  public search(
+    query: string,
+    threshold = 0.1,
+  ): { record: T; score: number }[] {
+    if (!query) {
+      return this.records.map((r) => ({ record: r, score: 1 }));
+    }
+
+    const queryTrigrams = generateTrigrams(query);
+    if (queryTrigrams.length === 0) {
+      return [];
+    }
+
+    const candidateIndices = new Set<number>();
+    for (const tg of queryTrigrams) {
+      const matched = this.index.get(tg);
+      if (matched) {
+        for (const idx of matched) {
+          candidateIndices.add(idx);
+        }
+      }
+    }
+
+    const results: { record: T; score: number }[] = [];
+    for (const idx of candidateIndices) {
+      const rec = this.records[idx];
+      let maxScore = 0;
+      for (const field of this.searchFields) {
+        let val = rec[field];
+        if (val === undefined && rec.custom && typeof rec.custom === "object") {
+          const customObj = rec.custom as Record<string, unknown>;
+          val = customObj[field];
+        }
+        if (val !== undefined && val !== null) {
+          const score = computeHybridSimilarity(String(val), query);
           if (score > maxScore) {
             maxScore = score;
           }
         }
       }
-      return { record: rec, score: maxScore };
-    })
-    .filter((res) => res.score >= threshold);
+      if (maxScore >= threshold) {
+        results.push({ record: rec, score: maxScore });
+      }
+    }
 
-  results.sort((a, b) => b.score - a.score);
+    results.sort((a, b) => b.score - a.score);
+    return results;
+  }
+}
 
-  return results;
+// Search across a list of records for a query string, returning matched items sorted by score using high-performance index
+export function fuzzySearchRecords(
+  records: Record<string, unknown>[],
+  query: string,
+  searchFields: string[],
+  threshold = 0.1,
+): { record: Record<string, unknown>; score: number }[] {
+  const index = new TrigramIndex(records, searchFields);
+  return index.search(query, threshold);
 }
 
 export interface GlobalSearchOptions {
