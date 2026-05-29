@@ -43,8 +43,8 @@ graph TD
 ### Phase 6: ECA Call Actions Feature Implementation (Completed)
 - Add outbound `stepType: "call"` support with validation, personalization templates, CRM activities generation, and linked target records under RLS tenancy isolation context.
 
-### Phase 7: AFK Automation Hook (Planned)
-- Implement continuous execution hooks using `run-afk-loop.ps1` to run background checks and verify codebases overnight without human interaction.
+### Phase 7: AFK Automation Hook (Completed)
+- Implement continuous execution hooks using `run-afk-loop.ps1` to run background checks, verify Git cleanliness, execute Biome validations, and verify all 129 Vitest test suites overnight without human interaction.
 
 ---
 
