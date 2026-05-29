@@ -747,3 +747,18 @@ export const opportunityProductSchedules = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
 );
+
+export const leadAutoConversionRules = pgTable("lead_auto_conversion_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  isActive: integer("is_active").notNull().default(1),
+  createOpportunity: integer("create_opportunity").notNull().default(1),
+  opportunityStage: text("opportunity_stage")
+    .notNull()
+    .default("Qualification"),
+  criteria: jsonb("criteria").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

@@ -1863,3 +1863,44 @@ export function generateStraightLineSchedules(
 
   return schedules;
 }
+
+export interface AutoConversionCriteria {
+  field: string;
+  operator: "equals" | "greater_or_equal" | "less_or_equal";
+  value: string | number;
+}
+
+export function evaluateLeadAutoConversion(
+  lead: { status: string; custom?: Record<string, unknown> | null },
+  leadScore: number,
+  criteria: AutoConversionCriteria,
+): boolean {
+  const { field, operator, value } = criteria;
+  let leadValue: string | number | undefined;
+
+  if (field === "score") {
+    leadValue = leadScore;
+  } else if (field === "status") {
+    leadValue = lead.status;
+  } else if (
+    lead.custom &&
+    typeof lead.custom === "object" &&
+    field in lead.custom
+  ) {
+    leadValue = lead.custom[field] as string | number;
+  }
+
+  if (leadValue === undefined) return false;
+
+  if (operator === "equals") {
+    return String(leadValue) === String(value);
+  }
+  if (operator === "greater_or_equal") {
+    return Number(leadValue) >= Number(value);
+  }
+  if (operator === "less_or_equal") {
+    return Number(leadValue) <= Number(value);
+  }
+
+  return false;
+}

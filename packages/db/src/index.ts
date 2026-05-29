@@ -595,6 +595,21 @@ export interface DBStageGuidance {
   updatedAt: Date;
 }
 
+export interface DBLeadAutoConversionRule {
+  id: string;
+  orgId: string;
+  name: string;
+  isActive: number;
+  createOpportunity: number;
+  opportunityStage: string;
+  criteria: {
+    field: string;
+    operator: "equals" | "greater_or_equal" | "less_or_equal";
+    value: string | number;
+  };
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -647,6 +662,7 @@ export const store = {
   currencies: [] as DBCurrency[],
   opportunityStageGates: [] as DBOpportunityStageGate[],
   stageGuidance: [] as DBStageGuidance[],
+  leadAutoConversionRules: [] as DBLeadAutoConversionRule[],
 };
 
 export const dbStore = {
@@ -2783,6 +2799,51 @@ export const dbStore = {
       return true;
     },
   },
+  leadAutoConversionRules: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.leadAutoConversionRules.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const r = store.leadAutoConversionRules.find((x) => x.id === id);
+      if (r && r.orgId !== orgId) return null;
+      return r || null;
+    },
+    insert: async (
+      rule: Omit<DBLeadAutoConversionRule, "id" | "createdAt">,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (rule.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRule: DBLeadAutoConversionRule = {
+        ...rule,
+        id: `conversion-rule-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.leadAutoConversionRules.push(newRule);
+      return newRule;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBLeadAutoConversionRule, "id" | "orgId" | "createdAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.leadAutoConversionRules.findIndex((r) => r.id === id);
+      if (index === -1) return null;
+      if (store.leadAutoConversionRules[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.leadAutoConversionRules[index] = {
+        ...store.leadAutoConversionRules[index],
+        ...updates,
+      };
+      return store.leadAutoConversionRules[index];
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -2836,5 +2897,6 @@ export const dbStore = {
     store.currencies = [];
     store.opportunityStageGates = [];
     store.stageGuidance = [];
+    store.leadAutoConversionRules = [];
   },
 };

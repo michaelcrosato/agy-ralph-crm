@@ -25,6 +25,7 @@ import {
   detectCircularAccountRelation,
   detectCircularContactRelation,
   evaluateLeadAssignment,
+  evaluateLeadAutoConversion,
   evaluateTerritoryRouting,
   generateRenewalOpportunity,
   generateStraightLineSchedules,
@@ -141,6 +142,132 @@ export async function triggerOutboundWebhooks(
     // Asynchronously process the outbox so that existing immediate expectations in standard flows are met
     processOutboxItems(orgId, dbStore).catch(() => {});
   });
+}
+
+// Helper to evaluate and run automatic lead conversion
+export async function checkAndRunLeadAutoConversion(
+  leadId: string,
+  orgId: string,
+  userId: string,
+): Promise<{
+  converted: boolean;
+  accountId?: string;
+  contactId?: string;
+  opportunityId?: string;
+} | null> {
+  const lead = await dbStore.leads.findOne(leadId);
+  if (!lead || lead.status === "Converted") return null;
+
+  // Recalculate lead score first
+  const scoringRules = await dbStore.leadScoringRules.findMany();
+  const score = calculateLeadScore(
+    lead as unknown as Record<string, unknown>,
+    scoringRules.map((r) => ({
+      id: r.id,
+      isActive: r.isActive,
+      scoreValue: r.scoreValue,
+      criteria: r.criteria,
+    })),
+  );
+
+  // Fetch active auto-conversion rules
+  const rules = await dbStore.leadAutoConversionRules.findMany();
+  const activeRule = rules.find((r) => r.isActive === 1);
+  if (!activeRule) return null;
+
+  const matches = evaluateLeadAutoConversion(
+    { status: lead.status, custom: lead.custom },
+    score,
+    activeRule.criteria,
+  );
+
+  if (!matches) return null;
+
+  // Perform conversion
+  const mappings = await dbStore.leadConversionMappings.findMany();
+  const entities = convertLead({
+    lead: {
+      id: lead.id,
+      orgId: lead.orgId,
+      ownerId: lead.ownerId,
+      status: lead.status,
+      email: lead.email,
+      company: lead.company,
+      custom: lead.custom,
+    },
+    opportunityName:
+      activeRule.createOpportunity === 1
+        ? `${lead.company || lead.email}'s Opportunity`
+        : undefined,
+    opportunityAmount: "0.00",
+  });
+
+  const account = await dbStore.accounts.insert({
+    orgId,
+    ownerId: userId,
+    name: entities.account.name,
+    domain: null,
+    custom: entities.account.custom,
+  });
+
+  const contact = await dbStore.contacts.insert({
+    orgId,
+    ownerId: userId,
+    accountId: account.id,
+    firstName: entities.contact.firstName,
+    lastName: entities.contact.lastName,
+    email: entities.contact.email,
+    custom: entities.contact.custom,
+  });
+
+  let opportunityId: string | undefined = undefined;
+  if (entities.opportunity && activeRule.createOpportunity === 1) {
+    const opp = await dbStore.opportunities.insert({
+      orgId,
+      ownerId: userId,
+      accountId: account.id,
+      name: entities.opportunity.name,
+      stage: activeRule.opportunityStage,
+      amount: "0.00",
+      closeDate: null,
+      custom: null,
+    });
+    opportunityId = opp.id;
+  }
+
+  // Update lead
+  await dbStore.leads.update(leadId, {
+    status: "Converted",
+    convertedAccountId: account.id,
+    convertedContactId: contact.id,
+  });
+
+  // Log audit logs
+  await dbStore.auditLogs.insert({
+    orgId,
+    recordId: leadId,
+    recordType: "Lead",
+    action: "update",
+    userId,
+    changes: {
+      status: { before: lead.status, after: "Converted" },
+    },
+  });
+
+  // Trigger Webhook
+  triggerOutboundWebhooks(orgId, "lead.converted", {
+    leadId,
+    accountId: account.id,
+    contactId: contact.id,
+    opportunityId,
+  });
+
+  return {
+    converted: true,
+    accountId: account.id,
+    contactId: contact.id,
+    opportunityId,
+  };
 }
 
 app.get("/health", (c) =>
@@ -266,7 +393,21 @@ app.post("/api/public/web-to-lead", async (c) => {
       custom: custom || null,
     });
 
-    return c.json({ success: true, data: newLead }, 201);
+    // Run auto-conversion check
+    const autoConvertResult = await checkAndRunLeadAutoConversion(
+      newLead.id,
+      orgId,
+      resolvedOwnerId,
+    );
+
+    return c.json(
+      {
+        success: true,
+        data: newLead,
+        autoConverted: autoConvertResult || null,
+      },
+      201,
+    );
   });
 });
 
@@ -825,12 +966,76 @@ app.post("/api/leads", tenantAuth, async (c) => {
     });
   }
 
-  return c.json({ success: true, data: newLead });
+  // Run auto-conversion check
+  const autoConvertResult = await checkAndRunLeadAutoConversion(
+    newLead.id,
+    tenant.orgId,
+    tenant.userId,
+  );
+
+  return c.json({
+    success: true,
+    data: newLead,
+    autoConverted: autoConvertResult || null,
+  });
 });
 
 app.get("/api/leads", tenantAuth, async (c) => {
   const leads = await dbStore.leads.findMany();
   return c.json({ success: true, data: leads });
+});
+
+app.get("/api/leads/auto-conversion-rules", tenantAuth, async (c) => {
+  const rules = await dbStore.leadAutoConversionRules.findMany();
+  return c.json({ success: true, data: rules });
+});
+
+app.post("/api/leads/auto-conversion-rules", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, isActive, createOpportunity, opportunityStage, criteria } =
+    body;
+
+  if (!name || !criteria) {
+    return c.json(
+      {
+        error:
+          "Missing required auto-conversion rule parameters: name, criteria",
+      },
+      400,
+    );
+  }
+
+  // Deactivate existing rules if the new one is active (only one active rule is allowed)
+  if (isActive === 1) {
+    const existingRules = await dbStore.leadAutoConversionRules.findMany();
+    for (const r of existingRules) {
+      if (r.isActive === 1) {
+        await dbStore.leadAutoConversionRules.update(r.id, { isActive: 0 });
+      }
+    }
+  }
+
+  const rule = await dbStore.leadAutoConversionRules.insert({
+    orgId: tenant.orgId,
+    name,
+    isActive: isActive !== undefined ? Number(isActive) : 1,
+    createOpportunity:
+      createOpportunity !== undefined ? Number(createOpportunity) : 1,
+    opportunityStage: opportunityStage || "Qualification",
+    criteria,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: rule.id,
+    recordType: "LeadAutoConversionRule",
+    action: "create",
+    userId: tenant.userId,
+    changes: null,
+  });
+
+  return c.json({ success: true, data: rule }, 201);
 });
 
 // Lead SLA configurations & Response Aging Tracking Endpoints
@@ -983,6 +1188,70 @@ app.get("/api/leads/:id", tenantAuth, async (c) => {
     return c.json({ error: "Lead not found" }, 404);
   }
   return c.json({ success: true, data: lead });
+});
+
+app.patch("/api/leads/:id", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { email, company, status, custom } = body;
+
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found" }, 404);
+  }
+
+  // Validate custom fields if updated
+  if (custom && typeof custom === "object") {
+    const allDefs = await dbStore.fieldDefinitions.findMany();
+    const leadDefs = allDefs.filter((def) => def.objectType === "leads");
+    const validation = validateCustomFields(
+      custom,
+      leadDefs.map((def) => ({
+        apiName: def.apiName,
+        dataType: def.dataType,
+        validationRules: def.validationRules || undefined,
+      })),
+    );
+    if (!validation.success) {
+      return c.json(
+        { error: "Validation failed", errors: validation.errors },
+        400,
+      );
+    }
+  }
+
+  const updates: Record<string, unknown> = {};
+  if (email !== undefined) updates.email = email;
+  if (company !== undefined) updates.company = company;
+  if (status !== undefined) updates.status = status;
+  if (custom !== undefined) updates.custom = custom;
+
+  const updatedLead = await dbStore.leads.update(id, updates);
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "Lead",
+    action: "update",
+    userId: tenant.userId,
+    changes: {
+      update: { before: lead, after: updatedLead },
+    },
+  });
+
+  // Run auto-conversion check
+  const autoConvertResult = await checkAndRunLeadAutoConversion(
+    id,
+    tenant.orgId,
+    tenant.userId,
+  );
+
+  return c.json({
+    success: true,
+    data: updatedLead,
+    autoConverted: autoConvertResult || null,
+  });
 });
 
 app.get("/api/leads/:id/duplicates", tenantAuth, async (c) => {
@@ -5161,7 +5430,18 @@ app.post("/api/leads/:id/score/recalculate", tenantAuth, async (c) => {
     score,
   });
 
-  return c.json({ success: true, data: updatedLead });
+  // Run auto-conversion check
+  const autoConvertResult = await checkAndRunLeadAutoConversion(
+    id,
+    tenant.orgId,
+    tenant.userId,
+  );
+
+  return c.json({
+    success: true,
+    data: updatedLead,
+    autoConverted: autoConvertResult || null,
+  });
 });
 
 app.get("/api/opportunities/:id/competitors", tenantAuth, async (c) => {
