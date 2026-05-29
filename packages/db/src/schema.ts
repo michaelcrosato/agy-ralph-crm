@@ -1216,6 +1216,7 @@ export const marketingSequenceSteps = pgTable("marketing_sequence_steps", {
   templateId: uuid("template_id")
     .notNull()
     .references(() => emailTemplates.id, { onDelete: "cascade" }),
+  waitCondition: jsonb("wait_condition"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

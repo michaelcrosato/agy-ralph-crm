@@ -4030,6 +4030,48 @@ function parseTimeToMinutes(timeStr: string): number {
   return hours * 60 + minutes;
 }
 
+export function calculateNextStepExecutionTime(
+  currentTime: Date,
+  delayDays: number,
+  waitCondition?: CoreSequenceStep["waitCondition"],
+): Date {
+  let target = new Date(
+    currentTime.getTime() + delayDays * 24 * 60 * 60 * 1000,
+  );
+
+  if (!waitCondition || waitCondition.waitType !== "day_of_week") {
+    return target;
+  }
+
+  const daysOfWeek = waitCondition.daysOfWeek || [];
+  if (daysOfWeek.length === 0) {
+    return target;
+  }
+
+  let found = false;
+  for (let i = 0; i < 7; i++) {
+    const day = target.getDay();
+    if (daysOfWeek.includes(day)) {
+      found = true;
+      break;
+    }
+    target = new Date(target.getTime() + 24 * 60 * 60 * 1000);
+  }
+
+  if (waitCondition.timeOfDay) {
+    const parts = waitCondition.timeOfDay.split(":");
+    if (parts.length === 2) {
+      const hours = Number.parseInt(parts[0], 10);
+      const minutes = Number.parseInt(parts[1], 10);
+      if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+        target.setHours(hours, minutes, 0, 0);
+      }
+    }
+  }
+
+  return target;
+}
+
 interface CoreSequenceStep {
   id: string;
   orgId: string;
@@ -4037,6 +4079,11 @@ interface CoreSequenceStep {
   stepNumber: number;
   delayDays: number;
   templateId: string;
+  waitCondition?: {
+    waitType: "day_of_week" | "duration";
+    daysOfWeek?: number[];
+    timeOfDay?: string;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -5129,8 +5176,10 @@ export async function executePendingSequenceSteps(
       if (!nextStep) {
         nextStatus = "completed";
       } else {
-        nextExecTime = new Date(
-          currentTime.getTime() + nextStep.delayDays * 24 * 60 * 60 * 1000,
+        nextExecTime = calculateNextStepExecutionTime(
+          currentTime,
+          nextStep.delayDays,
+          nextStep.waitCondition || undefined,
         );
       }
     }

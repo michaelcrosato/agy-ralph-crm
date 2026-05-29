@@ -588,6 +588,11 @@ export interface DBMarketingSequenceStep {
   stepNumber: number;
   delayDays: number;
   templateId: string;
+  waitCondition?: {
+    waitType: "day_of_week" | "duration";
+    daysOfWeek?: number[];
+    timeOfDay?: string;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }

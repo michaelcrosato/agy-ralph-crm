@@ -9853,7 +9853,7 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
   const sequenceId = c.req.param("id");
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
-  const { stepNumber, delayDays, templateId } = body;
+  const { stepNumber, delayDays, templateId, waitCondition } = body;
 
   const seq = await dbStore.marketingSequences.findOne(sequenceId);
   if (!seq) {
@@ -9872,12 +9872,60 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     return c.json({ success: false, error: "Email Template not found" }, 404);
   }
 
+  if (waitCondition) {
+    if (typeof waitCondition !== "object") {
+      return c.json(
+        { success: false, error: "waitCondition must be an object" },
+        400,
+      );
+    }
+    const { waitType, daysOfWeek, timeOfDay } = waitCondition;
+    if (waitType !== "day_of_week" && waitType !== "duration") {
+      return c.json(
+        {
+          success: false,
+          error: "waitCondition.waitType must be day_of_week or duration",
+        },
+        400,
+      );
+    }
+    if (waitType === "day_of_week") {
+      if (
+        !Array.isArray(daysOfWeek) ||
+        daysOfWeek.some((d: unknown) => typeof d !== "number" || d < 0 || d > 6)
+      ) {
+        return c.json(
+          {
+            success: false,
+            error:
+              "waitCondition.daysOfWeek must be an array of numbers between 0 and 6",
+          },
+          400,
+        );
+      }
+      if (
+        timeOfDay !== undefined &&
+        timeOfDay !== null &&
+        (typeof timeOfDay !== "string" || !/^\d{2}:\d{2}$/.test(timeOfDay))
+      ) {
+        return c.json(
+          {
+            success: false,
+            error: "waitCondition.timeOfDay must be in HH:mm format",
+          },
+          400,
+        );
+      }
+    }
+  }
+
   const step = await dbStore.marketingSequenceSteps.insert({
     orgId: tenant.orgId,
     sequenceId,
     stepNumber: Number(stepNumber),
     delayDays: delayDays !== undefined ? Number(delayDays) : 0,
     templateId,
+    waitCondition: waitCondition || null,
   });
 
   return c.json({ success: true, step });
