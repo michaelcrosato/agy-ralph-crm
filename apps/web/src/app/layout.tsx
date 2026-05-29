@@ -1,8 +1,9 @@
 import type React from "react";
+import "./globals.css";
 
 export const metadata = {
-  title: "Modular CRM Core",
-  description: "Ralph Modular CRM Core Operating System shell",
+  title: "Modular CRM Core Dashboard",
+  description: "Ralph Premium Modular CRM Core Dashboard Portal",
 };
 
 export default function RootLayout({

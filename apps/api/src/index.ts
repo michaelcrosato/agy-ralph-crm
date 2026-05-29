@@ -1,4 +1,8 @@
-import { type TenantContext, verifySessionToken } from "@crm/auth";
+import {
+  type TenantContext,
+  createSessionToken,
+  verifySessionToken,
+} from "@crm/auth";
 import {
   calculateCPQPrice,
   calculateProRatedAmount,
@@ -19,6 +23,7 @@ import {
 } from "@crm/webhooks";
 import { executeWorkflows } from "@crm/workflow";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { createMiddleware } from "hono/factory";
 
 type Env = {
@@ -28,6 +33,7 @@ type Env = {
 };
 
 const app = new Hono<Env>();
+app.use("*", cors());
 
 export const mcpTools = [
   {
@@ -96,6 +102,19 @@ export async function triggerOutboundWebhooks(
 app.get("/health", (c) =>
   c.json({ status: "ok", timestamp: new Date().toISOString() }),
 );
+
+app.post("/api/auth/token", async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const { userId, orgId, roleId, permissionsMask } = body;
+  const token = await createSessionToken({
+    userId: userId || "user-a",
+    orgId: orgId || "org-tenant-a",
+    roleId: roleId || "role-a",
+    permissionsMask:
+      permissionsMask !== undefined ? Number(permissionsMask) : 7,
+  });
+  return c.json({ success: true, token });
+});
 
 app.get("/mcp/tools", (c) => c.json({ tools: mcpTools }));
 
@@ -1726,5 +1745,21 @@ app.get("/api/search", tenantAuth, async (c) => {
 
   return c.json({ success: true, data: results });
 });
+
+// Start Hono Node Server if run directly (excluding test execution environment)
+if (process.env.NODE_ENV !== "test") {
+  const port = Number(process.env.PORT) || 3001;
+  import("@hono/node-server")
+    .then(({ serve }) => {
+      console.log(`[Hono API] Server is starting on port ${port}`);
+      serve({
+        fetch: app.fetch,
+        port,
+      });
+    })
+    .catch((err) => {
+      console.error("Failed to load @hono/node-server:", err);
+    });
+}
 
 export default app;
