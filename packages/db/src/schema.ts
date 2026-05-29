@@ -1251,6 +1251,7 @@ export const marketingSequenceSteps = pgTable("marketing_sequence_steps", {
   taskSubject: text("task_subject"),
   taskBody: text("task_body"),
   taskDueDays: integer("task_due_days"),
+  smsMessage: text("sms_message"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

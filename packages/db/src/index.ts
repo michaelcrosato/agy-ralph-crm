@@ -241,7 +241,7 @@ export interface DBActivity {
   id: string;
   orgId: string;
   creatorId: string;
-  type: "task" | "call" | "note" | "email";
+  type: "task" | "call" | "note" | "email" | "sms";
   subject: string;
   body: string | null;
   dueDate: Date | null;
@@ -598,12 +598,13 @@ export interface DBMarketingSequenceStep {
     timeOfDay?: string;
   } | null;
   replyToStepNumber?: number | null;
-  stepType: "email" | "webhook" | "task";
+  stepType: "email" | "webhook" | "task" | "sms";
   webhookUrl?: string | null;
   webhookPayload?: string | null;
   taskSubject?: string | null;
   taskBody?: string | null;
   taskDueDays?: number | null;
+  smsMessage?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

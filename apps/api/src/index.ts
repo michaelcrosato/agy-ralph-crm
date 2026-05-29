@@ -10510,9 +10510,17 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     return c.json({ success: false, error: "stepNumber is required" }, 400);
   }
 
-  if (stepType !== "email" && stepType !== "webhook" && stepType !== "task") {
+  if (
+    stepType !== "email" &&
+    stepType !== "webhook" &&
+    stepType !== "task" &&
+    stepType !== "sms"
+  ) {
     return c.json(
-      { success: false, error: "stepType must be email, webhook, or task" },
+      {
+        success: false,
+        error: "stepType must be email, webhook, task, or sms",
+      },
       400,
     );
   }
@@ -10547,6 +10555,13 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
     if (!body.taskSubject || typeof body.taskSubject !== "string") {
       return c.json(
         { success: false, error: "taskSubject is required for task steps" },
+        400,
+      );
+    }
+  } else if (stepType === "sms") {
+    if (!body.smsMessage || typeof body.smsMessage !== "string") {
+      return c.json(
+        { success: false, error: "smsMessage is required for sms steps" },
         400,
       );
     }
@@ -10663,6 +10678,7 @@ app.post("/api/sequences/:id/steps", tenantAuth, async (c) => {
           ? Number(body.taskDueDays)
           : null
         : null,
+    smsMessage: stepType === "sms" ? body.smsMessage || null : null,
   });
 
   return c.json({ success: true, step });
