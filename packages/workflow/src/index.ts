@@ -37,7 +37,9 @@ export async function executeWorkflows(
     let conditionPassed = true;
 
     if (rule.conditions) {
-      const fieldValue = String(event.payload[rule.conditions.field]);
+      const rawVal = event.payload[rule.conditions.field];
+      const fieldValue =
+        rawVal !== undefined && rawVal !== null ? String(rawVal) : "";
       const expectedValue = rule.conditions.value;
 
       if (rule.conditions.operator === "equals") {

@@ -53,17 +53,18 @@ export const tenantAuth = createMiddleware<Env>(async (c, next) => {
   }
 
   const token = authHeader.substring(7);
+  let tenantContext: TenantContext;
   try {
-    const tenantContext = await verifySessionToken(token);
+    tenantContext = await verifySessionToken(token);
     c.set("tenant", tenantContext);
-
-    // Propagate context database-level via RLS transaction wrapper
-    return await withTenant(tenantContext.orgId, mockDb, async () => {
-      return await next();
-    });
   } catch (err) {
     return c.json({ error: "Unauthorized: Token verification failed" }, 401);
   }
+
+  // Propagate context database-level via RLS transaction wrapper outside the token verification catch
+  return await withTenant(tenantContext.orgId, mockDb, async () => {
+    return await next();
+  });
 });
 
 app.get("/health", (c) =>
