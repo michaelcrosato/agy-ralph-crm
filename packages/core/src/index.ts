@@ -4482,6 +4482,9 @@ export async function enrollInSequence(
       if (seq.orgId !== orgId) {
         throw new Error("RLS Isolation Violation: Tenant mismatch.");
       }
+      if (seq.status === "archived") {
+        throw new Error("Cannot enroll in an archived sequence");
+      }
 
       const allowReenroll = seq.allowReenrollment ?? false;
       if (!allowReenroll && recipientMemberships.length > 0) {
@@ -8490,4 +8493,146 @@ export async function cloneMarketingSequence(
   }
 
   return clonedSequence;
+}
+
+export async function archiveMarketingSequence(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  dbStore: any,
+  sequenceId: string,
+  orgId: string,
+  // biome-ignore lint/suspicious/noExplicitAny: returned updated object
+): Promise<any> {
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    throw new Error("Sequence not found");
+  }
+  if (sequence.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+
+  const updatedSequence = await dbStore.marketingSequences.update(sequenceId, {
+    status: "archived",
+  });
+
+  if (dbStore.marketingSequenceMemberships?.findMany) {
+    const memberships = await dbStore.marketingSequenceMemberships.findMany();
+    const seqMemberships = memberships.filter(
+      // biome-ignore lint/suspicious/noExplicitAny: membership dynamic typing
+      (m: any) => m.sequenceId === sequenceId && m.orgId === orgId,
+    );
+    for (const m of seqMemberships) {
+      if (m.status === "active" || m.status === "paused") {
+        await dbStore.marketingSequenceMemberships.update(m.id, {
+          status: "completed",
+        });
+      }
+    }
+  }
+
+  return updatedSequence;
+}
+
+export async function purgeMarketingSequence(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  dbStore: any,
+  sequenceId: string,
+  orgId: string,
+): Promise<boolean> {
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    throw new Error("Sequence not found");
+  }
+  if (sequence.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+  if (sequence.status !== "archived") {
+    throw new Error("Only archived sequences can be purged");
+  }
+
+  // 1. Delete all step-level children and the steps themselves
+  if (dbStore.marketingSequenceSteps) {
+    const steps =
+      await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+    for (const step of steps) {
+      // Branches
+      if (dbStore.marketingSequenceStepBranches) {
+        const branch = await dbStore.marketingSequenceStepBranches.findForStep(
+          step.id,
+        );
+        if (branch) {
+          await dbStore.marketingSequenceStepBranches.delete(branch.id);
+        }
+      }
+      // Split Tests
+      if (dbStore.marketingSequenceStepSplitTests) {
+        const st = await dbStore.marketingSequenceStepSplitTests.findForStep(
+          step.id,
+        );
+        if (st) {
+          await dbStore.marketingSequenceStepSplitTests.delete(st.id);
+        }
+      }
+      // Open Actions
+      if (dbStore.marketingSequenceOpenActions) {
+        const openActions =
+          await dbStore.marketingSequenceOpenActions.findForStep(step.id);
+        for (const oa of openActions) {
+          await dbStore.marketingSequenceOpenActions.delete(oa.id);
+        }
+      }
+      // Reply Actions
+      if (dbStore.marketingSequenceReplyActions) {
+        const replyActions =
+          await dbStore.marketingSequenceReplyActions.findForStep(step.id);
+        for (const ra of replyActions) {
+          await dbStore.marketingSequenceReplyActions.delete(ra.id);
+        }
+      }
+      // Link Actions
+      if (dbStore.marketingSequenceLinkActions) {
+        const linkActions =
+          await dbStore.marketingSequenceLinkActions.findForStep(step.id);
+        for (const la of linkActions) {
+          await dbStore.marketingSequenceLinkActions.delete(la.id);
+        }
+      }
+      // Step itself
+      await dbStore.marketingSequenceSteps.delete(step.id);
+    }
+  }
+
+  // 2. Exit triggers
+  if (dbStore.marketingSequenceExitTriggers) {
+    const exitTriggers =
+      await dbStore.marketingSequenceExitTriggers.findForSequence(sequenceId);
+    for (const et of exitTriggers) {
+      await dbStore.marketingSequenceExitTriggers.delete(et.id);
+    }
+  }
+
+  // 3. Tag mappings
+  if (dbStore.marketingSequenceTagMappings) {
+    const mappings =
+      await dbStore.marketingSequenceTagMappings.findForSequence(sequenceId);
+    for (const m of mappings) {
+      await dbStore.marketingSequenceTagMappings.delete(m.id);
+    }
+  }
+
+  // 4. Memberships
+  if (dbStore.marketingSequenceMemberships?.findMany) {
+    const memberships = await dbStore.marketingSequenceMemberships.findMany();
+    const seqMemberships = memberships.filter(
+      // biome-ignore lint/suspicious/noExplicitAny: membership dynamic typing
+      (m: any) => m.sequenceId === sequenceId && m.orgId === orgId,
+    );
+    for (const m of seqMemberships) {
+      await dbStore.marketingSequenceMemberships.delete(m.id);
+    }
+  }
+
+  // 5. Sequence itself
+  await dbStore.marketingSequences.delete(sequenceId);
+
+  return true;
 }

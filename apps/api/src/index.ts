@@ -7,6 +7,7 @@ import {
   type KanbanStageSummary,
   type StageGateRule,
   applyTicketMacro,
+  archiveMarketingSequence,
   calculateAccountDuplicates,
   calculateAdjustedForecast,
   calculateAgentCSATMetrics,
@@ -72,6 +73,7 @@ import {
   processSequenceEmailReply,
   processSequenceLinkClick,
   processSequenceMembershipScoreTriggers,
+  purgeMarketingSequence,
   resolveSegmentMembers,
   rollbackStoreMigrations,
   rollupHierarchyPipeline,
@@ -12689,6 +12691,46 @@ app.post("/api/sequences/:id/clone", tenantAuth, async (c) => {
       tenant.orgId,
     );
     return c.json({ success: true, sequence: cloned });
+  } catch (err) {
+    const error = err as Error;
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/api/sequences/:id/archive", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  try {
+    const archived = await archiveMarketingSequence(
+      dbStore,
+      sequenceId,
+      tenant.orgId,
+    );
+    return c.json({ success: true, sequence: archived });
+  } catch (err) {
+    const error = err as Error;
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.delete("/api/sequences/:id/purge", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  try {
+    await purgeMarketingSequence(dbStore, sequenceId, tenant.orgId);
+    return c.json({ success: true, message: "Sequence purged successfully" });
   } catch (err) {
     const error = err as Error;
     return c.json({ success: false, error: error.message }, 400);

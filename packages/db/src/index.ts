@@ -5075,6 +5075,18 @@ export const dbStore = {
       };
       return store.marketingSequenceMemberships[index];
     },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceMemberships.findIndex(
+        (c) => c.id === id,
+      );
+      if (index === -1) return false;
+      if (store.marketingSequenceMemberships[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceMemberships.splice(index, 1);
+      return true;
+    },
   },
   marketingSequenceExitTriggers: {
     findMany: async () => {
