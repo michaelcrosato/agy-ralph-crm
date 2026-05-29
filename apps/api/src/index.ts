@@ -4,6 +4,7 @@ import {
   verifySessionToken,
 } from "@crm/auth";
 import {
+  type KanbanStageSummary,
   type StageGateRule,
   applyTicketMacro,
   calculateAccountDuplicates,
@@ -29,6 +30,7 @@ import {
   calculateStageVelocity,
   calculateStalledOpportunities,
   calculateSurveyMetrics,
+  compileKanbanPipeline,
   convertCurrency,
   convertLead,
   convertLeadWithMappings,
@@ -3010,6 +3012,119 @@ app.get("/api/contacts/:id/hierarchy", tenantAuth, async (c) => {
 app.get("/api/opportunities", tenantAuth, async (c) => {
   const opportunities = await dbStore.opportunities.findMany();
   return c.json({ success: true, data: opportunities });
+});
+
+app.get("/api/opportunities/kanban", tenantAuth, async (c) => {
+  const opportunities = await dbStore.opportunities.findMany();
+  const compiled = compileKanbanPipeline(
+    opportunities.map((o) => ({
+      id: o.id,
+      name: o.name,
+      stage: o.stage,
+      amount: o.amount ?? null,
+      closeDate: o.closeDate ? new Date(o.closeDate) : null,
+      accountId: o.accountId ?? null,
+    })),
+  );
+  return c.json({ success: true, data: compiled });
+});
+
+app.post("/api/opportunities/kanban/transition", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { opportunityId, targetStage } = body;
+
+  if (!opportunityId || !targetStage) {
+    return c.json(
+      { error: "Missing required fields: opportunityId, targetStage" },
+      400,
+    );
+  }
+
+  const existing = await dbStore.opportunities.findOne(opportunityId);
+  if (!existing) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  // Validate Stage Gates
+  const activeRules = await dbStore.opportunityStageGates.findMany();
+  const gateResult = validateOpportunityStageGate(
+    { ...existing, stage: targetStage } as unknown as Record<string, unknown>,
+    activeRules as StageGateRule[],
+    targetStage,
+  );
+  if (!gateResult.isValid) {
+    return c.json({ success: false, errors: gateResult.errorMessages }, 400);
+  }
+
+  const oldStage = existing.stage;
+  const updated = await dbStore.opportunities.update(opportunityId, {
+    stage: targetStage,
+  });
+
+  if (!updated) {
+    return c.json({ error: "Failed to update opportunity" }, 500);
+  }
+
+  // Stage History
+  const history = await dbStore.opportunityStageHistory.insert({
+    orgId: tenant.orgId,
+    opportunityId: updated.id,
+    fromStage: oldStage,
+    toStage: updated.stage,
+    amount: updated.amount,
+    changedById: tenant.userId,
+  });
+
+  // Audit Log
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: updated.id,
+    recordType: "Opportunity",
+    action: "stage_changed",
+    userId: tenant.userId,
+    changes: {
+      stage: { before: oldStage, after: updated.stage },
+    },
+  });
+
+  // Execute Workflows
+  const rules = await dbStore.workflows.findMany();
+  const workflowExecution = await executeWorkflows(
+    {
+      name: "opportunity.stage_changed",
+      payload: {
+        id: updated.id,
+        stage: updated.stage,
+        amount: Number(updated.amount) || 0,
+      },
+    },
+    rules.map((rule) => ({
+      id: rule.id,
+      triggerEvent: rule.triggerEvent,
+      conditions: rule.conditions,
+      actions: rule.actions,
+    })),
+    {
+      dbStore,
+      userId: tenant.userId,
+      orgId: tenant.orgId,
+    },
+  );
+
+  // Trigger Outbound Webhook
+  triggerOutboundWebhooks(updated.orgId, "opportunity.stage_changed", {
+    id: updated.id,
+    stage: updated.stage,
+    amount: updated.amount,
+  });
+
+  return c.json({
+    success: true,
+    data: updated,
+    history,
+    workflow: workflowExecution,
+  });
 });
 
 app.get("/api/opportunities/stalled", tenantAuth, async (c) => {

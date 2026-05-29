@@ -103,6 +103,83 @@ export function rollupOpportunityAmount(items: LineItemInput[]): string {
   return String(sum);
 }
 
+export interface KanbanStageSummary {
+  stage: string;
+  opportunitiesCount: number;
+  totalValue: string;
+  opportunities: {
+    id: string;
+    name: string;
+    amount: string | null;
+    closeDate: Date | null;
+    accountId: string | null;
+  }[];
+}
+
+export function compileKanbanPipeline(
+  opportunities: {
+    id: string;
+    name: string;
+    stage: string;
+    amount: string | null;
+    closeDate: Date | null;
+    accountId: string | null;
+  }[],
+  standardStages: string[] = [
+    "Prospecting",
+    "Qualification",
+    "Needs Analysis",
+    "Value Proposition",
+    "Id. Decision Makers",
+    "Perception Analysis",
+    "Proposal/Price Quote",
+    "Negotiation/Review",
+    "Closed Won",
+    "Closed Lost",
+  ],
+): KanbanStageSummary[] {
+  const summaries: Record<string, KanbanStageSummary> = {};
+
+  // Initialize summary blocks for standard stages to ensure they are always present
+  for (const stage of standardStages) {
+    summaries[stage] = {
+      stage,
+      opportunitiesCount: 0,
+      totalValue: "0.00",
+      opportunities: [],
+    };
+  }
+
+  for (const opp of opportunities) {
+    const stage = opp.stage;
+    if (!summaries[stage]) {
+      summaries[stage] = {
+        stage,
+        opportunitiesCount: 0,
+        totalValue: "0.00",
+        opportunities: [],
+      };
+    }
+
+    const summary = summaries[stage];
+    summary.opportunitiesCount += 1;
+
+    const currentSum = Number.parseFloat(summary.totalValue) || 0;
+    const oppVal = Number.parseFloat(opp.amount || "0") || 0;
+    summary.totalValue = (currentSum + oppVal).toFixed(2);
+
+    summary.opportunities.push({
+      id: opp.id,
+      name: opp.name,
+      amount: opp.amount,
+      closeDate: opp.closeDate,
+      accountId: opp.accountId,
+    });
+  }
+
+  return Object.values(summaries);
+}
+
 export interface ProRateInput {
   unitPrice: string;
   quantity: number;
