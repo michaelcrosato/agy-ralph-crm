@@ -1430,3 +1430,21 @@ export const marketingSequenceCaps = pgTable("marketing_sequence_caps", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
+
+export const marketingSequenceLinkActions = pgTable(
+  "marketing_sequence_link_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    stepId: uuid("step_id")
+      .notNull()
+      .references(() => marketingSequenceSteps.id, { onDelete: "cascade" }),
+    targetUrl: text("target_url").notNull(),
+    actionType: text("action_type").notNull(),
+    actionConfig: jsonb("action_config").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+);

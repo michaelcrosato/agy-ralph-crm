@@ -705,6 +705,17 @@ export interface DBMarketingSequenceExclusion {
   updatedAt: Date;
 }
 
+export interface DBMarketingSequenceLinkAction {
+  id: string;
+  orgId: string;
+  stepId: string;
+  targetUrl: string;
+  actionType: string;
+  actionConfig: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface DBMarketingSequenceCap {
   id: string;
   orgId: string;
@@ -1161,6 +1172,7 @@ export const store = {
   marketingSequenceExclusions: [] as DBMarketingSequenceExclusion[],
   marketingSequenceAbAllocations: [] as DBMarketingSequenceAbAllocation[],
   marketingSequenceCaps: [] as DBMarketingSequenceCap[],
+  marketingSequenceLinkActions: [] as DBMarketingSequenceLinkAction[],
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
   leadSlaTrackers: [] as DBLeadSlaTracker[],
@@ -5357,6 +5369,57 @@ export const dbStore = {
       return true;
     },
   },
+  marketingSequenceLinkActions: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceLinkActions.filter(
+        (c) => c.orgId === orgId,
+      );
+    },
+    findForStep: async (stepId: string) => {
+      const orgId = getActiveOrgId();
+      return store.marketingSequenceLinkActions.filter(
+        (c) => c.stepId === stepId && c.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.marketingSequenceLinkActions.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (
+      item: Omit<
+        DBMarketingSequenceLinkAction,
+        "id" | "createdAt" | "updatedAt"
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBMarketingSequenceLinkAction = {
+        ...item,
+        id: `act-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      store.marketingSequenceLinkActions.push(newItem);
+      return newItem;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.marketingSequenceLinkActions.findIndex(
+        (c) => c.id === id,
+      );
+      if (index === -1) return false;
+      if (store.marketingSequenceLinkActions[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.marketingSequenceLinkActions.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.marketingSegments = [];
     store.marketingSequences = [];
@@ -5371,6 +5434,7 @@ export const dbStore = {
     store.marketingSequenceExclusions = [];
     store.marketingSequenceAbAllocations = [];
     store.marketingSequenceCaps = [];
+    store.marketingSequenceLinkActions = [];
     store.emailTemplates = [];
     store.emailTrackers = [];
     store.picklistDependencies = [];

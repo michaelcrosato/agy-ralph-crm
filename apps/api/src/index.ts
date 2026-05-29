@@ -58,6 +58,7 @@ import {
   parseCSV,
   processCSVImport,
   processESignatureTransition,
+  processSequenceLinkClick,
   resolveSegmentMembers,
   rollbackStoreMigrations,
   rollupHierarchyPipeline,
@@ -9719,6 +9720,16 @@ app.get("/api/public/emails/track/click/:token", async (c) => {
           },
         },
       });
+
+      // Task 0197: Trigger automated sequence link actions
+      if (dbStore.marketingSequenceLinkActions) {
+        await processSequenceLinkClick(
+          dbStore,
+          tracker.orgId,
+          tracker.activityId,
+          target || "",
+        );
+      }
     });
   }
 
@@ -11291,6 +11302,61 @@ app.post("/api/sequences/settings/caps", tenantAuth, async (c) => {
         : caps[0].recipientFrequencyCap,
   });
   return c.json({ success: true, data: updated });
+});
+
+app.get("/api/sequences/steps/:stepId/link-actions", tenantAuth, async (c) => {
+  const stepId = c.req.param("stepId");
+  const actions =
+    await dbStore.marketingSequenceLinkActions.findForStep(stepId);
+  return c.json({ success: true, data: actions });
+});
+
+app.post("/api/sequences/steps/:stepId/link-actions", tenantAuth, async (c) => {
+  const stepId = c.req.param("stepId");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { targetUrl, actionType, actionConfig } = body;
+
+  if (!targetUrl || !actionType || !actionConfig) {
+    return c.json(
+      {
+        success: false,
+        error: "targetUrl, actionType, and actionConfig are required",
+      },
+      400,
+    );
+  }
+  if (actionType !== "field_update" && actionType !== "create_task") {
+    return c.json(
+      {
+        success: false,
+        error: "actionType must be 'field_update' or 'create_task'",
+      },
+      400,
+    );
+  }
+
+  const action = await dbStore.marketingSequenceLinkActions.insert({
+    orgId: tenant.orgId,
+    stepId,
+    targetUrl,
+    actionType,
+    actionConfig,
+  });
+
+  return c.json({ success: true, data: action });
+});
+
+app.delete("/api/sequences/steps/link-actions/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const deleted = await dbStore.marketingSequenceLinkActions.delete(id);
+  if (!deleted) {
+    return c.json(
+      { success: false, error: "Link action not found or unauthorized" },
+      404,
+    );
+  }
+  return c.json({ success: true });
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)
