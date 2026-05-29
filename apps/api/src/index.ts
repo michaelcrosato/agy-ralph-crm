@@ -5,6 +5,7 @@ import {
 } from "@crm/auth";
 import {
   calculateCPQPrice,
+  calculateCampaignStats,
   calculateOpportunityCommission,
   calculateOpportunitySplits,
   calculateProRatedAmount,
@@ -2769,6 +2770,167 @@ app.delete("/api/opportunities/:id/splits", tenantAuth, async (c) => {
 
   return c.json({ success: true });
 });
+
+// Campaigns & Campaign Members Endpoints
+app.post("/api/campaigns", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const {
+    name,
+    status,
+    type,
+    isActive,
+    startDate,
+    endDate,
+    budgetedCost,
+    actualCost,
+    expectedRevenue,
+  } = body;
+
+  if (!name) {
+    return c.json({ error: "Missing required parameter: name" }, 400);
+  }
+
+  const campaign = await dbStore.campaigns.insert({
+    orgId: tenant.orgId,
+    name,
+    status: status || "Planned",
+    type: type || "Other",
+    isActive: isActive !== undefined ? Number(isActive) : 1,
+    startDate: startDate ? new Date(startDate) : null,
+    endDate: endDate ? new Date(endDate) : null,
+    budgetedCost: budgetedCost || "0.00",
+    actualCost: actualCost || "0.00",
+    expectedRevenue: expectedRevenue || "0.00",
+  });
+
+  return c.json({ success: true, data: campaign });
+});
+
+app.get("/api/campaigns", tenantAuth, async (c) => {
+  const campaignsList = await dbStore.campaigns.findMany();
+  return c.json({ success: true, data: campaignsList });
+});
+
+app.get("/api/campaigns/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const campaign = await dbStore.campaigns.findOne(id);
+  if (!campaign) {
+    return c.json({ error: "Campaign not found" }, 404);
+  }
+
+  // Fetch campaign members
+  const members = await dbStore.campaignMembers.findForCampaign(campaign.id);
+
+  // Fetch opportunities and filter for campaignId
+  const allOpps = await dbStore.opportunities.findMany();
+  const opportunities = allOpps.filter((opp) => opp.campaignId === campaign.id);
+
+  // Calculate statistics
+  const stats = calculateCampaignStats({
+    budgetedCost: campaign.budgetedCost,
+    actualCost: campaign.actualCost,
+    expectedRevenue: campaign.expectedRevenue,
+    members,
+    opportunities,
+  });
+
+  return c.json({
+    success: true,
+    data: {
+      ...campaign,
+      stats,
+    },
+  });
+});
+
+app.post("/api/campaigns/:id/members", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const campaignId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { leadId, contactId, status } = body;
+
+  const campaign = await dbStore.campaigns.findOne(campaignId);
+  if (!campaign) {
+    return c.json({ error: "Campaign not found" }, 404);
+  }
+
+  if (!leadId && !contactId) {
+    return c.json({ error: "Must provide either leadId or contactId" }, 400);
+  }
+
+  if (leadId && contactId) {
+    return c.json({ error: "Cannot provide both leadId and contactId" }, 400);
+  }
+
+  // Verify lead or contact exists and belongs to the tenant
+  if (leadId) {
+    const lead = await dbStore.leads.findOne(leadId);
+    if (!lead) {
+      return c.json({ error: "Lead not found or tenant mismatch" }, 404);
+    }
+  }
+
+  if (contactId) {
+    const contact = await dbStore.contacts.findOne(contactId);
+    if (!contact) {
+      return c.json({ error: "Contact not found or tenant mismatch" }, 404);
+    }
+  }
+
+  try {
+    const member = await dbStore.campaignMembers.insert({
+      orgId: tenant.orgId,
+      campaignId,
+      leadId: leadId || null,
+      contactId: contactId || null,
+      status: status || "Sent",
+    });
+    return c.json({ success: true, data: member });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return c.json({ error: msg }, 400);
+  }
+});
+
+app.get("/api/campaigns/:id/members", tenantAuth, async (c) => {
+  const campaignId = c.req.param("id");
+  const campaign = await dbStore.campaigns.findOne(campaignId);
+  if (!campaign) {
+    return c.json({ error: "Campaign not found" }, 404);
+  }
+
+  const members = await dbStore.campaignMembers.findForCampaign(campaignId);
+  return c.json({ success: true, data: members });
+});
+
+app.post(
+  "/api/campaigns/:id/members/:memberId/status",
+  tenantAuth,
+  async (c) => {
+    const campaignId = c.req.param("id");
+    const memberId = c.req.param("memberId");
+    const body = await c.req.json().catch(() => ({}));
+    const { status } = body;
+
+    if (!status) {
+      return c.json({ error: "Missing required parameter: status" }, 400);
+    }
+
+    const campaign = await dbStore.campaigns.findOne(campaignId);
+    if (!campaign) {
+      return c.json({ error: "Campaign not found" }, 404);
+    }
+
+    const member = await dbStore.campaignMembers.findOne(memberId);
+    if (!member || member.campaignId !== campaignId) {
+      return c.json({ error: "Campaign member not found" }, 404);
+    }
+
+    const updated = await dbStore.campaignMembers.update(memberId, { status });
+    return c.json({ success: true, data: updated });
+  },
+);
 
 // Start Hono Node Server if run directly (excluding test execution environment)
 if (process.env.NODE_ENV !== "test") {

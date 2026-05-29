@@ -90,6 +90,23 @@ export const leads = pgTable("leads", {
   custom: jsonb("custom"),
 });
 
+export const campaigns = pgTable("campaigns", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  status: text("status").notNull().default("Planned"), // "Planned" | "Active" | "Completed" | "Aborted"
+  type: text("type").notNull().default("Other"), // "Email" | "Webinar" | "Conference" | "Direct Mail" | "Other"
+  isActive: integer("is_active").notNull().default(1), // 0 = inactive, 1 = active
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  budgetedCost: text("budgeted_cost").notNull().default("0.00"),
+  actualCost: text("actual_cost").notNull().default("0.00"),
+  expectedRevenue: text("expected_revenue").notNull().default("0.00"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const opportunities = pgTable("opportunities", {
   id: uuid("id").primaryKey().defaultRandom(),
   orgId: uuid("org_id")
@@ -100,6 +117,9 @@ export const opportunities = pgTable("opportunities", {
     .references(() => users.id, { onDelete: "cascade" }),
   accountId: uuid("account_id").references(() => accounts.id, {
     onDelete: "cascade",
+  }),
+  campaignId: uuid("campaign_id").references(() => campaigns.id, {
+    onDelete: "set null",
   }),
   stage: text("stage").notNull().default("Prospecting"),
   amount: text("amount"), // Using text or numeric standard for dynamic representation
@@ -486,5 +506,21 @@ export const opportunitySplits = pgTable("opportunity_splits", {
     .references(() => users.id, { onDelete: "cascade" }),
   percentage: integer("percentage").notNull(), // 0 to 100
   splitAmount: text("split_amount").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const campaignMembers = pgTable("campaign_members", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id")
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  leadId: uuid("lead_id").references(() => leads.id, { onDelete: "cascade" }),
+  contactId: uuid("contact_id").references(() => contacts.id, {
+    onDelete: "cascade",
+  }),
+  status: text("status").notNull().default("Sent"), // "Sent" | "Responded" | "Registered"
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

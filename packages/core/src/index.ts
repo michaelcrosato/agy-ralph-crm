@@ -560,3 +560,49 @@ export function calculateOpportunitySplits(
     splitAmount: (amount * (s.percentage / 100)).toFixed(2),
   }));
 }
+
+export interface CampaignStatsInput {
+  budgetedCost: string;
+  actualCost: string;
+  expectedRevenue: string;
+  members: { status: string }[];
+  opportunities: { stage: string; amount: string | null }[];
+}
+
+export interface CampaignStatsResult {
+  totalMembers: number;
+  respondedMembers: number;
+  responseRate: number;
+  totalClosedWonRevenue: string;
+  netRevenueRoi: string;
+}
+
+export function calculateCampaignStats(
+  input: CampaignStatsInput,
+): CampaignStatsResult {
+  const totalMembers = input.members.length;
+  const respondedMembers = input.members.filter(
+    (m) => m.status.toLowerCase() === "responded",
+  ).length;
+  const responseRateRaw =
+    totalMembers > 0 ? (respondedMembers / totalMembers) * 100 : 0;
+  const responseRate = Math.round(responseRateRaw * 100) / 100;
+
+  const totalClosedWonRevenueVal = input.opportunities
+    .filter((opp) => opp.stage === "Closed Won")
+    .reduce((sum, opp) => sum + (Number.parseFloat(opp.amount || "0") || 0), 0);
+
+  const actualCostVal = Number.parseFloat(input.actualCost) || 0;
+  let roiVal = 0;
+  if (actualCostVal > 0) {
+    roiVal = ((totalClosedWonRevenueVal - actualCostVal) / actualCostVal) * 100;
+  }
+
+  return {
+    totalMembers,
+    respondedMembers,
+    responseRate,
+    totalClosedWonRevenue: totalClosedWonRevenueVal.toFixed(2),
+    netRevenueRoi: roiVal.toFixed(2),
+  };
+}

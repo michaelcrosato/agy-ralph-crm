@@ -85,6 +85,7 @@ export interface DBOpportunity {
   orgId: string;
   ownerId: string;
   accountId: string | null;
+  campaignId?: string | null;
   name: string;
   stage: string;
   amount: string | null;
@@ -405,6 +406,31 @@ export interface DBOpportunitySplit {
   createdAt?: Date;
 }
 
+export interface DBCampaign {
+  id: string;
+  orgId: string;
+  name: string;
+  status: string;
+  type: string;
+  isActive: number;
+  startDate: Date | null;
+  endDate: Date | null;
+  budgetedCost: string;
+  actualCost: string;
+  expectedRevenue: string;
+  createdAt: Date;
+}
+
+export interface DBCampaignMember {
+  id: string;
+  orgId: string;
+  campaignId: string;
+  leadId: string | null;
+  contactId: string | null;
+  status: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -440,6 +466,8 @@ export const store = {
   territories: [] as DBTerritory[],
   territoryMembers: [] as DBTerritoryMember[],
   opportunitySplits: [] as DBOpportunitySplit[],
+  campaigns: [] as DBCampaign[],
+  campaignMembers: [] as DBCampaignMember[],
 };
 
 export const dbStore = {
@@ -1540,6 +1568,130 @@ export const dbStore = {
       return true;
     },
   },
+  campaigns: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.campaigns.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const c = store.campaigns.find((x) => x.id === id);
+      if (c && c.orgId !== orgId) return null;
+      return c || null;
+    },
+    insert: async (campaign: Omit<DBCampaign, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (campaign.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newCampaign: DBCampaign = {
+        ...campaign,
+        id: `campaign-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.campaigns.push(newCampaign);
+      return newCampaign;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBCampaign, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.campaigns.findIndex((c) => c.id === id);
+      if (index === -1) return null;
+      if (store.campaigns[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.campaigns[index] = {
+        ...store.campaigns[index],
+        ...updates,
+      };
+      return store.campaigns[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.campaigns.findIndex((c) => c.id === id);
+      if (index === -1) return false;
+      if (store.campaigns[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.campaigns.splice(index, 1);
+      return true;
+    },
+  },
+  campaignMembers: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.campaignMembers.filter((m) => m.orgId === orgId);
+    },
+    findForCampaign: async (campaignId: string) => {
+      const orgId = getActiveOrgId();
+      return store.campaignMembers.filter(
+        (m) => m.campaignId === campaignId && m.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.campaignMembers.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (member: Omit<DBCampaignMember, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (member.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      // Check for duplicates
+      const exists = store.campaignMembers.some(
+        (m) =>
+          m.campaignId === member.campaignId &&
+          m.orgId === orgId &&
+          ((member.leadId && m.leadId === member.leadId) ||
+            (member.contactId && m.contactId === member.contactId)),
+      );
+      if (exists) {
+        throw new Error("Duplicate campaign member registration.");
+      }
+      const newMember: DBCampaignMember = {
+        ...member,
+        id: `member-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.campaignMembers.push(newMember);
+      return newMember;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<
+          DBCampaignMember,
+          "id" | "orgId" | "campaignId" | "leadId" | "contactId" | "createdAt"
+        >
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.campaignMembers.findIndex((m) => m.id === id);
+      if (index === -1) return null;
+      if (store.campaignMembers[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.campaignMembers[index] = {
+        ...store.campaignMembers[index],
+        ...updates,
+      };
+      return store.campaignMembers[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.campaignMembers.findIndex((m) => m.id === id);
+      if (index === -1) return false;
+      if (store.campaignMembers[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.campaignMembers.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1575,5 +1727,7 @@ export const dbStore = {
     store.territories = [];
     store.territoryMembers = [];
     store.opportunitySplits = [];
+    store.campaigns = [];
+    store.campaignMembers = [];
   },
 };
