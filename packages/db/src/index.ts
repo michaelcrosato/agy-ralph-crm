@@ -293,6 +293,31 @@ export interface DBInvoice {
   status: string;
 }
 
+export interface DBWebhookOutbox {
+  id: string;
+  orgId: string;
+  webhookId: string;
+  event: string;
+  payload: string;
+  status: string;
+  attempts: number;
+  lastAttemptAt: Date | null;
+  nextAttemptAt: Date;
+  createdAt: Date;
+  lastError: string | null;
+}
+
+export interface DBWebhookDlq {
+  id: string;
+  orgId: string;
+  webhookId: string;
+  event: string;
+  payload: string;
+  failedAt: Date;
+  attempts: number;
+  lastError: string | null;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -318,6 +343,8 @@ export const store = {
   mergedDocuments: [] as DBMergedDocument[],
   subscriptions: [] as DBSubscription[],
   invoices: [] as DBInvoice[],
+  webhookOutbox: [] as DBWebhookOutbox[],
+  webhookDlq: [] as DBWebhookDlq[],
 };
 
 export const dbStore = {
@@ -978,6 +1005,82 @@ export const dbStore = {
       return store.invoices[index];
     },
   },
+  webhookOutbox: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.webhookOutbox.filter((o) => o.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const o = store.webhookOutbox.find((x) => x.id === id);
+      if (o && o.orgId !== orgId) return null;
+      return o || null;
+    },
+    insert: async (o: Omit<DBWebhookOutbox, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (o.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newOutbox: DBWebhookOutbox = {
+        ...o,
+        id: `outbox-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.webhookOutbox.push(newOutbox);
+      return newOutbox;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBWebhookOutbox, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.webhookOutbox.findIndex((o) => o.id === id);
+      if (index === -1) return null;
+      if (store.webhookOutbox[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.webhookOutbox[index] = {
+        ...store.webhookOutbox[index],
+        ...updates,
+      };
+      return store.webhookOutbox[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.webhookOutbox.findIndex((o) => o.id === id);
+      if (index === -1) return false;
+      if (store.webhookOutbox[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.webhookOutbox.splice(index, 1);
+      return true;
+    },
+  },
+  webhookDlq: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.webhookDlq.filter((d) => d.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const d = store.webhookDlq.find((x) => x.id === id);
+      if (d && d.orgId !== orgId) return null;
+      return d || null;
+    },
+    insert: async (d: Omit<DBWebhookDlq, "id" | "failedAt">) => {
+      const orgId = getActiveOrgId();
+      if (d.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newDlq: DBWebhookDlq = {
+        ...d,
+        id: `dlq-${Math.random().toString(36).substring(2, 11)}`,
+        failedAt: new Date(),
+      };
+      store.webhookDlq.push(newDlq);
+      return newDlq;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1003,5 +1106,7 @@ export const dbStore = {
     store.mergedDocuments = [];
     store.subscriptions = [];
     store.invoices = [];
+    store.webhookOutbox = [];
+    store.webhookDlq = [];
   },
 };

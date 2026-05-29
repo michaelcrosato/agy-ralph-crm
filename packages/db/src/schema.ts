@@ -334,3 +334,36 @@ export const invoices = pgTable("invoices", {
   dueDate: timestamp("due_date").notNull(),
   status: text("status").notNull().default("Unpaid"), // "Unpaid" | "Paid"
 });
+
+export const webhookOutbox = pgTable("webhook_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  webhookId: uuid("webhook_id")
+    .notNull()
+    .references(() => webhooks.id, { onDelete: "cascade" }),
+  event: text("event").notNull(),
+  payload: text("payload").notNull(),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  lastAttemptAt: timestamp("last_attempt_at"),
+  nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastError: text("last_error"),
+});
+
+export const webhookDlq = pgTable("webhook_dlq", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  webhookId: uuid("webhook_id")
+    .notNull()
+    .references(() => webhooks.id, { onDelete: "cascade" }),
+  event: text("event").notNull(),
+  payload: text("payload").notNull(),
+  failedAt: timestamp("failed_at").notNull().defaultNow(),
+  attempts: integer("attempts").notNull(),
+  lastError: text("last_error"),
+});

@@ -12,7 +12,11 @@ import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { createTicket, resolveTicket } from "@crm/module-service-lite";
 import { runReport } from "@crm/reporting";
 import { globalFuzzySearch } from "@crm/search";
-import { simulateWebhookDispatch } from "@crm/webhooks";
+import {
+  enqueueOutboundWebhooks,
+  processOutboxItems,
+  simulateWebhookDispatch,
+} from "@crm/webhooks";
 import { executeWorkflows } from "@crm/workflow";
 import { Hono } from "hono";
 import { createMiddleware } from "hono/factory";
@@ -82,32 +86,10 @@ export async function triggerOutboundWebhooks(
   event: string,
   payload: Record<string, unknown>,
 ) {
-  // Query all active webhooks for this tenant under RLS context
   await withTenant(orgId, mockDb, async () => {
-    const activeSubs = await dbStore.webhooks.findMany().catch(() => []);
-    for (const sub of activeSubs) {
-      if (sub.status === "active") {
-        simulateWebhookDispatch({
-          targetUrl: sub.targetUrl,
-          secret: sub.secret,
-          event,
-          payload,
-        })
-          .then(async (result) => {
-            // Log outcome in delivery history log
-            await withTenant(orgId, mockDb, async () => {
-              await dbStore.webhookDeliveries.insert({
-                orgId,
-                webhookId: sub.id,
-                event,
-                statusCode: result.statusCode,
-                payload: result.payloadString,
-              });
-            }).catch(() => {});
-          })
-          .catch(() => {});
-      }
-    }
+    await enqueueOutboundWebhooks(orgId, event, payload, dbStore);
+    // Asynchronously process the outbox so that existing immediate expectations in standard flows are met
+    processOutboxItems(orgId, dbStore).catch(() => {});
   });
 }
 
@@ -1259,6 +1241,22 @@ app.get("/api/webhooks", tenantAuth, async (c) => {
 app.get("/api/webhooks/deliveries", tenantAuth, async (c) => {
   const deliveries = await dbStore.webhookDeliveries.findMany();
   return c.json({ success: true, data: deliveries });
+});
+
+app.get("/api/webhooks/outbox", tenantAuth, async (c) => {
+  const outbox = await dbStore.webhookOutbox.findMany();
+  return c.json({ success: true, data: outbox });
+});
+
+app.get("/api/webhooks/dlq", tenantAuth, async (c) => {
+  const dlq = await dbStore.webhookDlq.findMany();
+  return c.json({ success: true, data: dlq });
+});
+
+app.post("/api/webhooks/process-outbox", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const result = await processOutboxItems(tenant.orgId, dbStore);
+  return c.json({ success: true, ...result });
 });
 
 // Document Templates Configuration REST API Routes
