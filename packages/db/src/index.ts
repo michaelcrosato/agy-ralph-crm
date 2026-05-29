@@ -395,6 +395,16 @@ export interface DBTerritoryMember {
   role: string; // "Primary" | "Overlay"
 }
 
+export interface DBOpportunitySplit {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  userId: string;
+  percentage: number;
+  splitAmount: string;
+  createdAt?: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -429,6 +439,7 @@ export const store = {
   leadAssignmentRuleEntries: [] as DBLeadAssignmentRuleEntry[],
   territories: [] as DBTerritory[],
   territoryMembers: [] as DBTerritoryMember[],
+  opportunitySplits: [] as DBOpportunitySplit[],
 };
 
 export const dbStore = {
@@ -1303,6 +1314,23 @@ export const dbStore = {
       };
       return store.commissions[index];
     },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.commissions.findIndex((c) => c.id === id);
+      if (index === -1) return false;
+      if (store.commissions[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.commissions.splice(index, 1);
+      return true;
+    },
+    deleteManyForOpportunity: async (opportunityId: string) => {
+      const orgId = getActiveOrgId();
+      store.commissions = store.commissions.filter(
+        (c) => !(c.opportunityId === opportunityId && c.orgId === orgId),
+      );
+      return true;
+    },
   },
   leadAssignmentRules: {
     findMany: async () => {
@@ -1464,6 +1492,54 @@ export const dbStore = {
       return true;
     },
   },
+  opportunitySplits: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunitySplits.filter((s) => s.orgId === orgId);
+    },
+    findForOpportunity: async (opportunityId: string) => {
+      const orgId = getActiveOrgId();
+      return store.opportunitySplits.filter(
+        (s) => s.opportunityId === opportunityId && s.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const s = store.opportunitySplits.find((x) => x.id === id);
+      if (s && s.orgId !== orgId) return null;
+      return s || null;
+    },
+    insert: async (split: Omit<DBOpportunitySplit, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (split.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newSplit: DBOpportunitySplit = {
+        ...split,
+        id: `split-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.opportunitySplits.push(newSplit);
+      return newSplit;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunitySplits.findIndex((s) => s.id === id);
+      if (index === -1) return false;
+      if (store.opportunitySplits[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunitySplits.splice(index, 1);
+      return true;
+    },
+    deleteManyForOpportunity: async (opportunityId: string) => {
+      const orgId = getActiveOrgId();
+      store.opportunitySplits = store.opportunitySplits.filter(
+        (s) => !(s.opportunityId === opportunityId && s.orgId === orgId),
+      );
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1498,5 +1574,6 @@ export const dbStore = {
     store.leadAssignmentRuleEntries = [];
     store.territories = [];
     store.territoryMembers = [];
+    store.opportunitySplits = [];
   },
 };

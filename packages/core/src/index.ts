@@ -530,3 +530,33 @@ export function evaluateTerritoryRouting(
 
   return null;
 }
+
+export interface SplitInput {
+  userId: string;
+  percentage: number;
+}
+
+export interface SplitResult {
+  userId: string;
+  percentage: number;
+  splitAmount: string;
+}
+
+export function calculateOpportunitySplits(
+  opportunityAmount: string,
+  splits: SplitInput[],
+): SplitResult[] {
+  const amount = Number.parseFloat(opportunityAmount) || 0;
+  if (splits.length === 0) {
+    throw new Error("At least one split is required.");
+  }
+  const totalPct = splits.reduce((sum, s) => sum + s.percentage, 0);
+  if (totalPct !== 100) {
+    throw new Error("Total split percentage must equal 100%.");
+  }
+  return splits.map((s) => ({
+    userId: s.userId,
+    percentage: s.percentage,
+    splitAmount: (amount * (s.percentage / 100)).toFixed(2),
+  }));
+}

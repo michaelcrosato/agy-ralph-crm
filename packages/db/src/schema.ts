@@ -472,3 +472,19 @@ export const territoryMembers = pgTable("territory_members", {
     .references(() => users.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("Primary"), // "Primary" | "Overlay"
 });
+
+export const opportunitySplits = pgTable("opportunity_splits", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  opportunityId: uuid("opportunity_id")
+    .notNull()
+    .references(() => opportunities.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  percentage: integer("percentage").notNull(), // 0 to 100
+  splitAmount: text("split_amount").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

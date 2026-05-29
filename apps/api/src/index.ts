@@ -6,6 +6,7 @@ import {
 import {
   calculateCPQPrice,
   calculateOpportunityCommission,
+  calculateOpportunitySplits,
   calculateProRatedAmount,
   convertLead,
   evaluateLeadAssignment,
@@ -2127,6 +2128,62 @@ app.post("/api/commissions/calculate", tenantAuth, async (c) => {
     } catch (_) {}
   }
 
+  // Check if opportunity has splits!
+  const splits =
+    await dbStore.opportunitySplits.findForOpportunity(opportunityId);
+
+  if (splits.length > 0) {
+    const insertedCommissions = [];
+    const allQuotas = await dbStore.quotas.findMany();
+
+    for (const split of splits) {
+      // Fetch quota for the period and split user
+      const quota = allQuotas.find(
+        (q) => q.userId === split.userId && q.period === period,
+      );
+      const quotaTarget = quota ? quota.targetAmount : null;
+
+      // Fetch other commissions for this user
+      const userComms = allCommissions.filter(
+        (comm) => comm.userId === split.userId,
+      );
+      const priorTotalSum = userComms.reduce(
+        (sum, comm) => sum + (Number.parseFloat(comm.amount) || 0),
+        0,
+      );
+
+      const calculation = calculateOpportunityCommission({
+        opportunityAmount: split.splitAmount,
+        opportunityStage: opportunity.stage,
+        quotaTarget,
+        currentClosedWonTotal: String(priorTotalSum),
+        baseRate,
+      });
+
+      const newCommission = await dbStore.commissions.insert({
+        orgId: tenant.orgId,
+        userId: split.userId,
+        opportunityId: opportunity.id,
+        amount: calculation.commissionAmount,
+        rateApplied: calculation.rateApplied,
+        status: "Pending",
+      });
+      insertedCommissions.push(newCommission);
+
+      // Log audit for each
+      await dbStore.auditLogs.insert({
+        orgId: tenant.orgId,
+        recordId: newCommission.id,
+        recordType: "Commission",
+        action: "calculate",
+        userId: tenant.userId,
+        changes: null,
+      });
+    }
+
+    return c.json({ success: true, data: insertedCommissions });
+  }
+
   // 5. Fetch quota for the period and owner
   const allQuotas = await dbStore.quotas.findMany();
   const quota = allQuotas.find(
@@ -2547,6 +2604,170 @@ app.post("/api/accounts/:id/route", tenantAuth, async (c) => {
       newOwnerId: matchResult.newOwnerId,
     },
   });
+});
+
+app.get("/api/opportunities/:id/splits", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const opportunity = await dbStore.opportunities.findOne(id);
+  if (!opportunity) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  const splits = await dbStore.opportunitySplits.findForOpportunity(id);
+  return c.json({ success: true, data: splits });
+});
+
+app.post("/api/opportunities/:id/splits", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const opportunity = await dbStore.opportunities.findOne(id);
+  if (!opportunity) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  const body = await c.req.json();
+  const splitsInput = body.splits;
+  if (!Array.isArray(splitsInput) || splitsInput.length === 0) {
+    return c.json({ error: "splits must be a non-empty array" }, 400);
+  }
+
+  let calculatedSplits: ReturnType<typeof calculateOpportunitySplits>;
+  try {
+    calculatedSplits = calculateOpportunitySplits(
+      opportunity.amount || "0",
+      splitsInput,
+    );
+  } catch (err) {
+    return c.json(
+      { error: err instanceof Error ? err.message : String(err) },
+      400,
+    );
+  }
+
+  // Delete existing splits for this opportunity
+  await dbStore.opportunitySplits.deleteManyForOpportunity(id);
+
+  const insertedSplits = [];
+  for (const s of calculatedSplits) {
+    const ins = await dbStore.opportunitySplits.insert({
+      orgId: tenant.orgId,
+      opportunityId: id,
+      userId: s.userId,
+      percentage: s.percentage,
+      splitAmount: s.splitAmount,
+    });
+    insertedSplits.push(ins);
+  }
+
+  // Update commissions!
+  // Delete existing commissions for this opportunity
+  await dbStore.commissions.deleteManyForOpportunity(id);
+
+  // If the opportunity is Closed Won, calculate and insert new split commissions
+  if (opportunity.stage === "Closed Won") {
+    const quotas = await dbStore.quotas.findMany();
+    const allCommissions = await dbStore.commissions.findMany();
+
+    for (const split of insertedSplits) {
+      const userQuota = quotas.find((q) => q.userId === split.userId);
+      const userComms = allCommissions.filter(
+        (comm) => comm.userId === split.userId,
+      );
+      const userTotalClosedWon = userComms.reduce(
+        (sum, comm) => sum + (Number.parseFloat(comm.amount) || 0),
+        0,
+      );
+
+      const commResult = calculateOpportunityCommission({
+        opportunityAmount: split.splitAmount,
+        opportunityStage: "Closed Won",
+        quotaTarget: userQuota ? userQuota.targetAmount : null,
+        currentClosedWonTotal: String(userTotalClosedWon),
+      });
+
+      await dbStore.commissions.insert({
+        orgId: tenant.orgId,
+        userId: split.userId,
+        opportunityId: id,
+        amount: commResult.commissionAmount,
+        rateApplied: commResult.rateApplied,
+        status: "Pending",
+      });
+    }
+  }
+
+  // Audit Log
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "opportunities",
+    action: "update_splits",
+    userId: tenant.userId,
+    changes: {
+      splits: { before: null, after: splitsInput },
+    },
+  });
+
+  return c.json({ success: true, data: insertedSplits });
+});
+
+app.delete("/api/opportunities/:id/splits", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const opportunity = await dbStore.opportunities.findOne(id);
+  if (!opportunity) {
+    return c.json({ error: "Opportunity not found" }, 404);
+  }
+
+  // Delete all splits for this opportunity
+  await dbStore.opportunitySplits.deleteManyForOpportunity(id);
+
+  // Revert commissions back to 100% to owner if Closed Won
+  await dbStore.commissions.deleteManyForOpportunity(id);
+
+  if (opportunity.stage === "Closed Won") {
+    const quotas = await dbStore.quotas.findMany();
+    const allCommissions = await dbStore.commissions.findMany();
+
+    const ownerQuota = quotas.find((q) => q.userId === opportunity.ownerId);
+    const ownerComms = allCommissions.filter(
+      (comm) => comm.userId === opportunity.ownerId,
+    );
+    const ownerTotalClosedWon = ownerComms.reduce(
+      (sum, comm) => sum + (Number.parseFloat(comm.amount) || 0),
+      0,
+    );
+
+    const commResult = calculateOpportunityCommission({
+      opportunityAmount: opportunity.amount || "0",
+      opportunityStage: "Closed Won",
+      quotaTarget: ownerQuota ? ownerQuota.targetAmount : null,
+      currentClosedWonTotal: String(ownerTotalClosedWon),
+    });
+
+    await dbStore.commissions.insert({
+      orgId: tenant.orgId,
+      userId: opportunity.ownerId,
+      opportunityId: id,
+      amount: commResult.commissionAmount,
+      rateApplied: commResult.rateApplied,
+      status: "Pending",
+    });
+  }
+
+  // Audit Log
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "opportunities",
+    action: "delete_splits",
+    userId: tenant.userId,
+    changes: {
+      splits: { before: "exists", after: null },
+    },
+  });
+
+  return c.json({ success: true });
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)
