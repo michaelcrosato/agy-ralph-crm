@@ -840,3 +840,28 @@ export function setPrimaryOpportunityContactRole(
     return r;
   });
 }
+
+export interface CampaignInfluenceInput {
+  campaignId: string;
+  opportunityId: string;
+  influencePercentage: number;
+}
+
+export function calculateCampaignRevenueShare(
+  opportunityAmount: string,
+  percentage: number,
+): string {
+  const amount = Number.parseFloat(opportunityAmount) || 0;
+  return (amount * (percentage / 100)).toFixed(2);
+}
+
+export function validateInfluencePercentageTotal(
+  existingInfluences: { influencePercentage: number }[],
+  newPercentage: number,
+): boolean {
+  const currentTotal = existingInfluences.reduce(
+    (sum, inf) => sum + inf.influencePercentage,
+    0,
+  );
+  return currentTotal + newPercentage <= 100;
+}

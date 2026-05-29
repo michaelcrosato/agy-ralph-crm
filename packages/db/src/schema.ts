@@ -541,3 +541,19 @@ export const opportunityStageHistory = pgTable("opportunity_stage_history", {
     .references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const campaignInfluence = pgTable("campaign_influence", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  opportunityId: uuid("opportunity_id")
+    .notNull()
+    .references(() => opportunities.id, { onDelete: "cascade" }),
+  campaignId: uuid("campaign_id")
+    .notNull()
+    .references(() => campaigns.id, { onDelete: "cascade" }),
+  influencePercentage: integer("influence_percentage").notNull(),
+  revenueShare: text("revenue_share").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

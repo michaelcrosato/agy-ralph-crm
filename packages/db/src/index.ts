@@ -452,6 +452,16 @@ export interface DBOpportunityContactRole {
   createdAt: Date;
 }
 
+export interface DBCampaignInfluence {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  campaignId: string;
+  influencePercentage: number;
+  revenueShare: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -491,6 +501,7 @@ export const store = {
   campaignMembers: [] as DBCampaignMember[],
   opportunityStageHistory: [] as DBOpportunityStageHistory[],
   opportunityContactRoles: [] as DBOpportunityContactRole[],
+  campaignInfluence: [] as DBCampaignInfluence[],
 };
 
 export const dbStore = {
@@ -1813,6 +1824,47 @@ export const dbStore = {
       return true;
     },
   },
+  campaignInfluence: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.campaignInfluence.filter((r) => r.orgId === orgId);
+    },
+    findForOpportunity: async (opportunityId: string) => {
+      const orgId = getActiveOrgId();
+      return store.campaignInfluence.filter(
+        (r) => r.opportunityId === opportunityId && r.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const r = store.campaignInfluence.find((x) => x.id === id);
+      if (r && r.orgId !== orgId) return null;
+      return r || null;
+    },
+    insert: async (inf: Omit<DBCampaignInfluence, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (inf.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newInfluence: DBCampaignInfluence = {
+        ...inf,
+        id: `cinf-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.campaignInfluence.push(newInfluence);
+      return newInfluence;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.campaignInfluence.findIndex((r) => r.id === id);
+      if (index === -1) return false;
+      if (store.campaignInfluence[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.campaignInfluence.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1852,5 +1904,6 @@ export const dbStore = {
     store.campaignMembers = [];
     store.opportunityStageHistory = [];
     store.opportunityContactRoles = [];
+    store.campaignInfluence = [];
   },
 };
