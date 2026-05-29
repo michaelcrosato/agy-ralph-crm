@@ -1972,3 +1972,124 @@ export function calculateCampaignROI(params: {
     roi,
   };
 }
+
+export interface CompetitorRecord {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  name: string;
+  strength: string | null;
+  weakness: string | null;
+  winLossStatus: string; // "Pending" | "Won" | "Lost"
+}
+
+export interface OpportunityRecord {
+  id: string;
+  orgId: string;
+  stage: string;
+  amount: string | null;
+}
+
+export interface GlobalCompetitorMetrics {
+  name: string;
+  totalCompetitions: number;
+  wonCount: number;
+  lostCount: number;
+  winRate: number;
+  totalValue: string;
+  wonValue: string;
+  strengths: string[];
+  weaknesses: string[];
+}
+
+export function calculateGlobalCompetitorAnalytics(params: {
+  competitors: CompetitorRecord[];
+  opportunities: OpportunityRecord[];
+}): GlobalCompetitorMetrics[] {
+  const oppMap = new Map<string, OpportunityRecord>();
+  for (const opp of params.opportunities) {
+    oppMap.set(opp.id, opp);
+  }
+
+  const groups = new Map<
+    string,
+    {
+      displayName: string;
+      competitors: CompetitorRecord[];
+    }
+  >();
+
+  for (const comp of params.competitors) {
+    const norm = comp.name.trim().toLowerCase();
+    if (!norm) continue;
+    let grp = groups.get(norm);
+    if (!grp) {
+      grp = {
+        displayName: comp.name.trim(),
+        competitors: [],
+      };
+      groups.set(norm, grp);
+    }
+    grp.competitors.push(comp);
+  }
+
+  const results: GlobalCompetitorMetrics[] = [];
+
+  for (const [_, group] of groups) {
+    let wonCount = 0;
+    let lostCount = 0;
+    let totalValue = 0;
+    let wonValue = 0;
+    const strengthsSet = new Set<string>();
+    const weaknessesSet = new Set<string>();
+    const seenOpps = new Set<string>();
+
+    for (const comp of group.competitors) {
+      const opp = oppMap.get(comp.opportunityId);
+      if (!opp) continue;
+
+      if (!seenOpps.has(opp.id)) {
+        seenOpps.add(opp.id);
+        const amountVal = Number.parseFloat(opp.amount || "0") || 0;
+        totalValue += amountVal;
+
+        if (opp.stage === "Closed Won" && comp.winLossStatus === "Lost") {
+          wonCount++;
+          wonValue += amountVal;
+        } else if (
+          opp.stage === "Closed Lost" &&
+          comp.winLossStatus === "Won"
+        ) {
+          lostCount++;
+        }
+      }
+
+      if (comp.strength?.trim()) {
+        strengthsSet.add(comp.strength.trim());
+      }
+      if (comp.weakness?.trim()) {
+        weaknessesSet.add(comp.weakness.trim());
+      }
+    }
+
+    const totalDecided = wonCount + lostCount;
+    const winRate =
+      totalDecided > 0
+        ? Math.round((wonCount / totalDecided) * 100 * 100) / 100
+        : 0.0;
+
+    results.push({
+      name: group.displayName,
+      totalCompetitions: seenOpps.size,
+      wonCount,
+      lostCount,
+      winRate,
+      totalValue: totalValue.toFixed(2),
+      wonValue: wonValue.toFixed(2),
+      strengths: Array.from(strengthsSet),
+      weaknesses: Array.from(weaknessesSet),
+    });
+  }
+
+  return results;
+}

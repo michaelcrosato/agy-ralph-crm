@@ -12,6 +12,7 @@ import {
   calculateCampaignStats,
   calculateContactDuplicates,
   calculateContractRenewalAmount,
+  calculateGlobalCompetitorAnalytics,
   calculateLeadDuplicates,
   calculateLeadScore,
   calculateOpportunityCommission,
@@ -2440,6 +2441,31 @@ app.get("/api/reports/stage-velocity", tenantAuth, async (c) => {
   }));
   const velocityReport = calculateStageVelocity(historyInputs, new Date());
   return c.json({ success: true, data: velocityReport });
+});
+
+app.get("/api/reports/competitor-analytics", tenantAuth, async (c) => {
+  const competitors = await dbStore.opportunityCompetitors.findMany();
+  const opportunities = await dbStore.opportunities.findMany();
+
+  const report = calculateGlobalCompetitorAnalytics({
+    competitors: competitors.map((comp) => ({
+      id: comp.id,
+      orgId: comp.orgId,
+      opportunityId: comp.opportunityId,
+      name: comp.name,
+      strength: comp.strength,
+      weakness: comp.weakness,
+      winLossStatus: comp.winLossStatus,
+    })),
+    opportunities: opportunities.map((opp) => ({
+      id: opp.id,
+      orgId: opp.orgId,
+      stage: opp.stage,
+      amount: opp.amount,
+    })),
+  });
+
+  return c.json({ success: true, data: report });
 });
 
 // Activities & Chronological Task Timelines REST API Endpoints
