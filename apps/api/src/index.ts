@@ -26,6 +26,7 @@ import {
   calculateOpportunitySplits,
   calculateProRatedAmount,
   calculateSalesLeaderboard,
+  calculateSequenceAnalytics,
   calculateSlaStatus,
   calculateStageVelocity,
   calculateStalledOpportunities,
@@ -9938,6 +9939,33 @@ app.get("/api/sequences/:id/members", tenantAuth, async (c) => {
   const members =
     await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
   return c.json({ success: true, data: members });
+});
+
+app.get("/api/sequences/:id/analytics", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+  const memberships =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+  const activities = await dbStore.activities.findMany();
+  const activityLinks = await dbStore.activityLinks.findMany();
+  const emailTrackers = await dbStore.emailTrackers.findMany();
+
+  const analytics = calculateSequenceAnalytics({
+    sequenceId,
+    steps,
+    memberships,
+    activities,
+    activityLinks,
+    emailTrackers,
+  });
+
+  return c.json({ success: true, data: analytics });
 });
 
 // Marketing Segments & Dynamic Lists Endpoints
