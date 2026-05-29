@@ -8337,3 +8337,157 @@ export function detectFolderLoop(
   }
   return false;
 }
+
+export async function cloneMarketingSequence(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  dbStore: any,
+  sequenceId: string,
+  newName: string,
+  orgId: string,
+  // biome-ignore lint/suspicious/noExplicitAny: returned cloned object
+): Promise<any> {
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    throw new Error("Sequence not found");
+  }
+  if (sequence.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+
+  const clonedSequence = await dbStore.marketingSequences.insert({
+    orgId,
+    name: newName,
+    description: sequence.description,
+    status: "draft",
+    sendingWindowStart: sequence.sendingWindowStart || null,
+    sendingWindowEnd: sequence.sendingWindowEnd || null,
+    sendingDays: sequence.sendingDays || null,
+    allowReenrollment: sequence.allowReenrollment || false,
+    reenrollmentMinDays: sequence.reenrollmentMinDays || null,
+    dailySendLimit: sequence.dailySendLimit || null,
+    senderType: sequence.senderType || "system",
+    senderUserId: sequence.senderUserId || null,
+    folderId: sequence.folderId || null,
+  });
+
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+  steps.sort(
+    (a: { stepNumber: number }, b: { stepNumber: number }) =>
+      a.stepNumber - b.stepNumber,
+  );
+
+  for (const step of steps) {
+    const clonedStep = await dbStore.marketingSequenceSteps.insert({
+      orgId,
+      sequenceId: clonedSequence.id,
+      stepNumber: step.stepNumber,
+      delayDays: step.delayDays,
+      templateId: step.templateId,
+      waitCondition: step.waitCondition || null,
+      replyToStepNumber: step.replyToStepNumber || null,
+    });
+
+    if (dbStore.marketingSequenceStepBranches) {
+      const branch = await dbStore.marketingSequenceStepBranches.findForStep(
+        step.id,
+      );
+      if (branch) {
+        await dbStore.marketingSequenceStepBranches.insert({
+          orgId,
+          stepId: clonedStep.id,
+          branchType: branch.branchType,
+          evaluationWindowDays: branch.evaluationWindowDays,
+          trueNextStepNumber: branch.trueNextStepNumber,
+          falseNextStepNumber: branch.falseNextStepNumber,
+        });
+      }
+    }
+
+    if (dbStore.marketingSequenceStepSplitTests) {
+      const st = await dbStore.marketingSequenceStepSplitTests.findForStep(
+        step.id,
+      );
+      if (st) {
+        await dbStore.marketingSequenceStepSplitTests.insert({
+          orgId,
+          stepId: clonedStep.id,
+          variantTemplateId: st.variantTemplateId,
+          splitWeight: st.splitWeight,
+          isActive: st.isActive,
+          autoPromoteWinner: st.autoPromoteWinner,
+          minSendsToEvaluate: st.minSendsToEvaluate,
+          evaluationMetric: st.evaluationMetric,
+        });
+      }
+    }
+
+    if (dbStore.marketingSequenceLinkActions) {
+      const linkActions =
+        await dbStore.marketingSequenceLinkActions.findForStep(step.id);
+      for (const la of linkActions) {
+        await dbStore.marketingSequenceLinkActions.insert({
+          orgId,
+          stepId: clonedStep.id,
+          targetUrl: la.targetUrl,
+          actionType: la.actionType,
+          actionConfig: la.actionConfig,
+        });
+      }
+    }
+
+    if (dbStore.marketingSequenceOpenActions) {
+      const openActions =
+        await dbStore.marketingSequenceOpenActions.findForStep(step.id);
+      for (const oa of openActions) {
+        await dbStore.marketingSequenceOpenActions.insert({
+          orgId,
+          stepId: clonedStep.id,
+          actionType: oa.actionType,
+          actionConfig: oa.actionConfig,
+        });
+      }
+    }
+
+    if (dbStore.marketingSequenceReplyActions) {
+      const replyActions =
+        await dbStore.marketingSequenceReplyActions.findForStep(step.id);
+      for (const ra of replyActions) {
+        await dbStore.marketingSequenceReplyActions.insert({
+          orgId,
+          stepId: clonedStep.id,
+          actionType: ra.actionType,
+          actionConfig: ra.actionConfig,
+        });
+      }
+    }
+  }
+
+  if (dbStore.marketingSequenceExitTriggers) {
+    const exitTriggers =
+      await dbStore.marketingSequenceExitTriggers.findForSequence(sequenceId);
+    for (const et of exitTriggers) {
+      await dbStore.marketingSequenceExitTriggers.insert({
+        orgId,
+        sequenceId: clonedSequence.id,
+        triggerType: et.triggerType,
+        criteria: et.criteria,
+        isActive: et.isActive,
+      });
+    }
+  }
+
+  if (dbStore.marketingSequenceTagMappings) {
+    const mappings =
+      await dbStore.marketingSequenceTagMappings.findForSequence(sequenceId);
+    for (const m of mappings) {
+      await dbStore.marketingSequenceTagMappings.insert({
+        orgId,
+        sequenceId: clonedSequence.id,
+        tagId: m.tagId,
+      });
+    }
+  }
+
+  return clonedSequence;
+}

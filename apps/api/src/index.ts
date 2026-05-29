@@ -38,6 +38,7 @@ import {
   calculateStalledOpportunities,
   calculateSurveyMetrics,
   calculateUnsubscribeAnalytics,
+  cloneMarketingSequence,
   compileEmailTemplate,
   compileKanbanPipeline,
   convertCurrency,
@@ -12665,6 +12666,33 @@ app.get("/api/sequences/:id", tenantAuth, async (c) => {
       tags,
     },
   });
+});
+
+app.post("/api/sequences/:id/clone", tenantAuth, async (c) => {
+  const originalId = c.req.param("id");
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name } = body;
+
+  const originalSequence = await dbStore.marketingSequences.findOne(originalId);
+  if (!originalSequence) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const newName = name || `${originalSequence.name} - Copy`;
+
+  try {
+    const cloned = await cloneMarketingSequence(
+      dbStore,
+      originalId,
+      newName,
+      tenant.orgId,
+    );
+    return c.json({ success: true, sequence: cloned });
+  } catch (err) {
+    const error = err as Error;
+    return c.json({ success: false, error: error.message }, 400);
+  }
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)
