@@ -1181,9 +1181,11 @@ export const emailTrackers = pgTable("email_trackers", {
   openCount: integer("open_count").notNull().default(0),
   clickCount: integer("click_count").notNull().default(0),
   replyCount: integer("reply_count").notNull().default(0),
+  bounceCount: integer("bounce_count").notNull().default(0),
   lastOpenedAt: timestamp("last_opened_at"),
   lastClickedAt: timestamp("last_clicked_at"),
   lastRepliedAt: timestamp("last_replied_at"),
+  lastBouncedAt: timestamp("last_bounced_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -1542,5 +1544,19 @@ export const emailReplyEvents = pgTable("email_reply_events", {
   replyBody: text("reply_body"),
   senderEmail: text("sender_email").notNull(),
   sentiment: text("sentiment").notNull().default("neutral"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const emailBounceEvents = pgTable("email_bounce_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  trackerId: uuid("tracker_id")
+    .notNull()
+    .references(() => emailTrackers.id, { onDelete: "cascade" }),
+  eventType: text("event_type").notNull(), // 'bounce' | 'complaint'
+  bounceType: text("bounce_type").notNull().default("hard"), // 'hard' | 'soft' | 'spam_complaint'
+  bounceReason: text("bounce_reason"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

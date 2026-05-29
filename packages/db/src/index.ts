@@ -1114,9 +1114,11 @@ export interface DBEmailTracker {
   openCount: number;
   clickCount: number;
   replyCount: number;
+  bounceCount: number;
   lastOpenedAt: Date | null;
   lastClickedAt: Date | null;
   lastRepliedAt: Date | null;
+  lastBouncedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -1162,6 +1164,16 @@ export interface DBEmailReplyEvent {
   replyBody: string | null;
   senderEmail: string;
   sentiment: string;
+  createdAt: Date;
+}
+
+export interface DBEmailBounceEvent {
+  id: string;
+  orgId: string;
+  trackerId: string;
+  eventType: string; // 'bounce' | 'complaint'
+  bounceType: string; // 'hard' | 'soft' | 'spam_complaint'
+  bounceReason: string | null;
   createdAt: Date;
 }
 
@@ -1245,6 +1257,7 @@ export const store = {
   emailUnsubscribes: [] as DBEmailUnsubscribe[],
   emailOpenEvents: [] as DBEmailOpenEvent[],
   emailReplyEvents: [] as DBEmailReplyEvent[],
+  emailBounceEvents: [] as DBEmailBounceEvent[],
 
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
@@ -4655,9 +4668,11 @@ export const dbStore = {
         | "openCount"
         | "clickCount"
         | "replyCount"
+        | "bounceCount"
         | "lastOpenedAt"
         | "lastClickedAt"
         | "lastRepliedAt"
+        | "lastBouncedAt"
         | "createdAt"
         | "updatedAt"
       >,
@@ -4672,9 +4687,11 @@ export const dbStore = {
         openCount: 0,
         clickCount: 0,
         replyCount: 0,
+        bounceCount: 0,
         lastOpenedAt: null,
         lastClickedAt: null,
         lastRepliedAt: null,
+        lastBouncedAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -4711,9 +4728,11 @@ export const dbStore = {
           | "openCount"
           | "clickCount"
           | "replyCount"
+          | "bounceCount"
           | "lastOpenedAt"
           | "lastClickedAt"
           | "lastRepliedAt"
+          | "lastBouncedAt"
           | "updatedAt"
         >
       >,
@@ -5724,6 +5743,38 @@ export const dbStore = {
     },
   },
 
+  emailBounceEvents: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.emailBounceEvents.filter((c) => c.orgId === orgId);
+    },
+    findForTracker: async (trackerId: string) => {
+      const orgId = getActiveOrgId();
+      return store.emailBounceEvents.filter(
+        (c) => c.trackerId === trackerId && c.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.emailBounceEvents.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (item: Omit<DBEmailBounceEvent, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (item.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newItem: DBEmailBounceEvent = {
+        ...item,
+        id: `bnc-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.emailBounceEvents.push(newItem);
+      return newItem;
+    },
+  },
+
   clear: () => {
     store.marketingSegments = [];
     store.marketingSequences = [];
@@ -5745,6 +5796,7 @@ export const dbStore = {
     store.emailUnsubscribes = [];
     store.emailOpenEvents = [];
     store.emailReplyEvents = [];
+    store.emailBounceEvents = [];
 
     store.emailTemplates = [];
     store.emailTrackers = [];

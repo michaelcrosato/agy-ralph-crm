@@ -6029,12 +6029,35 @@ export async function handleEmailDeliveryEvent(
         changes: Record<string, { before: unknown; after: unknown }>;
       }) => Promise<unknown>;
     };
+    emailBounceEvents?: {
+      insert: (item: {
+        orgId: string;
+        trackerId: string;
+        eventType: string;
+        bounceType: string;
+        bounceReason: string | null;
+      }) => Promise<unknown>;
+    };
+    emailTrackers?: {
+      // biome-ignore lint/suspicious/noExplicitAny: trackers findMany structure
+      findMany: () => Promise<any[]>;
+      // biome-ignore lint/suspicious/noExplicitAny: trackers findOne structure
+      findOne: (id: string) => Promise<any>;
+      // biome-ignore lint/suspicious/noExplicitAny: trackers updatePublic structure
+      updatePublic: (id: string, updates: any) => Promise<any>;
+    };
+    activityLinks?: {
+      // biome-ignore lint/suspicious/noExplicitAny: activityLinks findMany structure
+      findMany: () => Promise<any[]>;
+    };
   },
   eventDetails: {
     orgId: string;
     email: string;
     event: "bounce" | "complaint";
     reason?: string;
+    bounceType?: string;
+    trackerId?: string;
   },
 ): Promise<{ suppressionsCreated: number; membershipsExited: number }> {
   const { orgId, email, event, reason } = eventDetails;
@@ -6112,6 +6135,64 @@ export async function handleEmailDeliveryEvent(
       reason: event,
     });
     suppressionsCreated++;
+  }
+
+  // Record granular bounce/complaint event
+  // biome-ignore lint/suspicious/noExplicitAny: tracker log variable
+  let trackerToLog: any = null;
+  if (eventDetails.trackerId && dbStore.emailTrackers) {
+    trackerToLog = await dbStore.emailTrackers.findOne(eventDetails.trackerId);
+  } else if (dbStore.emailTrackers && dbStore.activityLinks) {
+    const allTrackers = await dbStore.emailTrackers.findMany();
+    const allLinks = await dbStore.activityLinks.findMany();
+    // Sort trackers descending by date
+    allTrackers.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+
+    const matchedIds = [
+      ...matchedLeads.map((l) => l.id),
+      ...matchedContacts.map((c) => c.id),
+    ];
+    for (const tracker of allTrackers) {
+      if (tracker.orgId === orgId) {
+        const link = allLinks.find(
+          (l) =>
+            l.activityId === tracker.activityId &&
+            l.orgId === orgId &&
+            matchedIds.includes(l.targetId),
+        );
+        if (link) {
+          trackerToLog = tracker;
+          break;
+        }
+      }
+    }
+  }
+
+  if (trackerToLog && dbStore.emailBounceEvents) {
+    const bounceType =
+      eventDetails.bounceType ||
+      (event === "complaint"
+        ? "spam_complaint"
+        : reason?.toLowerCase().includes("soft")
+          ? "soft"
+          : "hard");
+    await dbStore.emailBounceEvents.insert({
+      orgId,
+      trackerId: trackerToLog.id,
+      eventType: event,
+      bounceType,
+      bounceReason: reason || null,
+    });
+
+    if (dbStore.emailTrackers?.updatePublic) {
+      await dbStore.emailTrackers.updatePublic(trackerToLog.id, {
+        bounceCount: (trackerToLog.bounceCount || 0) + 1,
+        lastBouncedAt: new Date(),
+      });
+    }
   }
 
   // 2. Find and update active/snoozed sequence memberships
@@ -7540,5 +7621,232 @@ export function calculateReplyAnalytics(
         : "0.0%",
     sentimentPerformance,
     stepReplyRates,
+  };
+}
+
+export interface BounceAnalyticsInput {
+  bounces: {
+    id: string;
+    trackerId: string;
+    eventType: string;
+    bounceType: string;
+    orgId: string;
+  }[];
+  trackers: { id: string; activityId: string; orgId: string }[];
+  activities: {
+    id: string;
+    type: string;
+    orgId: string;
+    createdAt: Date | string;
+  }[];
+  activityLinks: {
+    id: string;
+    activityId: string;
+    targetId: string;
+    targetType: string;
+    orgId: string;
+  }[];
+  memberships: {
+    id: string;
+    sequenceId: string;
+    recordId: string;
+    orgId: string;
+  }[];
+  steps: {
+    id: string;
+    name?: string;
+    stepNumber: number;
+    sequenceId: string;
+    orgId: string;
+  }[];
+  sequenceId: string;
+}
+
+export interface BounceTypePerformanceMetric {
+  bounceType: string;
+  eventCount: number;
+  percentage: string;
+}
+
+export interface StepBounceRateMetric {
+  stepId: string;
+  stepName: string;
+  totalSent: number;
+  uniqueBounces: number;
+  bounceRate: string;
+}
+
+export interface BounceAnalyticsResult {
+  totalBounces: number;
+  totalComplaints: number;
+  totalUniqueBouncedTrackers: number;
+  bounceRate: string;
+  bounceTypePerformance: BounceTypePerformanceMetric[];
+  stepBounceRates: StepBounceRateMetric[];
+}
+
+export function calculateBounceAnalytics(
+  params: BounceAnalyticsInput,
+): BounceAnalyticsResult {
+  const {
+    bounces,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  } = params;
+
+  const seqMemberships = memberships.filter((m) => m.sequenceId === sequenceId);
+  const seqSteps = steps.filter((s) => s.sequenceId === sequenceId);
+
+  // 1. Map trackerId -> activityId
+  const trackerToActivity = new Map<string, string>();
+  for (const t of trackers) {
+    trackerToActivity.set(t.id, t.activityId);
+  }
+
+  // 2. Build activityToStep mapping
+  const activityToStep = new Map<string, { id: string; name: string }>();
+  for (const m of seqMemberships) {
+    const linksForRecord = activityLinks.filter(
+      (link) =>
+        link.targetId === m.recordId &&
+        (link.targetType.toLowerCase() === "lead" ||
+          link.targetType.toLowerCase() === "contact"),
+    );
+    const activityIds = linksForRecord.map((l) => l.activityId);
+    const emailActs = activities.filter(
+      (act) => act.type === "email" && activityIds.includes(act.id),
+    );
+    emailActs.sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+
+    emailActs.forEach((act, idx) => {
+      const stepNum = idx + 1;
+      const step = seqSteps.find((s) => s.stepNumber === stepNum);
+      if (step) {
+        activityToStep.set(act.id, {
+          id: step.id,
+          name: step.name || `Step ${step.stepNumber}`,
+        });
+      }
+    });
+  }
+
+  // 3. Count total sent (activities) per step
+  const stepSentCount = new Map<string, number>();
+  for (const step of seqSteps) {
+    stepSentCount.set(step.id, 0);
+  }
+  for (const [actId, stepInfo] of activityToStep.entries()) {
+    stepSentCount.set(stepInfo.id, (stepSentCount.get(stepInfo.id) || 0) + 1);
+  }
+
+  // 4. Group bounce events by trackerId to calculate unique bounces
+  const uniqueTrackerBounces = new Set<string>();
+  const stepUniqueBounces = new Map<string, Set<string>>();
+  for (const step of seqSteps) {
+    stepUniqueBounces.set(step.id, new Set<string>());
+  }
+
+  const bounceTypeCounts = new Map<string, number>();
+  let totalBounces = 0;
+  let totalComplaints = 0;
+  let totalTrackedEvents = 0;
+
+  for (const b of bounces) {
+    const activityId = trackerToActivity.get(b.trackerId);
+    if (activityId) {
+      const stepInfo = activityToStep.get(activityId);
+      if (stepInfo) {
+        // Unique bounces globally
+        uniqueTrackerBounces.add(b.trackerId);
+
+        // Unique bounces per step
+        const stepUnique = stepUniqueBounces.get(stepInfo.id);
+        if (stepUnique) {
+          stepUnique.add(b.trackerId);
+        }
+
+        // Event type counts
+        if (b.eventType === "complaint") {
+          totalComplaints++;
+        } else {
+          totalBounces++;
+        }
+
+        // Bounce type counts
+        const bounceType = b.bounceType || "hard";
+        bounceTypeCounts.set(
+          bounceType,
+          (bounceTypeCounts.get(bounceType) || 0) + 1,
+        );
+
+        totalTrackedEvents++;
+      }
+    }
+  }
+
+  const totalUniqueBouncedTrackers = uniqueTrackerBounces.size;
+  const totalSentGlobally = Array.from(stepSentCount.values()).reduce(
+    (a, b) => a + b,
+    0,
+  );
+
+  // Calculate bounce type performance breakdown
+  const bounceTypePerformance: BounceTypePerformanceMetric[] = Array.from(
+    bounceTypeCounts.entries(),
+  ).map(([bType, count]) => ({
+    bounceType: bType,
+    eventCount: count,
+    percentage:
+      totalTrackedEvents > 0
+        ? `${((count / totalTrackedEvents) * 100).toFixed(1)}%`
+        : "0.0%",
+  }));
+
+  // Ensure all standard bounce types have entries even if 0
+  const bounceTypes = ["hard", "soft", "spam_complaint"];
+  for (const bt of bounceTypes) {
+    if (!bounceTypePerformance.some((x) => x.bounceType === bt)) {
+      bounceTypePerformance.push({
+        bounceType: bt,
+        eventCount: 0,
+        percentage: "0.0%",
+      });
+    }
+  }
+  bounceTypePerformance.sort((a, b) => b.eventCount - a.eventCount);
+
+  // Calculate step bounce rates
+  const stepBounceRates: StepBounceRateMetric[] = seqSteps.map((step) => {
+    const totalSent = stepSentCount.get(step.id) || 0;
+    const uniqueBounces = stepUniqueBounces.get(step.id)?.size || 0;
+    return {
+      stepId: step.id,
+      stepName: step.name || `Step ${step.stepNumber}`,
+      totalSent,
+      uniqueBounces,
+      bounceRate:
+        totalSent > 0
+          ? `${((uniqueBounces / totalSent) * 100).toFixed(1)}%`
+          : "0.0%",
+    };
+  });
+
+  return {
+    totalBounces,
+    totalComplaints,
+    totalUniqueBouncedTrackers,
+    bounceRate:
+      totalSentGlobally > 0
+        ? `${((totalUniqueBouncedTrackers / totalSentGlobally) * 100).toFixed(1)}%`
+        : "0.0%",
+    bounceTypePerformance,
+    stepBounceRates,
   };
 }

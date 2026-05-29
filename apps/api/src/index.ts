@@ -10,6 +10,7 @@ import {
   calculateAccountDuplicates,
   calculateAdjustedForecast,
   calculateAgentCSATMetrics,
+  calculateBounceAnalytics,
   calculateCPQPrice,
   calculateCampaignROI,
   calculateCampaignRevenueShare,
@@ -9934,6 +9935,53 @@ app.post("/api/public/emails/track/reply/:token", async (c) => {
   return c.json({ success: true, message: "Reply event tracked successfully" });
 });
 
+app.post("/api/public/emails/track/bounce/:token", async (c) => {
+  const { token } = c.req.param();
+
+  const tracker = await dbStore.emailTrackers.findByToken(token);
+  if (tracker) {
+    await withTenant(tracker.orgId, mockDb, async () => {
+      // Parse parameters from body
+      const bodyData = await c.req.json().catch(() => ({}));
+      const eventType = bodyData.eventType || "bounce";
+      const bounceType = bodyData.bounceType || null;
+      const bounceReason = bodyData.bounceReason || null;
+
+      // Find recipient email using activity links
+      let recipientEmail = "prospect@example.com";
+      const allLinks = await dbStore.activityLinks.findMany();
+      const recipientLink = allLinks.find(
+        (l) => l.activityId === tracker.activityId && l.orgId === tracker.orgId,
+      );
+      if (recipientLink) {
+        if (recipientLink.targetType.toLowerCase() === "lead") {
+          const lead = await dbStore.leads.findOne(recipientLink.targetId);
+          if (lead?.email) recipientEmail = lead.email;
+        } else if (recipientLink.targetType.toLowerCase() === "contact") {
+          const contact = await dbStore.contacts.findOne(
+            recipientLink.targetId,
+          );
+          if (contact?.email) recipientEmail = contact.email;
+        }
+      }
+
+      await handleEmailDeliveryEvent(dbStore, {
+        orgId: tracker.orgId,
+        email: recipientEmail,
+        event: eventType as "bounce" | "complaint",
+        reason: bounceReason || undefined,
+        bounceType: bounceType || undefined,
+        trackerId: tracker.id,
+      });
+    });
+  }
+
+  return c.json({
+    success: true,
+    message: "Bounce event tracked successfully",
+  });
+});
+
 app.get("/api/public/emails/unsubscribe/:token", async (c) => {
   const { token } = c.req.param();
 
@@ -11819,6 +11867,35 @@ app.get("/api/sequences/:id/replies-analytics", tenantAuth, async (c) => {
 
   const analytics = calculateReplyAnalytics({
     replies,
+    trackers,
+    activities,
+    activityLinks,
+    memberships,
+    steps,
+    sequenceId,
+  });
+
+  return c.json({ success: true, data: analytics });
+});
+
+app.get("/api/sequences/:id/bounces-analytics", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const seq = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!seq) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  const bounces = await dbStore.emailBounceEvents.findMany();
+  const trackers = await dbStore.emailTrackers.findMany();
+  const activities = await dbStore.activities.findMany();
+  const activityLinks = await dbStore.activityLinks.findMany();
+  const memberships =
+    await dbStore.marketingSequenceMemberships.findForSequence(sequenceId);
+  const steps =
+    await dbStore.marketingSequenceSteps.findForSequence(sequenceId);
+
+  const analytics = calculateBounceAnalytics({
+    bounces,
     trackers,
     activities,
     activityLinks,
