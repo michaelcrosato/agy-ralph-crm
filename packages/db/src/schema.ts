@@ -557,3 +557,21 @@ export const campaignInfluence = pgTable("campaign_influence", {
   revenueShare: text("revenue_share").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const contracts = pgTable("contracts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  opportunityId: uuid("opportunity_id").references(() => opportunities.id, {
+    onDelete: "set null",
+  }),
+  contractAmount: text("contract_amount").notNull().default("0.00"),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  status: text("status").notNull().default("Draft"), // "Draft" | "Active" | "Expired" | "Renewed"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

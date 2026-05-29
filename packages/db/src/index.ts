@@ -462,6 +462,18 @@ export interface DBCampaignInfluence {
   createdAt: Date;
 }
 
+export interface DBContract {
+  id: string;
+  orgId: string;
+  accountId: string;
+  opportunityId: string | null;
+  contractAmount: string;
+  startDate: Date;
+  endDate: Date;
+  status: "Draft" | "Active" | "Expired" | "Renewed";
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -502,6 +514,7 @@ export const store = {
   opportunityStageHistory: [] as DBOpportunityStageHistory[],
   opportunityContactRoles: [] as DBOpportunityContactRole[],
   campaignInfluence: [] as DBCampaignInfluence[],
+  contracts: [] as DBContract[],
 };
 
 export const dbStore = {
@@ -1865,6 +1878,63 @@ export const dbStore = {
       return true;
     },
   },
+  contracts: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.contracts.filter((c) => c.orgId === orgId);
+    },
+    findForAccount: async (accountId: string) => {
+      const orgId = getActiveOrgId();
+      return store.contracts.filter(
+        (c) => c.accountId === accountId && c.orgId === orgId,
+      );
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const c = store.contracts.find((x) => x.id === id);
+      if (c && c.orgId !== orgId) return null;
+      return c || null;
+    },
+    insert: async (contract: Omit<DBContract, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (contract.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newContract: DBContract = {
+        ...contract,
+        id: `contract-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.contracts.push(newContract);
+      return newContract;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBContract, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.contracts.findIndex((c) => c.id === id);
+      if (index === -1) return null;
+      if (store.contracts[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.contracts[index] = {
+        ...store.contracts[index],
+        ...updates,
+      };
+      return store.contracts[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.contracts.findIndex((c) => c.id === id);
+      if (index === -1) return false;
+      if (store.contracts[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.contracts.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1905,5 +1975,6 @@ export const dbStore = {
     store.opportunityStageHistory = [];
     store.opportunityContactRoles = [];
     store.campaignInfluence = [];
+    store.contracts = [];
   },
 };

@@ -865,3 +865,70 @@ export function validateInfluencePercentageTotal(
   );
   return currentTotal + newPercentage <= 100;
 }
+
+export interface ContractRecord {
+  id: string;
+  orgId: string;
+  accountId: string;
+  contractAmount: string;
+  startDate: Date;
+  endDate: Date;
+  status: string;
+}
+
+export interface RenewalGenerationInput {
+  contract: ContractRecord;
+  accountName: string;
+  escalationPercentage?: number;
+}
+
+export interface GeneratedRenewalOpportunity {
+  orgId: string;
+  accountId: string;
+  name: string;
+  stage: string;
+  amount: string;
+  closeDate: Date;
+}
+
+export function calculateContractRenewalAmount(
+  baseAmount: string,
+  escalationPercentage = 5,
+): string {
+  const amount = Number.parseFloat(baseAmount) || 0;
+  const markup = 1 + escalationPercentage / 100;
+  return (amount * markup).toFixed(2);
+}
+
+export function isContractInRenewalWindow(
+  contract: { status: string; endDate: Date },
+  daysBeforeExpiration = 90,
+  referenceDate = new Date(),
+): boolean {
+  if (contract.status !== "Active") return false;
+  const diffTime = contract.endDate.getTime() - referenceDate.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return diffDays >= 0 && diffDays <= daysBeforeExpiration;
+}
+
+export function generateRenewalOpportunity(
+  input: RenewalGenerationInput,
+): GeneratedRenewalOpportunity {
+  const { contract, accountName, escalationPercentage = 5 } = input;
+  const newAmount = calculateContractRenewalAmount(
+    contract.contractAmount,
+    escalationPercentage,
+  );
+
+  const endFormatted = contract.endDate.toISOString().split("T")[0];
+  const name = `Renewal - ${accountName} - ${endFormatted}`;
+
+  return {
+    orgId: contract.orgId,
+    accountId: contract.accountId,
+    name,
+    stage: "Qualification",
+    amount: newAmount,
+    closeDate: contract.endDate,
+  };
+}
