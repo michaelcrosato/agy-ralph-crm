@@ -206,6 +206,7 @@ export const tickets = pgTable("tickets", {
     .references(() => contacts.id, { onDelete: "cascade" }),
   subject: text("subject").notNull(),
   status: text("status").notNull().default("Open"),
+  priority: text("priority").notNull().default("Medium"),
   assignedToId: uuid("assigned_to_id").references(() => users.id, {
     onDelete: "set null",
   }),
@@ -1006,3 +1007,45 @@ export const ticketAssignmentRuleEntries = pgTable(
     criteria: jsonb("criteria").notNull(), // CriteriaCondition[]
   },
 );
+
+export const ticketEscalationRules = pgTable("ticket_escalation_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  triggerType: text("trigger_type").notNull(), // "milestone_approaching" | "milestone_breached"
+  timeThresholdMinutes: integer("time_threshold_minutes").notNull().default(0),
+  escalateToId: uuid("escalate_to_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  newPriority: text("new_priority"), // "High" | "Urgent"
+  isActive: integer("is_active").notNull().default(1), // 0 = inactive, 1 = active
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const ticketEscalations = pgTable("ticket_escalations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  ticketId: uuid("ticket_id")
+    .notNull()
+    .references(() => tickets.id, { onDelete: "cascade" }),
+  ruleId: uuid("rule_id").references(() => ticketEscalationRules.id, {
+    onDelete: "set null",
+  }),
+  previousAssignedToId: uuid("previous_assigned_to_id").references(
+    () => users.id,
+    {
+      onDelete: "set null",
+    },
+  ),
+  escalatedToId: uuid("escalated_to_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  previousPriority: text("previous_priority"),
+  newPriority: text("new_priority"),
+  reason: text("reason").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

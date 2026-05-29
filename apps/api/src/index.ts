@@ -34,6 +34,7 @@ import {
   evaluateMilestoneCompletion,
   evaluateTerritoryRouting,
   evaluateTicketAssignment,
+  evaluateTicketEscalation,
   generateRenewalOpportunity,
   generateStraightLineSchedules,
   incrementArticleViewCount,
@@ -7416,6 +7417,160 @@ app.get("/api/service/tickets/:id/tags", tenantAuth, async (c) => {
     .filter(Boolean);
 
   return c.json({ success: true, data: tags });
+});
+
+app.post("/api/service/tickets/escalation-rules", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const {
+    name,
+    triggerType,
+    timeThresholdMinutes,
+    escalateToId,
+    newPriority,
+    isActive,
+  } = body;
+
+  if (!name || !triggerType || !escalateToId) {
+    return c.json(
+      { error: "Missing required escalation rule parameters" },
+      400,
+    );
+  }
+
+  const activeVal = isActive !== undefined ? Number(isActive) : 1;
+
+  const newRule = await dbStore.ticketEscalationRules.insert({
+    orgId: tenant.orgId,
+    name,
+    triggerType,
+    timeThresholdMinutes:
+      timeThresholdMinutes !== undefined ? Number(timeThresholdMinutes) : 0,
+    escalateToId,
+    newPriority: newPriority || null,
+    isActive: activeVal,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: newRule.id,
+    recordType: "ticket_escalation_rules",
+    action: "create",
+    userId: tenant.userId,
+    changes: null,
+  });
+
+  return c.json({ success: true, data: newRule }, 201);
+});
+
+app.get("/api/service/tickets/escalation-rules", tenantAuth, async (c) => {
+  const rules = await dbStore.ticketEscalationRules.findMany();
+  return c.json({ success: true, data: rules });
+});
+
+app.post("/api/service/tickets/:id/escalate", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const ticketId = c.req.param("id");
+
+  const ticket = await dbStore.tickets.findOne(ticketId);
+  if (!ticket) {
+    return c.json({ error: "Ticket not found" }, 404);
+  }
+
+  const rules = await dbStore.ticketEscalationRules.findMany();
+  const activeRules = rules.filter((r) => r.isActive === 1);
+
+  const allMilestones = await dbStore.ticketMilestones.findMany();
+  const milestones = allMilestones.filter((m) => m.ticketId === ticketId);
+
+  const coreMilestones = milestones.map((m) => ({
+    id: m.id,
+    milestoneType: m.milestoneType,
+    targetTime: new Date(m.targetTime),
+    status: m.status,
+    completedAt: m.completedAt ? new Date(m.completedAt) : null,
+  }));
+
+  const coreRules = activeRules.map((r) => ({
+    id: r.id,
+    name: r.name,
+    triggerType: r.triggerType,
+    timeThresholdMinutes: r.timeThresholdMinutes,
+    escalateToId: r.escalateToId,
+    newPriority: r.newPriority,
+    isActive: r.isActive,
+  }));
+
+  const escalationResult = evaluateTicketEscalation(
+    {
+      priority: ticket.priority || "Medium",
+      assignedToId: ticket.assignedToId || null,
+    },
+    coreMilestones,
+    coreRules,
+  );
+
+  if (!escalationResult) {
+    return c.json({ success: true, escalated: false, data: ticket });
+  }
+
+  const previousAssignedToId = ticket.assignedToId || null;
+  const previousPriority = ticket.priority || "Medium";
+  const newPriority = escalationResult.newPriority || previousPriority;
+
+  const updatedTicket = await dbStore.tickets.update(ticketId, {
+    assignedToId: escalationResult.escalateToId,
+    priority: newPriority,
+  });
+
+  const newEscalation = await dbStore.ticketEscalations.insert({
+    orgId: tenant.orgId,
+    ticketId,
+    ruleId: escalationResult.ruleId,
+    previousAssignedToId,
+    escalatedToId: escalationResult.escalateToId,
+    previousPriority,
+    newPriority,
+    reason: escalationResult.reason,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: ticketId,
+    recordType: "Ticket",
+    action: "escalate",
+    userId: tenant.userId,
+    changes: {
+      assignedToId: {
+        before: previousAssignedToId,
+        after: escalationResult.escalateToId,
+      },
+      priority: { before: previousPriority, after: newPriority },
+    },
+  });
+
+  return c.json({
+    success: true,
+    escalated: true,
+    data: updatedTicket,
+    escalation: newEscalation,
+  });
+});
+
+app.get("/api/service/tickets/:id/escalations", tenantAuth, async (c) => {
+  const ticketId = c.req.param("id");
+
+  const ticket = await dbStore.tickets.findOne(ticketId);
+  if (!ticket) {
+    return c.json({ error: "Ticket not found" }, 404);
+  }
+
+  const escalations = await dbStore.ticketEscalations.findMany();
+  const ticketEscalationsList = escalations.filter(
+    (e) => e.ticketId === ticketId,
+  );
+
+  return c.json({ success: true, data: ticketEscalationsList });
 });
 
 // Start Hono Node Server if run directly (excluding test execution environment)

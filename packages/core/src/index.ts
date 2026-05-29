@@ -2607,3 +2607,77 @@ export function evaluateTicketAssignment(
 
   return null;
 }
+
+export interface TicketEscalationRuleInput {
+  id: string;
+  name: string;
+  triggerType: string;
+  timeThresholdMinutes: number;
+  escalateToId: string;
+  newPriority: string | null;
+  isActive: number;
+}
+
+export interface TicketMilestoneInput {
+  id: string;
+  milestoneType: string;
+  targetTime: Date;
+  status: string;
+  completedAt: Date | null;
+}
+
+export interface TicketEscalationResult {
+  ruleId: string;
+  escalateToId: string;
+  newPriority: string | null;
+  reason: string;
+}
+
+export function evaluateTicketEscalation(
+  ticket: { priority?: string | null; assignedToId: string | null },
+  milestones: TicketMilestoneInput[],
+  rules: TicketEscalationRuleInput[],
+  currentTime: Date = new Date(),
+): TicketEscalationResult | null {
+  const activeRules = rules.filter((r) => r.isActive === 1);
+
+  for (const rule of activeRules) {
+    for (const ms of milestones) {
+      // 1. milestone_breached evaluation
+      if (rule.triggerType === "milestone_breached") {
+        const isBreached =
+          ms.status === "breached" ||
+          (ms.status === "pending" &&
+            currentTime.getTime() > ms.targetTime.getTime());
+
+        if (isBreached) {
+          return {
+            ruleId: rule.id,
+            escalateToId: rule.escalateToId,
+            newPriority: rule.newPriority,
+            reason: `Milestone [${ms.milestoneType}] has breached its target time of ${ms.targetTime.toISOString()}`,
+          };
+        }
+      }
+
+      // 2. milestone_approaching evaluation
+      if (rule.triggerType === "milestone_approaching") {
+        if (ms.status === "pending" && !ms.completedAt) {
+          const timeDiffMs = ms.targetTime.getTime() - currentTime.getTime();
+          const thresholdMs = rule.timeThresholdMinutes * 60 * 1000;
+
+          if (timeDiffMs > 0 && timeDiffMs <= thresholdMs) {
+            return {
+              ruleId: rule.id,
+              escalateToId: rule.escalateToId,
+              newPriority: rule.newPriority,
+              reason: `Milestone [${ms.milestoneType}] is approaching breach (due in ${Math.round(timeDiffMs / 1000 / 60)} minutes)`,
+            };
+          }
+        }
+      }
+    }
+  }
+
+  return null;
+}

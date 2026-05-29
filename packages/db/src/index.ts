@@ -154,7 +154,33 @@ export interface DBTicket {
   contactId: string;
   subject: string;
   status: "Open" | "In Progress" | "Resolved";
+  priority?: string;
   assignedToId?: string | null;
+  createdAt: Date;
+}
+
+export interface DBTicketEscalationRule {
+  id: string;
+  orgId: string;
+  name: string;
+  triggerType: "milestone_approaching" | "milestone_breached";
+  timeThresholdMinutes: number;
+  escalateToId: string;
+  newPriority: string | null;
+  isActive: number;
+  createdAt: Date;
+}
+
+export interface DBTicketEscalation {
+  id: string;
+  orgId: string;
+  ticketId: string;
+  ruleId: string | null;
+  previousAssignedToId: string | null;
+  escalatedToId: string;
+  previousPriority: string | null;
+  newPriority: string | null;
+  reason: string;
   createdAt: Date;
 }
 
@@ -845,6 +871,8 @@ export const store = {
   ticketTagLinks: [] as DBTicketTagLink[],
   ticketAssignmentRules: [] as DBTicketAssignmentRule[],
   ticketAssignmentRuleEntries: [] as DBTicketAssignmentRuleEntry[],
+  ticketEscalationRules: [] as DBTicketEscalationRule[],
+  ticketEscalations: [] as DBTicketEscalation[],
 };
 
 export const dbStore = {
@@ -1202,6 +1230,7 @@ export const dbStore = {
         ...ticket,
         id: `ticket-${Math.random().toString(36).substring(2, 11)}`,
         status: ticket.status || "Open",
+        priority: ticket.priority || "Medium",
         createdAt: new Date(),
       };
       store.tickets.push(newTicket);
@@ -3701,6 +3730,86 @@ export const dbStore = {
       return store.ticketAssignmentRuleEntries[index];
     },
   },
+  ticketEscalationRules: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketEscalationRules.filter((r) => r.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const rule = store.ticketEscalationRules.find((r) => r.id === id);
+      if (rule && rule.orgId !== orgId) {
+        return null;
+      }
+      return rule || null;
+    },
+    insert: async (
+      rule: Omit<DBTicketEscalationRule, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (rule.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newRule: DBTicketEscalationRule = {
+        ...rule,
+        id: `tescr-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: rule.createdAt || new Date(),
+      };
+      store.ticketEscalationRules.push(newRule);
+      return newRule;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBTicketEscalationRule, "id" | "orgId" | "createdAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.ticketEscalationRules.findIndex((r) => r.id === id);
+      if (index === -1) return null;
+      if (store.ticketEscalationRules[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.ticketEscalationRules[index] = {
+        ...store.ticketEscalationRules[index],
+        ...updates,
+      };
+      return store.ticketEscalationRules[index];
+    },
+  },
+  ticketEscalations: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketEscalations.filter((e) => e.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const escalation = store.ticketEscalations.find((e) => e.id === id);
+      if (escalation && escalation.orgId !== orgId) {
+        return null;
+      }
+      return escalation || null;
+    },
+    insert: async (
+      escalation: Omit<DBTicketEscalation, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (escalation.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newEscalation: DBTicketEscalation = {
+        ...escalation,
+        id: `tesc-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: escalation.createdAt || new Date(),
+      };
+      store.ticketEscalations.push(newEscalation);
+      return newEscalation;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3771,5 +3880,7 @@ export const dbStore = {
     store.ticketTagLinks = [];
     store.ticketAssignmentRules = [];
     store.ticketAssignmentRuleEntries = [];
+    store.ticketEscalationRules = [];
+    store.ticketEscalations = [];
   },
 };
