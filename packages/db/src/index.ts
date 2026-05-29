@@ -48,6 +48,14 @@ export function getActiveOrgId(): string {
   return context.orgId;
 }
 
+// Assert that the active tenant context matches the expected orgId
+export function assertSessionTenant(orgId: string): void {
+  const activeOrgId = getActiveOrgId();
+  if (activeOrgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+}
+
 export interface DBUser {
   id: string;
   email: string;

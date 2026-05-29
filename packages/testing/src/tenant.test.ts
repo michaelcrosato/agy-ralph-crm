@@ -3,7 +3,7 @@ import {
   createSessionToken,
   verifySessionToken,
 } from "@crm/auth";
-import { mockDb, withTenant } from "@crm/db";
+import { assertSessionTenant, mockDb, withTenant } from "@crm/db";
 import { sql } from "drizzle-orm";
 import { describe, expect, it, vi } from "vitest";
 
@@ -48,5 +48,30 @@ describe("Phase 1: Multi-Tenant Security & Authentication Tests", () => {
     expect(executeSpy.mock.calls[0][0]).toBeDefined();
 
     executeSpy.mockRestore();
+  });
+
+  describe("assertSessionTenant RLS verification helpers", () => {
+    it("should pass when orgId matches active tenant context", async () => {
+      const targetOrg = "org-456";
+      await withTenant(targetOrg, mockDb, async () => {
+        expect(() => assertSessionTenant(targetOrg)).not.toThrow();
+      });
+    });
+
+    it("should throw when orgId does not match active tenant context", async () => {
+      const targetOrg = "org-456";
+      const differentOrg = "org-789";
+      await withTenant(targetOrg, mockDb, async () => {
+        expect(() => assertSessionTenant(differentOrg)).toThrow(
+          "RLS Isolation Violation: Tenant mismatch.",
+        );
+      });
+    });
+
+    it("should throw when executed outside tenant context", () => {
+      expect(() => assertSessionTenant("org-456")).toThrow(
+        "RLS Isolation Violation: Tenant context not set.",
+      );
+    });
   });
 });
