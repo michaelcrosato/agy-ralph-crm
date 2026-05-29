@@ -67,6 +67,7 @@ export interface DBAccount {
   name: string;
   domain: string | null;
   custom: Record<string, unknown> | null;
+  parentAccountId?: string | null;
 }
 
 export interface DBContact {
@@ -587,6 +588,7 @@ export const dbStore = {
       }
       const newAcc: DBAccount = {
         ...acc,
+        parentAccountId: acc.parentAccountId || null,
         id: `account-${Math.random().toString(36).substring(2, 11)}`,
       };
       store.accounts.push(newAcc);
@@ -604,6 +606,35 @@ export const dbStore = {
       }
       store.accounts[index] = { ...store.accounts[index], ...updates };
       return store.accounts[index];
+    },
+    findChildren: async (parentId: string) => {
+      const orgId = getActiveOrgId();
+      return store.accounts.filter(
+        (acc) => acc.orgId === orgId && acc.parentAccountId === parentId,
+      );
+    },
+    findParentPath: async (accountId: string) => {
+      const orgId = getActiveOrgId();
+      const path: DBAccount[] = [];
+      const visited = new Set<string>();
+      let currentAcc = store.accounts.find(
+        (a) => a.id === accountId && a.orgId === orgId,
+      );
+
+      while (currentAcc?.parentAccountId) {
+        if (visited.has(currentAcc.parentAccountId)) {
+          break; // Cycle protection
+        }
+        visited.add(currentAcc.parentAccountId);
+
+        const parent = store.accounts.find(
+          (a) => a.id === currentAcc?.parentAccountId && a.orgId === orgId,
+        );
+        if (!parent) break;
+        path.push(parent);
+        currentAcc = parent;
+      }
+      return path;
     },
   },
   contacts: {

@@ -14,11 +14,13 @@ import {
   calculateProRatedAmount,
   calculateStageVelocity,
   convertLead,
+  detectCircularAccountRelation,
   evaluateLeadAssignment,
   evaluateTerritoryRouting,
   generateRenewalOpportunity,
   isContractInRenewalWindow,
   mergeLeads,
+  rollupHierarchyPipeline,
   rollupOpportunityAmount,
   setPrimaryOpportunityContactRole,
   validateEmailLogInput,
@@ -629,6 +631,46 @@ app.get("/api/accounts", tenantAuth, async (c) => {
   return c.json({ success: true, data: accounts });
 });
 
+app.post("/api/accounts", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, domain, custom, parentAccountId } = body;
+
+  if (!name) {
+    return c.json({ error: "Missing required parameter: name" }, 400);
+  }
+
+  if (parentAccountId) {
+    const parent = await dbStore.accounts.findOne(parentAccountId);
+    if (!parent) {
+      return c.json({ error: "Parent account not found" }, 400);
+    }
+  }
+
+  const account = await dbStore.accounts.insert({
+    orgId: tenant.orgId,
+    ownerId: tenant.userId,
+    name,
+    domain: domain || null,
+    custom: custom || null,
+    parentAccountId: parentAccountId || null,
+  });
+
+  // Log audit trail
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: account.id,
+    recordType: "accounts",
+    action: "create",
+    userId: tenant.userId,
+    changes: {
+      account: { before: null, after: account },
+    },
+  });
+
+  return c.json({ success: true, data: account }, 201);
+});
+
 app.get("/api/accounts/:id", tenantAuth, async (c) => {
   const id = c.req.param("id");
   const account = await dbStore.accounts.findOne(id);
@@ -636,6 +678,128 @@ app.get("/api/accounts/:id", tenantAuth, async (c) => {
     return c.json({ error: "Account not found" }, 404);
   }
   return c.json({ success: true, data: account });
+});
+
+app.patch("/api/accounts/:id", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+
+  const existing = await dbStore.accounts.findOne(id);
+  if (!existing) {
+    return c.json({ error: "Account not found" }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const updates: Partial<Omit<typeof existing, "id" | "orgId" | "ownerId">> =
+    {};
+
+  if (body.name !== undefined) updates.name = body.name;
+  if (body.domain !== undefined) updates.domain = body.domain;
+  if (body.custom !== undefined) updates.custom = body.custom;
+
+  if (body.parentAccountId !== undefined) {
+    const parentId = body.parentAccountId;
+    if (parentId !== null) {
+      // 1. Verify parent account exists and belongs to the same tenant context
+      const parent = await dbStore.accounts.findOne(parentId);
+      if (!parent) {
+        return c.json({ error: "Parent account not found" }, 400);
+      }
+
+      // 2. Prevent circular reference
+      const allAccounts = await dbStore.accounts.findMany();
+      const hasCycle = detectCircularAccountRelation(allAccounts, id, parentId);
+      if (hasCycle) {
+        return c.json(
+          {
+            error: "Setting this parent account creates a circular reference.",
+          },
+          400,
+        );
+      }
+    }
+    updates.parentAccountId = parentId;
+  }
+
+  const updated = await dbStore.accounts.update(id, updates);
+
+  // Log audit logs if parent changed
+  if (
+    body.parentAccountId !== undefined &&
+    existing.parentAccountId !== updates.parentAccountId
+  ) {
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: id,
+      recordType: "accounts",
+      action: "update_hierarchy",
+      userId: tenant.userId,
+      changes: {
+        parentAccountId: {
+          before: existing.parentAccountId,
+          after: updates.parentAccountId || null,
+        },
+      },
+    });
+
+    // Trigger Outbound Webhook
+    triggerOutboundWebhooks(tenant.orgId, "account.hierarchy_updated", {
+      accountId: id,
+      oldParentId: existing.parentAccountId,
+      newParentId: updates.parentAccountId || null,
+    });
+  } else {
+    // Standard update log
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: id,
+      recordType: "accounts",
+      action: "update",
+      userId: tenant.userId,
+      changes: {
+        account: { before: existing, after: updated },
+      },
+    });
+  }
+
+  return c.json({ success: true, data: updated });
+});
+
+app.get("/api/accounts/:id/hierarchy", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const account = await dbStore.accounts.findOne(id);
+  if (!account) {
+    return c.json({ error: "Account not found" }, 404);
+  }
+
+  const parentPath = await dbStore.accounts.findParentPath(id);
+  const children = await dbStore.accounts.findChildren(id);
+
+  return c.json({
+    success: true,
+    data: {
+      parentPath,
+      children,
+    },
+  });
+});
+
+app.get("/api/accounts/:id/consolidated-pipeline", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const account = await dbStore.accounts.findOne(id);
+  if (!account) {
+    return c.json({ error: "Account not found" }, 404);
+  }
+
+  const allAccounts = await dbStore.accounts.findMany();
+  const allOpps = await dbStore.opportunities.findMany();
+
+  const rollup = rollupHierarchyPipeline(allAccounts, allOpps, id);
+
+  return c.json({
+    success: true,
+    data: rollup,
+  });
 });
 
 app.get("/api/contacts", tenantAuth, async (c) => {

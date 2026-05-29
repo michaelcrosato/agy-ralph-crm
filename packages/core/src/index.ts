@@ -932,3 +932,102 @@ export function generateRenewalOpportunity(
     closeDate: contract.endDate,
   };
 }
+
+export interface SimpleAccountRelation {
+  id: string;
+  parentAccountId?: string | null;
+}
+
+export interface SimpleOpportunityRelation {
+  accountId: string | null;
+  stage: string;
+  amount: string | null;
+}
+
+/**
+ * Validates whether setting proposedParentId as the parent of targetId
+ * would introduce a circular hierarchy cycle.
+ */
+export function detectCircularAccountRelation(
+  accountsList: SimpleAccountRelation[],
+  targetId: string,
+  proposedParentId: string,
+): boolean {
+  if (targetId === proposedParentId) return true;
+
+  // Build a lookup map of id -> parentAccountId
+  const parentMap = new Map<string, string | null>();
+  for (const acct of accountsList) {
+    parentMap.set(acct.id, acct.parentAccountId || null);
+  }
+
+  // Set the proposed relation in our local lookup map
+  parentMap.set(targetId, proposedParentId);
+
+  // Traverse upwards from proposedParentId to see if we ever hit targetId
+  let currentId: string | null = proposedParentId;
+  const visited = new Set<string>();
+
+  while (currentId) {
+    if (visited.has(currentId)) {
+      // Internal cycle detected (infinite loop protection)
+      return true;
+    }
+    visited.add(currentId);
+
+    if (currentId === targetId) {
+      return true;
+    }
+
+    currentId = parentMap.get(currentId) || null;
+  }
+
+  return false;
+}
+
+/**
+ * Aggregates opportunity pipeline values recursively for a parent account and all its children.
+ */
+export function rollupHierarchyPipeline(
+  accounts: SimpleAccountRelation[],
+  opportunities: SimpleOpportunityRelation[],
+  rootAccountId: string,
+): { activePipeline: string; closedWonPipeline: string } {
+  // Find all children descendants of the root account
+  const descendantIds = new Set<string>([rootAccountId]);
+
+  // Keep scanning until no new descendants are added
+  let added = true;
+  while (added) {
+    added = false;
+    for (const acct of accounts) {
+      if (
+        acct.parentAccountId &&
+        descendantIds.has(acct.parentAccountId) &&
+        !descendantIds.has(acct.id)
+      ) {
+        descendantIds.add(acct.id);
+        added = true;
+      }
+    }
+  }
+
+  let activeSum = 0;
+  let closedWonSum = 0;
+
+  for (const opp of opportunities) {
+    if (opp.accountId && descendantIds.has(opp.accountId)) {
+      const amount = Number.parseFloat(opp.amount || "0") || 0;
+      if (opp.stage === "Closed Won") {
+        closedWonSum += amount;
+      } else if (opp.stage !== "Closed Lost") {
+        activeSum += amount;
+      }
+    }
+  }
+
+  return {
+    activePipeline: activeSum.toFixed(2),
+    closedWonPipeline: closedWonSum.toFixed(2),
+  };
+}

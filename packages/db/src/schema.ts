@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   integer,
   jsonb,
   pgTable,
@@ -55,6 +56,10 @@ export const accounts = pgTable("accounts", {
   name: text("name").notNull(),
   domain: text("domain"),
   custom: jsonb("custom"),
+  parentAccountId: uuid("parent_account_id").references(
+    (): AnyPgColumn => accounts.id,
+    { onDelete: "set null" },
+  ),
 });
 
 export const contacts = pgTable("contacts", {
