@@ -4976,6 +4976,9 @@ export async function executePendingSequenceSteps(
     }
 
     if (sequence) {
+      if (sequence.status === "paused") {
+        continue;
+      }
       const validTime = getNextValidSendingTime(
         currentTime,
         sequence.sendingDays || null,
@@ -8635,4 +8638,54 @@ export async function purgeMarketingSequence(
   await dbStore.marketingSequences.delete(sequenceId);
 
   return true;
+}
+
+export async function pauseMarketingSequence(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  dbStore: any,
+  sequenceId: string,
+  orgId: string,
+  // biome-ignore lint/suspicious/noExplicitAny: returned updated object
+): Promise<any> {
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    throw new Error("Sequence not found");
+  }
+  if (sequence.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+  if (sequence.status !== "active") {
+    throw new Error("Only active sequences can be paused");
+  }
+
+  const updatedSequence = await dbStore.marketingSequences.update(sequenceId, {
+    status: "paused",
+  });
+
+  return updatedSequence;
+}
+
+export async function resumeMarketingSequence(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  dbStore: any,
+  sequenceId: string,
+  orgId: string,
+  // biome-ignore lint/suspicious/noExplicitAny: returned updated object
+): Promise<any> {
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    throw new Error("Sequence not found");
+  }
+  if (sequence.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+  if (sequence.status !== "paused") {
+    throw new Error("Only paused sequences can be resumed");
+  }
+
+  const updatedSequence = await dbStore.marketingSequences.update(sequenceId, {
+    status: "active",
+  });
+
+  return updatedSequence;
 }

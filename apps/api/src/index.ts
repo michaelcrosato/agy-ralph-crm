@@ -67,6 +67,7 @@ import {
   mergeLeads,
   parseCSV,
   parseUtmParams,
+  pauseMarketingSequence,
   processCSVImport,
   processESignatureTransition,
   processSequenceEmailOpen,
@@ -75,6 +76,7 @@ import {
   processSequenceMembershipScoreTriggers,
   purgeMarketingSequence,
   resolveSegmentMembers,
+  resumeMarketingSequence,
   rollbackStoreMigrations,
   rollupHierarchyPipeline,
   rollupOpportunityAmount,
@@ -12691,6 +12693,50 @@ app.post("/api/sequences/:id/clone", tenantAuth, async (c) => {
       tenant.orgId,
     );
     return c.json({ success: true, sequence: cloned });
+  } catch (err) {
+    const error = err as Error;
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/api/sequences/:id/pause", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  try {
+    const paused = await pauseMarketingSequence(
+      dbStore,
+      sequenceId,
+      tenant.orgId,
+    );
+    return c.json({ success: true, sequence: paused });
+  } catch (err) {
+    const error = err as Error;
+    return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.post("/api/sequences/:id/resume", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const tenant = c.get("tenant");
+
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    return c.json({ success: false, error: "Sequence not found" }, 404);
+  }
+
+  try {
+    const resumed = await resumeMarketingSequence(
+      dbStore,
+      sequenceId,
+      tenant.orgId,
+    );
+    return c.json({ success: true, sequence: resumed });
   } catch (err) {
     const error = err as Error;
     return c.json({ success: false, error: error.message }, 400);
