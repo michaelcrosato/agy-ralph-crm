@@ -9828,7 +9828,8 @@ app.get("/api/public/emails/unsubscribe/:token", async (c) => {
 app.post("/api/sequences", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
-  const { name, description, status } = body;
+  const { name, description, status, allowReenrollment, reenrollmentMinDays } =
+    body;
 
   if (!name) {
     return c.json({ success: false, error: "Sequence name is required" }, 400);
@@ -9839,6 +9840,10 @@ app.post("/api/sequences", tenantAuth, async (c) => {
     name,
     description: description || "",
     status: status || "draft",
+    allowReenrollment: allowReenrollment === true,
+    reenrollmentMinDays: reenrollmentMinDays
+      ? Number(reenrollmentMinDays)
+      : null,
   });
 
   return c.json({ success: true, sequence: seq });
@@ -9915,14 +9920,19 @@ app.post("/api/sequences/:id/enroll", tenantAuth, async (c) => {
     }
   }
 
-  const membership = await enrollInSequence(
-    dbStore,
-    tenant.orgId,
-    sequenceId,
-    recordType,
-    recordId,
-  );
-  return c.json({ success: true, membership });
+  try {
+    const membership = await enrollInSequence(
+      dbStore,
+      tenant.orgId,
+      sequenceId,
+      recordType,
+      recordId,
+    );
+    return c.json({ success: true, membership });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    return c.json({ success: false, error: message }, 400);
+  }
 });
 
 app.post("/api/sequences/execute", tenantAuth, async (c) => {

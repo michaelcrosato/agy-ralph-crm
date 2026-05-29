@@ -1197,6 +1197,8 @@ export const marketingSequences = pgTable("marketing_sequences", {
   sendingWindowStart: text("sending_window_start"),
   sendingWindowEnd: text("sending_window_end"),
   sendingDays: jsonb("sending_days"),
+  allowReenrollment: boolean("allow_reenrollment").notNull().default(false),
+  reenrollmentMinDays: integer("reenrollment_min_days"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

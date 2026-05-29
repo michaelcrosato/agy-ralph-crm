@@ -575,6 +575,8 @@ export interface DBMarketingSequence {
   sendingWindowStart?: string | null;
   sendingWindowEnd?: string | null;
   sendingDays?: number[] | null;
+  allowReenrollment?: boolean | null;
+  reenrollmentMinDays?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

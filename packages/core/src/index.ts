@@ -3897,6 +3897,8 @@ interface CoreSequence {
   sendingWindowStart?: string | null;
   sendingWindowEnd?: string | null;
   sendingDays?: number[] | null;
+  allowReenrollment?: boolean | null;
+  reenrollmentMinDays?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -4293,6 +4295,7 @@ export async function enrollInSequence(
       insert: (
         item: Omit<CoreSequenceMembership, "id" | "createdAt" | "updatedAt">,
       ) => Promise<CoreSequenceMembership>;
+      findMany?: () => Promise<CoreSequenceMembership[]>;
     };
     leads?: {
       findOne: (id: string) => Promise<unknown | null>;
@@ -4312,25 +4315,90 @@ export async function enrollInSequence(
         recordId: string,
       ) => Promise<{ segmentId: string }[]>;
     };
+    marketingSequences?: {
+      findOne: (id: string) => Promise<CoreSequence | null>;
+    };
   },
   orgId: string,
   sequenceId: string,
   recordType: "lead" | "contact",
   recordId: string,
 ): Promise<CoreSequenceMembership> {
+  // Check for existing memberships to enforce active protection, re-enrollment, and frequency limits
+  if (dbStore.marketingSequenceMemberships.findMany) {
+    const existing = await dbStore.marketingSequenceMemberships.findMany();
+    const recipientMemberships = existing.filter(
+      (m) =>
+        m.sequenceId === sequenceId &&
+        m.recordType === recordType &&
+        m.recordId === recordId,
+    );
+
+    // 1. Prevent overlapping active/snoozed enrollments
+    const active = recipientMemberships.find(
+      (m) => m.status === "active" || m.status === "snoozed",
+    );
+    if (active) {
+      throw new Error(
+        "Recipient is already actively enrolled in this sequence",
+      );
+    }
+
+    // 2. Enforce re-enrollment rules
+    if (dbStore.marketingSequences) {
+      const seq = await dbStore.marketingSequences.findOne(sequenceId);
+      if (!seq) {
+        throw new Error("Sequence not found");
+      }
+      if (seq.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+
+      const allowReenroll = seq.allowReenrollment ?? false;
+      if (!allowReenroll && recipientMemberships.length > 0) {
+        throw new Error("Re-enrollment is not allowed for this sequence");
+      }
+
+      if (
+        allowReenroll &&
+        seq.reenrollmentMinDays &&
+        seq.reenrollmentMinDays > 0
+      ) {
+        const minDays = seq.reenrollmentMinDays;
+        const now = Date.now();
+        for (const prior of recipientMemberships) {
+          const lastActiveTime = prior.updatedAt
+            ? new Date(prior.updatedAt).getTime()
+            : new Date(prior.createdAt).getTime();
+          const elapsedDays = (now - lastActiveTime) / (24 * 60 * 60 * 1000);
+          if (elapsedDays < minDays) {
+            throw new Error(
+              `Frequency cap breached: recipient was recently enrolled and must wait at least ${minDays} days before re-enrolling`,
+            );
+          }
+        }
+      }
+    }
+  }
   let email: string | undefined;
   if (dbStore.leads && recordType === "lead") {
     const lead = (await dbStore.leads.findOne(recordId)) as Record<
       string,
       unknown
     > | null;
-    if (lead) email = lead.email as string | undefined;
+    if (!lead) {
+      throw new Error("Lead not found");
+    }
+    email = lead.email as string | undefined;
   } else if (dbStore.contacts && recordType === "contact") {
     const contact = (await dbStore.contacts.findOne(recordId)) as Record<
       string,
       unknown
     > | null;
-    if (contact) email = contact.email as string | undefined;
+    if (!contact) {
+      throw new Error("Contact not found");
+    }
+    email = contact.email as string | undefined;
   }
 
   let isSuppressed = false;
