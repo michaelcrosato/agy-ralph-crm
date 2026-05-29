@@ -274,6 +274,9 @@ importers:
       '@crm/module-service-lite':
         specifier: workspace:*
         version: link:../../modules/service-lite
+      '@crm/search':
+        specifier: workspace:*
+        version: link:../search
       '@crm/workflow':
         specifier: workspace:*
         version: link:../workflow

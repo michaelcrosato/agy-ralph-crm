@@ -18,7 +18,7 @@ export interface TicketRecord {
 // createTicket is a first-party module extension function to initialize support tickets
 export function createTicket(ticket: TicketInsert): TicketRecord {
   return {
-    id: `ticket-${Math.random().toString(36).substr(2, 9)}`,
+    id: `ticket-${Math.random().toString(36).substring(2, 11)}`,
     orgId: ticket.orgId,
     contactId: ticket.contactId,
     subject: ticket.subject,
