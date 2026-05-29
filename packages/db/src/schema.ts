@@ -77,6 +77,10 @@ export const contacts = pgTable("contacts", {
   lastName: text("last_name"),
   email: text("email"),
   custom: jsonb("custom"),
+  reportsToId: uuid("reports_to_id").references(
+    (): AnyPgColumn => contacts.id,
+    { onDelete: "set null" },
+  ),
 });
 
 export const leads = pgTable("leads", {

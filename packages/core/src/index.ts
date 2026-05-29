@@ -1102,3 +1102,41 @@ export function validateAccountTeamMember(
   }
   return { success: true };
 }
+
+export interface SimpleContactRelation {
+  id: string;
+  reportsToId?: string | null;
+}
+
+export function detectCircularContactRelation(
+  contactsList: SimpleContactRelation[],
+  targetId: string,
+  proposedReportsToId: string,
+): boolean {
+  if (targetId === proposedReportsToId) return true;
+
+  const reportsToMap = new Map<string, string | null>();
+  for (const c of contactsList) {
+    reportsToMap.set(c.id, c.reportsToId || null);
+  }
+
+  reportsToMap.set(targetId, proposedReportsToId);
+
+  let currentId: string | null = proposedReportsToId;
+  const visited = new Set<string>();
+
+  while (currentId) {
+    if (visited.has(currentId)) {
+      return true;
+    }
+    visited.add(currentId);
+
+    if (currentId === targetId) {
+      return true;
+    }
+
+    currentId = reportsToMap.get(currentId) || null;
+  }
+
+  return false;
+}

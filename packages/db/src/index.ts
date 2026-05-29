@@ -79,6 +79,7 @@ export interface DBContact {
   lastName: string | null;
   email: string | null;
   custom: Record<string, unknown> | null;
+  reportsToId?: string | null;
 }
 
 export interface DBOpportunity {
@@ -688,10 +689,54 @@ export const dbStore = {
       }
       const newContact: DBContact = {
         ...c,
+        reportsToId: c.reportsToId || null,
         id: `contact-${Math.random().toString(36).substring(2, 11)}`,
       };
       store.contacts.push(newContact);
       return newContact;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBContact, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.contacts.findIndex((c) => c.id === id);
+      if (index === -1) return null;
+      if (store.contacts[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.contacts[index] = { ...store.contacts[index], ...updates };
+      return store.contacts[index];
+    },
+    findDirectReports: async (reportsToId: string) => {
+      const orgId = getActiveOrgId();
+      return store.contacts.filter(
+        (c) => c.orgId === orgId && c.reportsToId === reportsToId,
+      );
+    },
+    findParentPath: async (contactId: string) => {
+      const orgId = getActiveOrgId();
+      const path: DBContact[] = [];
+      const visited = new Set<string>();
+
+      const target = store.contacts.find(
+        (c) => c.id === contactId && c.orgId === orgId,
+      );
+      if (!target) return [];
+
+      let currentParentId = target.reportsToId;
+      while (currentParentId) {
+        if (visited.has(currentParentId)) break;
+        visited.add(currentParentId);
+
+        const parent = store.contacts.find(
+          (c) => c.id === currentParentId && c.orgId === orgId,
+        );
+        if (!parent) break;
+        path.push(parent);
+        currentParentId = parent.reportsToId;
+      }
+      return path;
     },
   },
   opportunities: {

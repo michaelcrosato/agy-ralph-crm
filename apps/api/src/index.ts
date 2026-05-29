@@ -16,6 +16,7 @@ import {
   calculateStageVelocity,
   convertLead,
   detectCircularAccountRelation,
+  detectCircularContactRelation,
   evaluateLeadAssignment,
   evaluateTerritoryRouting,
   generateRenewalOpportunity,
@@ -1075,6 +1076,161 @@ app.get("/api/contacts/:id", tenantAuth, async (c) => {
     return c.json({ error: "Contact not found" }, 404);
   }
   return c.json({ success: true, data: contact });
+});
+
+app.post("/api/contacts", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { accountId, firstName, lastName, email, custom, reportsToId } = body;
+
+  if (!lastName) {
+    return c.json({ error: "Missing required parameter: lastName" }, 400);
+  }
+
+  if (reportsToId) {
+    const manager = await dbStore.contacts.findOne(reportsToId);
+    if (!manager) {
+      return c.json({ error: "Manager contact not found" }, 400);
+    }
+  }
+
+  const contact = await dbStore.contacts.insert({
+    orgId: tenant.orgId,
+    ownerId: tenant.userId,
+    accountId: accountId || null,
+    firstName: firstName || null,
+    lastName,
+    email: email || null,
+    custom: custom || null,
+    reportsToId: reportsToId || null,
+  });
+
+  // Log audit trail
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: contact.id,
+    recordType: "contacts",
+    action: "create",
+    userId: tenant.userId,
+    changes: {
+      contact: { before: null, after: contact },
+    },
+  });
+
+  return c.json({ success: true, data: contact }, 201);
+});
+
+app.patch("/api/contacts/:id", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+
+  const existing = await dbStore.contacts.findOne(id);
+  if (!existing) {
+    return c.json({ error: "Contact not found" }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const updates: Partial<Omit<typeof existing, "id" | "orgId" | "ownerId">> =
+    {};
+
+  if (body.accountId !== undefined) updates.accountId = body.accountId;
+  if (body.firstName !== undefined) updates.firstName = body.firstName;
+  if (body.lastName !== undefined) updates.lastName = body.lastName;
+  if (body.email !== undefined) updates.email = body.email;
+  if (body.custom !== undefined) updates.custom = body.custom;
+
+  if (body.reportsToId !== undefined) {
+    const reportsToId = body.reportsToId;
+    if (reportsToId !== null) {
+      // 1. Verify manager exists and belongs to the same tenant
+      const manager = await dbStore.contacts.findOne(reportsToId);
+      if (!manager) {
+        return c.json({ error: "Manager contact not found" }, 400);
+      }
+
+      // 2. Prevent circular reference
+      const allContacts = await dbStore.contacts.findMany();
+      const hasCycle = detectCircularContactRelation(
+        allContacts,
+        id,
+        reportsToId,
+      );
+      if (hasCycle) {
+        return c.json(
+          {
+            error:
+              "Setting this manager creates a circular reporting relationship.",
+          },
+          400,
+        );
+      }
+    }
+    updates.reportsToId = reportsToId;
+  }
+
+  const updated = await dbStore.contacts.update(id, updates);
+
+  // Log audit logs if manager changed
+  if (
+    body.reportsToId !== undefined &&
+    existing.reportsToId !== updates.reportsToId
+  ) {
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: id,
+      recordType: "contacts",
+      action: "update_hierarchy",
+      userId: tenant.userId,
+      changes: {
+        reportsToId: {
+          before: existing.reportsToId,
+          after: updates.reportsToId || null,
+        },
+      },
+    });
+
+    // Trigger Outbound Webhook
+    triggerOutboundWebhooks(tenant.orgId, "contact.hierarchy_updated", {
+      contactId: id,
+      oldReportsToId: existing.reportsToId,
+      newReportsToId: updates.reportsToId || null,
+    });
+  } else {
+    // Standard update logging
+    await dbStore.auditLogs.insert({
+      orgId: tenant.orgId,
+      recordId: id,
+      recordType: "contacts",
+      action: "update",
+      userId: tenant.userId,
+      changes: {
+        contact: { before: existing, after: updated },
+      },
+    });
+  }
+
+  return c.json({ success: true, data: updated });
+});
+
+app.get("/api/contacts/:id/hierarchy", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+
+  const contact = await dbStore.contacts.findOne(id);
+  if (!contact) {
+    return c.json({ error: "Contact not found" }, 404);
+  }
+
+  const parentPath = await dbStore.contacts.findParentPath(id);
+  const directReports = await dbStore.contacts.findDirectReports(id);
+
+  return c.json({
+    success: true,
+    data: {
+      contact,
+      parentPath,
+      directReports,
+    },
+  });
 });
 
 // Opportunities Pipeline & Stage Management REST API Endpoints
