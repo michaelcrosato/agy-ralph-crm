@@ -2472,3 +2472,17 @@ export function incrementArticleViewCount(currentCount: number): number {
   if (currentCount < 0) return 0;
   return currentCount + 1;
 }
+
+export interface TicketCommentInput {
+  body: string;
+}
+
+export function validateTicketCommentInput(input: TicketCommentInput): {
+  success: boolean;
+  error?: string;
+} {
+  if (!input.body || input.body.trim() === "") {
+    return { success: false, error: "Comment body cannot be empty." };
+  }
+  return { success: true };
+}

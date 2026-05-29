@@ -731,6 +731,15 @@ export interface DBKbArticle {
   createdAt: Date;
 }
 
+export interface DBTicketComment {
+  id: string;
+  orgId: string;
+  ticketId: string;
+  authorId: string;
+  body: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -795,6 +804,7 @@ export const store = {
   ticketMilestones: [] as DBTicketMilestone[],
   kbCategories: [] as DBKbCategory[],
   kbArticles: [] as DBKbArticle[],
+  ticketComments: [] as DBTicketComment[],
 };
 
 export const dbStore = {
@@ -3453,6 +3463,37 @@ export const dbStore = {
       return store.kbArticles[index];
     },
   },
+  ticketComments: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.ticketComments.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const comment = store.ticketComments.find((c) => c.id === id);
+      if (comment && comment.orgId !== orgId) {
+        return null;
+      }
+      return comment || null;
+    },
+    insert: async (
+      comment: Omit<DBTicketComment, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (comment.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newComment: DBTicketComment = {
+        ...comment,
+        id: `tcom-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: comment.createdAt || new Date(),
+      };
+      store.ticketComments.push(newComment);
+      return newComment;
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3518,5 +3559,6 @@ export const dbStore = {
     store.ticketMilestones = [];
     store.kbCategories = [];
     store.kbArticles = [];
+    store.ticketComments = [];
   },
 };
