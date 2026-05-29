@@ -640,3 +640,19 @@ export const leadScoringRules = pgTable("lead_scoring_rules", {
   isActive: integer("is_active").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const opportunityCompetitors = pgTable("opportunity_competitors", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  opportunityId: uuid("opportunity_id")
+    .notNull()
+    .references(() => opportunities.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  strength: text("strength"),
+  weakness: text("weakness"),
+  winLossStatus: text("win_loss_status").notNull().default("Pending"), // "Pending" | "Won" | "Lost"
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

@@ -514,6 +514,18 @@ export interface DBLeadScoringRule {
   createdAt: Date;
 }
 
+export interface DBOpportunityCompetitor {
+  id: string;
+  orgId: string;
+  opportunityId: string;
+  name: string;
+  strength: string | null;
+  weakness: string | null;
+  winLossStatus: string;
+  notes: string | null;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -559,6 +571,7 @@ export const store = {
   leadSlaTrackers: [] as DBLeadSlaTracker[],
   accountTeams: [] as DBAccountTeamMember[],
   leadScoringRules: [] as DBLeadScoringRule[],
+  opportunityCompetitors: [] as DBOpportunityCompetitor[],
 };
 
 export const dbStore = {
@@ -2283,6 +2296,65 @@ export const dbStore = {
       return true;
     },
   },
+  opportunityCompetitors: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.opportunityCompetitors.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const comp = store.opportunityCompetitors.find((c) => c.id === id);
+      if (comp && comp.orgId !== orgId) {
+        return null;
+      }
+      return comp || null;
+    },
+    insert: async (comp: Omit<DBOpportunityCompetitor, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (comp.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newComp: DBOpportunityCompetitor = {
+        ...comp,
+        id: Math.random().toString(36).substring(2, 9),
+        createdAt: new Date(),
+      };
+      store.opportunityCompetitors.push(newComp);
+      return newComp;
+    },
+    update: async (
+      id: string,
+      updates: Partial<
+        Omit<DBOpportunityCompetitor, "id" | "orgId" | "createdAt">
+      >,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityCompetitors.findIndex((c) => c.id === id);
+      if (index === -1) {
+        return null;
+      }
+      if (store.opportunityCompetitors[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityCompetitors[index] = {
+        ...store.opportunityCompetitors[index],
+        ...updates,
+      };
+      return store.opportunityCompetitors[index];
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.opportunityCompetitors.findIndex((c) => c.id === id);
+      if (index === -1) {
+        return false;
+      }
+      if (store.opportunityCompetitors[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.opportunityCompetitors.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -2328,5 +2400,6 @@ export const dbStore = {
     store.leadSlaTrackers = [];
     store.accountTeams = [];
     store.leadScoringRules = [];
+    store.opportunityCompetitors = [];
   },
 };

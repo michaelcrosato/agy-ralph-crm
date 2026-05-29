@@ -1465,3 +1465,44 @@ export function mergeContacts(input: MergeContactsInput): ContactRecord {
     reportsToId,
   };
 }
+
+export interface CompetitorInput {
+  name: string;
+  winLossStatus: string;
+}
+
+export interface CompetitorStats {
+  competitorCount: number;
+  wonCount: number;
+  lostCount: number;
+  pendingCount: number;
+  competitorList: string[];
+}
+
+export function calculateOpportunityCompetitorStats(
+  competitors: CompetitorInput[],
+): CompetitorStats {
+  let wonCount = 0;
+  let lostCount = 0;
+  let pendingCount = 0;
+  const competitorList: string[] = [];
+
+  for (const c of competitors) {
+    competitorList.push(c.name);
+    if (c.winLossStatus === "Won") {
+      wonCount++;
+    } else if (c.winLossStatus === "Lost") {
+      lostCount++;
+    } else {
+      pendingCount++;
+    }
+  }
+
+  return {
+    competitorCount: competitors.length,
+    wonCount,
+    lostCount,
+    pendingCount,
+    competitorList,
+  };
+}
