@@ -8909,3 +8909,199 @@ export async function deleteMarketingSequenceStep(
   );
   return updatedSteps;
 }
+
+export interface ActivityLogEntry {
+  id: string;
+  type:
+    | "sent"
+    | "open"
+    | "click"
+    | "reply"
+    | "bounce"
+    | "complaint"
+    | "read_time";
+  timestamp: Date;
+  // biome-ignore lint/suspicious/noExplicitAny: details contains custom untyped metadata fields
+  details: Record<string, any>;
+}
+
+interface EventRecord {
+  orgId: string;
+  trackerId: string;
+  id: string;
+  createdAt: string | Date;
+  eventType?: string;
+  bounceType?: string;
+  bounceReason?: string;
+  durationMs?: number;
+  readClassification?: string;
+  replyBody?: string;
+  senderEmail?: string;
+  sentiment?: string;
+  clickedUrl?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  deviceType?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+}
+
+export async function getMarketingSequenceMemberLogs(
+  // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
+  dbStore: any,
+  sequenceId: string,
+  memberId: string,
+  orgId: string,
+): Promise<ActivityLogEntry[]> {
+  const sequence = await dbStore.marketingSequences.findOne(sequenceId);
+  if (!sequence) {
+    throw new Error("Sequence not found");
+  }
+  if (sequence.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+
+  const member = await dbStore.marketingSequenceMemberships.findOne(memberId);
+  if (!member) {
+    throw new Error("Membership not found");
+  }
+  if (member.orgId !== orgId) {
+    throw new Error("RLS Isolation Violation: Tenant mismatch.");
+  }
+  if (member.sequenceId !== sequenceId) {
+    throw new Error("Membership does not belong to this sequence");
+  }
+
+  const trackers = await dbStore.emailTrackers.findMany();
+  const memberTrackers = trackers.filter(
+    (t: { orgId: string; activityId: string; id: string }) =>
+      t.orgId === orgId && t.activityId === memberId,
+  );
+
+  if (memberTrackers.length === 0) {
+    return [];
+  }
+
+  const trackerIds = memberTrackers.map((t: { id: string }) => t.id);
+
+  const [opens, clicks, replies, bounces, readTimes] = await Promise.all([
+    dbStore.emailOpenEvents
+      .findMany()
+      .then((list: EventRecord[]) =>
+        list.filter(
+          (e) => e.orgId === orgId && trackerIds.includes(e.trackerId),
+        ),
+      ),
+    dbStore.emailClickEvents
+      .findMany()
+      .then((list: EventRecord[]) =>
+        list.filter(
+          (e) => e.orgId === orgId && trackerIds.includes(e.trackerId),
+        ),
+      ),
+    dbStore.emailReplyEvents
+      .findMany()
+      .then((list: EventRecord[]) =>
+        list.filter(
+          (e) => e.orgId === orgId && trackerIds.includes(e.trackerId),
+        ),
+      ),
+    dbStore.emailBounceEvents
+      .findMany()
+      .then((list: EventRecord[]) =>
+        list.filter(
+          (e) => e.orgId === orgId && trackerIds.includes(e.trackerId),
+        ),
+      ),
+    dbStore.emailReadTimeEvents
+      .findMany()
+      .then((list: EventRecord[]) =>
+        list.filter(
+          (e) => e.orgId === orgId && trackerIds.includes(e.trackerId),
+        ),
+      ),
+  ]);
+
+  const timeline: ActivityLogEntry[] = [];
+
+  for (const tracker of memberTrackers) {
+    timeline.push({
+      id: tracker.id,
+      type: "sent",
+      timestamp: new Date(tracker.createdAt),
+      details: {
+        token: tracker.token,
+        subject: tracker.subject || "",
+      },
+    });
+  }
+
+  for (const open of opens) {
+    timeline.push({
+      id: open.id,
+      type: "open",
+      timestamp: new Date(open.createdAt),
+      details: {
+        ipAddress: open.ipAddress,
+        userAgent: open.userAgent,
+        deviceType: open.deviceType,
+      },
+    });
+  }
+
+  for (const click of clicks) {
+    timeline.push({
+      id: click.id,
+      type: "click",
+      timestamp: new Date(click.createdAt),
+      details: {
+        clickedUrl: click.clickedUrl,
+        ipAddress: click.ipAddress,
+        userAgent: click.userAgent,
+        utmSource: click.utmSource,
+        utmMedium: click.utmMedium,
+        utmCampaign: click.utmCampaign,
+      },
+    });
+  }
+
+  for (const reply of replies) {
+    timeline.push({
+      id: reply.id,
+      type: "reply",
+      timestamp: new Date(reply.createdAt),
+      details: {
+        replyBody: reply.replyBody,
+        senderEmail: reply.senderEmail,
+        sentiment: reply.sentiment,
+      },
+    });
+  }
+
+  for (const bounce of bounces) {
+    timeline.push({
+      id: bounce.id,
+      type: bounce.eventType === "complaint" ? "complaint" : "bounce",
+      timestamp: new Date(bounce.createdAt),
+      details: {
+        bounceType: bounce.bounceType,
+        bounceReason: bounce.bounceReason,
+      },
+    });
+  }
+
+  for (const rt of readTimes) {
+    timeline.push({
+      id: rt.id,
+      type: "read_time",
+      timestamp: new Date(rt.createdAt),
+      details: {
+        durationMs: rt.durationMs,
+        readClassification: rt.readClassification,
+      },
+    });
+  }
+
+  return timeline.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+}

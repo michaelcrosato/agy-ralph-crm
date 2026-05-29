@@ -60,6 +60,7 @@ import {
   executePendingSequenceSteps,
   generateRenewalOpportunity,
   generateStraightLineSchedules,
+  getMarketingSequenceMemberLogs,
   handleEmailDeliveryEvent,
   incrementArticleViewCount,
   isContractInRenewalWindow,
@@ -12844,6 +12845,35 @@ app.delete("/api/sequences/:id/purge", tenantAuth, async (c) => {
   } catch (err) {
     const error = err as Error;
     return c.json({ success: false, error: error.message }, 400);
+  }
+});
+
+app.get("/api/sequences/:id/members/:memberId/logs", tenantAuth, async (c) => {
+  const sequenceId = c.req.param("id");
+  const memberId = c.req.param("memberId");
+  const tenant = c.get("tenant");
+
+  try {
+    const logs = await getMarketingSequenceMemberLogs(
+      dbStore,
+      sequenceId,
+      memberId,
+      tenant.orgId,
+    );
+    return c.json({ success: true, data: logs });
+  } catch (err) {
+    const error = err as Error;
+    const errorMsg = error.message || "";
+    if (errorMsg.includes("RLS Isolation Violation")) {
+      return c.json({ success: false, error: errorMsg }, 403);
+    }
+    if (errorMsg.includes("not found")) {
+      return c.json({ success: false, error: errorMsg }, 404);
+    }
+    if (errorMsg.includes("does not belong")) {
+      return c.json({ success: false, error: errorMsg }, 400);
+    }
+    return c.json({ success: false, error: errorMsg }, 500);
   }
 });
 
