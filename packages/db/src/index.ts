@@ -340,6 +340,17 @@ export interface DBOpportunityApprovalStep {
   decidedAt: Date | null;
 }
 
+export interface DBCommission {
+  id: string;
+  orgId: string;
+  userId: string;
+  opportunityId: string;
+  amount: string;
+  rateApplied: string;
+  status: "Pending" | "Approved" | "Paid";
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -369,6 +380,7 @@ export const store = {
   webhookDlq: [] as DBWebhookDlq[],
   opportunityApprovals: [] as DBOpportunityApproval[],
   opportunityApprovalSteps: [] as DBOpportunityApprovalStep[],
+  commissions: [] as DBCommission[],
 };
 
 export const dbStore = {
@@ -1190,6 +1202,47 @@ export const dbStore = {
       return store.opportunityApprovalSteps[index];
     },
   },
+  commissions: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.commissions.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const c = store.commissions.find((x) => x.id === id);
+      if (c && c.orgId !== orgId) return null;
+      return c || null;
+    },
+    insert: async (comm: Omit<DBCommission, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (comm.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newComm: DBCommission = {
+        ...comm,
+        id: `commission-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.commissions.push(newComm);
+      return newComm;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBCommission, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.commissions.findIndex((c) => c.id === id);
+      if (index === -1) return null;
+      if (store.commissions[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.commissions[index] = {
+        ...store.commissions[index],
+        ...updates,
+      };
+      return store.commissions[index];
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1219,5 +1272,6 @@ export const dbStore = {
     store.webhookDlq = [];
     store.opportunityApprovals = [];
     store.opportunityApprovalSteps = [];
+    store.commissions = [];
   },
 };

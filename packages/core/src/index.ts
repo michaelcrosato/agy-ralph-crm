@@ -252,3 +252,60 @@ export function validateOpportunityApprovalSubmission(
   }
   return { success: true };
 }
+
+export interface CommissionCalculationInput {
+  opportunityAmount: string;
+  opportunityStage: string;
+  quotaTarget: string | null;
+  currentClosedWonTotal: string;
+  baseRate?: string;
+}
+
+export interface CommissionResult {
+  commissionAmount: string;
+  attainmentPercentage: number;
+  rateApplied: string;
+  multiplierApplied: number;
+}
+
+export function calculateOpportunityCommission(
+  input: CommissionCalculationInput,
+): CommissionResult {
+  if (input.opportunityStage !== "Closed Won") {
+    return {
+      commissionAmount: "0.00",
+      attainmentPercentage: 0,
+      rateApplied: "0.00",
+      multiplierApplied: 0,
+    };
+  }
+
+  const amount = Number.parseFloat(input.opportunityAmount) || 0;
+  const quota = input.quotaTarget
+    ? Number.parseFloat(input.quotaTarget) || 0
+    : 0;
+  const priorTotal = Number.parseFloat(input.currentClosedWonTotal) || 0;
+  const newTotal = priorTotal + amount;
+  const base = input.baseRate
+    ? Number.parseFloat(input.baseRate) || 0.05
+    : 0.05;
+
+  const attainmentPercentage = quota > 0 ? (newTotal / quota) * 100 : 0;
+
+  let multiplier = 1.0;
+  if (attainmentPercentage >= 150) {
+    multiplier = 1.5;
+  } else if (attainmentPercentage >= 100) {
+    multiplier = 1.2;
+  }
+
+  const effectiveRate = base * multiplier;
+  const commission = amount * effectiveRate;
+
+  return {
+    commissionAmount: commission.toFixed(2),
+    attainmentPercentage: Math.round(attainmentPercentage * 100) / 100,
+    rateApplied: effectiveRate.toFixed(4),
+    multiplierApplied: multiplier,
+  };
+}

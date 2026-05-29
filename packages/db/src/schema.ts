@@ -400,3 +400,20 @@ export const opportunityApprovalSteps = pgTable("opportunity_approval_steps", {
   comments: text("comments"),
   decidedAt: timestamp("decided_at"),
 });
+
+export const commissions = pgTable("commissions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  opportunityId: uuid("opportunity_id")
+    .notNull()
+    .references(() => opportunities.id, { onDelete: "cascade" }),
+  amount: text("amount").notNull(),
+  rateApplied: text("rate_applied").notNull(),
+  status: text("status").notNull().default("Pending"), // "Pending" | "Approved" | "Paid"
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
