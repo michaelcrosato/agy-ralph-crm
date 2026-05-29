@@ -891,7 +891,7 @@ app.post("/mcp/tools/call", tenantAuth, async (c) => {
       action: "comment_added",
       userId: tenant.userId || authorId,
       changes: {
-        commentId: newComment.id,
+        commentId: { before: null, after: newComment.id },
       },
     });
 
@@ -928,12 +928,8 @@ app.post("/mcp/tools/call", tenantAuth, async (c) => {
       ticket: {
         id: ticket.id,
         orgId: ticket.orgId,
-        contactId: ticket.contactId,
-        subject: ticket.subject,
         status: ticket.status as "Open" | "In Progress" | "Resolved",
         priority: ticket.priority as "Low" | "Medium" | "High" | "Urgent",
-        assignedToId: ticket.assignedToId || null,
-        createdAt: ticket.createdAt,
       },
       macro: {
         id: macro.id,
@@ -987,8 +983,8 @@ app.post("/mcp/tools/call", tenantAuth, async (c) => {
       action: "macro_applied",
       userId: tenant.userId || "user-system",
       changes: {
-        macroId,
-        commentId: newComment.id,
+        macroId: { before: null, after: macroId },
+        commentId: { before: null, after: newComment.id },
         ...changes,
       },
     });
