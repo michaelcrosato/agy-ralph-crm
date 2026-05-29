@@ -376,6 +376,25 @@ export interface DBLeadAssignmentRuleEntry {
   criteria: DBCriteriaCondition[];
 }
 
+export interface DBTerritory {
+  id: string;
+  orgId: string;
+  name: string;
+  isActive: number; // 0 or 1
+  routingMethod: string; // "direct" | "round_robin"
+  lastAssignedIndex: number;
+  criteria: DBCriteriaCondition[];
+  createdAt: Date;
+}
+
+export interface DBTerritoryMember {
+  id: string;
+  orgId: string;
+  territoryId: string;
+  userId: string;
+  role: string; // "Primary" | "Overlay"
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -408,6 +427,8 @@ export const store = {
   commissions: [] as DBCommission[],
   leadAssignmentRules: [] as DBLeadAssignmentRule[],
   leadAssignmentRuleEntries: [] as DBLeadAssignmentRuleEntry[],
+  territories: [] as DBTerritory[],
+  territoryMembers: [] as DBTerritoryMember[],
 };
 
 export const dbStore = {
@@ -474,6 +495,19 @@ export const dbStore = {
       };
       store.accounts.push(newAcc);
       return newAcc;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBAccount, "id" | "orgId">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.accounts.findIndex((a) => a.id === id);
+      if (index === -1) return null;
+      if (store.accounts[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.accounts[index] = { ...store.accounts[index], ...updates };
+      return store.accounts[index];
     },
   },
   contacts: {
@@ -1355,6 +1389,81 @@ export const dbStore = {
       return store.leadAssignmentRuleEntries[index];
     },
   },
+  territories: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.territories.filter((t) => t.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const t = store.territories.find((x) => x.id === id);
+      if (t && t.orgId !== orgId) return null;
+      return t || null;
+    },
+    insert: async (territory: Omit<DBTerritory, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (territory.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newTerritory: DBTerritory = {
+        ...territory,
+        id: `territory-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.territories.push(newTerritory);
+      return newTerritory;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBTerritory, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.territories.findIndex((t) => t.id === id);
+      if (index === -1) return null;
+      if (store.territories[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.territories[index] = {
+        ...store.territories[index],
+        ...updates,
+      };
+      return store.territories[index];
+    },
+  },
+  territoryMembers: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.territoryMembers.filter((m) => m.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const m = store.territoryMembers.find((x) => x.id === id);
+      if (m && m.orgId !== orgId) return null;
+      return m || null;
+    },
+    insert: async (member: Omit<DBTerritoryMember, "id">) => {
+      const orgId = getActiveOrgId();
+      if (member.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMember: DBTerritoryMember = {
+        ...member,
+        id: `member-${Math.random().toString(36).substring(2, 11)}`,
+      };
+      store.territoryMembers.push(newMember);
+      return newMember;
+    },
+    delete: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.territoryMembers.findIndex((m) => m.id === id);
+      if (index === -1) return false;
+      if (store.territoryMembers[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.territoryMembers.splice(index, 1);
+      return true;
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -1387,5 +1496,7 @@ export const dbStore = {
     store.commissions = [];
     store.leadAssignmentRules = [];
     store.leadAssignmentRuleEntries = [];
+    store.territories = [];
+    store.territoryMembers = [];
   },
 };

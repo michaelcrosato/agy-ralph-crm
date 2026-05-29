@@ -445,3 +445,30 @@ export const leadAssignmentRuleEntries = pgTable(
     criteria: jsonb("criteria").notNull(), // CriteriaCondition[]
   },
 );
+
+export const territories = pgTable("territories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  isActive: integer("is_active").notNull().default(0), // 0 = inactive, 1 = active
+  routingMethod: text("routing_method").notNull().default("direct"), // "direct" | "round_robin"
+  lastAssignedIndex: integer("last_assigned_index").notNull().default(-1),
+  criteria: jsonb("criteria").notNull(), // CriteriaCondition[]
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const territoryMembers = pgTable("territory_members", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  territoryId: uuid("territory_id")
+    .notNull()
+    .references(() => territories.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull().default("Primary"), // "Primary" | "Overlay"
+});

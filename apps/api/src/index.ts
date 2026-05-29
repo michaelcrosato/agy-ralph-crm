@@ -9,6 +9,7 @@ import {
   calculateProRatedAmount,
   convertLead,
   evaluateLeadAssignment,
+  evaluateTerritoryRouting,
   rollupOpportunityAmount,
   validateEmailLogInput,
   validateOpportunityApprovalSubmission,
@@ -2361,6 +2362,188 @@ app.post("/api/leads/:id/assign", tenantAuth, async (c) => {
     matchInfo: {
       ruleId: activeRule.id,
       entryId: matchResult.matchedEntryId,
+      newOwnerId: matchResult.newOwnerId,
+    },
+  });
+});
+
+// Territories Management REST API Endpoints
+app.post("/api/territories", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, isActive, routingMethod, criteria } = body;
+
+  if (!name || !criteria) {
+    return c.json({ error: "Missing required territory parameters" }, 400);
+  }
+
+  const t = await dbStore.territories.insert({
+    orgId: tenant.orgId,
+    name,
+    isActive: isActive !== undefined ? Number(isActive) : 0,
+    routingMethod: routingMethod || "direct",
+    lastAssignedIndex: -1,
+    criteria,
+  });
+
+  return c.json({ success: true, data: t });
+});
+
+app.put("/api/territories/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const existing = await dbStore.territories.findOne(id);
+  if (!existing) {
+    return c.json({ error: "Territory not found" }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const { name, isActive, routingMethod, criteria } = body;
+
+  const updates: Parameters<typeof dbStore.territories.update>[1] = {};
+  if (name !== undefined) updates.name = name;
+  if (isActive !== undefined) updates.isActive = Number(isActive);
+  if (routingMethod !== undefined) updates.routingMethod = routingMethod;
+  if (criteria !== undefined) {
+    updates.criteria = criteria as unknown as typeof updates.criteria;
+  }
+
+  const updated = await dbStore.territories.update(id, updates);
+  return c.json({ success: true, data: updated });
+});
+
+app.get("/api/territories", tenantAuth, async (c) => {
+  const data = await dbStore.territories.findMany();
+  return c.json({ success: true, data });
+});
+
+app.post("/api/territories/:id/members", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { userId, role } = body;
+
+  if (!userId) {
+    return c.json({ error: "Missing userId" }, 400);
+  }
+
+  const territory = await dbStore.territories.findOne(id);
+  if (!territory) {
+    return c.json({ error: "Territory not found" }, 404);
+  }
+
+  const member = await dbStore.territoryMembers.insert({
+    orgId: tenant.orgId,
+    territoryId: id,
+    userId,
+    role: role || "Primary",
+  });
+
+  return c.json({ success: true, data: member });
+});
+
+app.delete("/api/territories/:id/members/:userId", tenantAuth, async (c) => {
+  const territoryId = c.req.param("id");
+  const userId = c.req.param("userId");
+
+  const members = await dbStore.territoryMembers.findMany();
+  const matched = members.find(
+    (m) => m.territoryId === territoryId && m.userId === userId,
+  );
+
+  if (!matched) {
+    return c.json({ error: "Territory member not found" }, 404);
+  }
+
+  const deleted = await dbStore.territoryMembers.delete(matched.id);
+  return c.json({ success: true, deleted });
+});
+
+app.post("/api/accounts/:id/route", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const account = await dbStore.accounts.findOne(id);
+  if (!account) {
+    return c.json({ error: "Account not found" }, 404);
+  }
+
+  const territories = await dbStore.territories.findMany();
+  const members = await dbStore.territoryMembers.findMany();
+
+  const evalAccount = {
+    ...account,
+    custom: account.custom || null,
+  };
+
+  const matchResult = evaluateTerritoryRouting(
+    evalAccount,
+    territories,
+    members,
+  );
+
+  if (!matchResult) {
+    return c.json({
+      success: false,
+      message: "No matching territory routing found.",
+    });
+  }
+
+  const matchedTerritory = territories.find(
+    (t) => t.id === matchResult.matchedTerritoryId,
+  );
+
+  const previousOwnerId = account.ownerId;
+  let updatedAccount = account;
+
+  if (matchResult.newOwnerId) {
+    const existingCustom =
+      (account.custom as Record<string, unknown> | null) || {};
+    const updatedCustom = {
+      ...existingCustom,
+      territoryId: matchResult.matchedTerritoryId,
+      territoryName: matchedTerritory?.name || "Unknown",
+    };
+
+    const updated = await dbStore.accounts.update(id, {
+      ownerId: matchResult.newOwnerId,
+      custom: updatedCustom,
+    });
+    if (updated) {
+      updatedAccount = updated;
+    }
+  }
+
+  // Update territory round-robin index if needed
+  if (matchedTerritory && matchedTerritory.routingMethod === "round_robin") {
+    await dbStore.territories.update(matchedTerritory.id, {
+      lastAssignedIndex: matchResult.newLastAssignedIndex,
+    });
+  }
+
+  // Log audit logs
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "accounts",
+    action: "route",
+    userId: tenant.userId,
+    changes: {
+      ownerId: { before: previousOwnerId, after: matchResult.newOwnerId },
+      territoryId: { before: null, after: matchResult.matchedTerritoryId },
+    },
+  });
+
+  // Trigger Webhook
+  triggerOutboundWebhooks(tenant.orgId, "account.routed", {
+    accountId: id,
+    territoryId: matchResult.matchedTerritoryId,
+    newOwnerId: matchResult.newOwnerId,
+  });
+
+  return c.json({
+    success: true,
+    data: updatedAccount,
+    matchInfo: {
+      territoryId: matchResult.matchedTerritoryId,
       newOwnerId: matchResult.newOwnerId,
     },
   });
