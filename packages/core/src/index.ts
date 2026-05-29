@@ -1067,3 +1067,38 @@ export function calculateSlaStatus(
     responseTimeMinutes: null,
   };
 }
+
+export const SUPPORTED_TEAM_ROLES = [
+  "Account Manager",
+  "Sales Engineer",
+  "Customer Success Manager",
+  "Executive Sponsor",
+  "Other",
+];
+
+export function validateAccountTeamMember(
+  accountId: string,
+  userId: string,
+  role: string,
+): { success: boolean; error?: string } {
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const mockRegex = /^(account|user|team)-[a-z0-9]+$/i;
+
+  if (
+    !accountId ||
+    (!uuidRegex.test(accountId) && !mockRegex.test(accountId))
+  ) {
+    return { success: false, error: "Invalid Account ID format." };
+  }
+  if (!userId || (!uuidRegex.test(userId) && !mockRegex.test(userId))) {
+    return { success: false, error: "Invalid User ID format." };
+  }
+  if (!SUPPORTED_TEAM_ROLES.includes(role)) {
+    return {
+      success: false,
+      error: `Invalid role. Supported roles are: ${SUPPORTED_TEAM_ROLES.join(", ")}`,
+    };
+  }
+  return { success: true };
+}

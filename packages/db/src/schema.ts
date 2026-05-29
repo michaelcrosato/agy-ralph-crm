@@ -609,3 +609,18 @@ export const leadSlaTrackers = pgTable("lead_sla_trackers", {
   respondedAt: timestamp("responded_at"),
   responseTimeMinutes: integer("response_time_minutes"),
 });
+
+export const accountTeams = pgTable("account_teams", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  accountId: uuid("account_id")
+    .notNull()
+    .references(() => accounts.id, { onDelete: "cascade" }),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

@@ -494,6 +494,15 @@ export interface DBLeadSlaTracker {
   responseTimeMinutes: number | null;
 }
 
+export interface DBAccountTeamMember {
+  id: string;
+  orgId: string;
+  accountId: string;
+  userId: string;
+  role: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -537,6 +546,7 @@ export const store = {
   contracts: [] as DBContract[],
   leadSlaTargets: [] as DBLeadSlaTarget[],
   leadSlaTrackers: [] as DBLeadSlaTracker[],
+  accountTeams: [] as DBAccountTeamMember[],
 };
 
 export const dbStore = {
@@ -2075,6 +2085,75 @@ export const dbStore = {
       return store.leadSlaTrackers[index];
     },
   },
+  accountTeams: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.accountTeams.filter((t) => t.orgId === orgId);
+    },
+    findForAccount: async (accountId: string) => {
+      const orgId = getActiveOrgId();
+      return store.accountTeams.filter(
+        (t) => t.accountId === accountId && t.orgId === orgId,
+      );
+    },
+    insert: async (member: Omit<DBAccountTeamMember, "id" | "createdAt">) => {
+      const orgId = getActiveOrgId();
+      if (member.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newMember: DBAccountTeamMember = {
+        ...member,
+        id: `team-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: new Date(),
+      };
+      store.accountTeams.push(newMember);
+      return newMember;
+    },
+    addOrUpdateMember: async (
+      accountId: string,
+      userId: string,
+      role: string,
+    ) => {
+      const orgId = getActiveOrgId();
+      // Verify account belongs to organization
+      const account = store.accounts.find((a) => a.id === accountId);
+      if (!account || account.orgId !== orgId) {
+        throw new Error(
+          "RLS Isolation Violation: Account not found or tenant mismatch.",
+        );
+      }
+      const index = store.accountTeams.findIndex(
+        (t) =>
+          t.accountId === accountId && t.userId === userId && t.orgId === orgId,
+      );
+      if (index !== -1) {
+        store.accountTeams[index] = {
+          ...store.accountTeams[index],
+          role,
+        };
+        return store.accountTeams[index];
+      }
+      const newMember: DBAccountTeamMember = {
+        id: `team-${Math.random().toString(36).substring(2, 11)}`,
+        orgId,
+        accountId,
+        userId,
+        role,
+        createdAt: new Date(),
+      };
+      store.accountTeams.push(newMember);
+      return newMember;
+    },
+    removeMember: async (accountId: string, userId: string) => {
+      const orgId = getActiveOrgId();
+      const index = store.accountTeams.findIndex(
+        (t) =>
+          t.accountId === accountId && t.userId === userId && t.orgId === orgId,
+      );
+      if (index === -1) return;
+      store.accountTeams.splice(index, 1);
+    },
+  },
   clear: () => {
     store.leads = [];
     store.accounts = [];
@@ -2118,5 +2197,6 @@ export const dbStore = {
     store.contracts = [];
     store.leadSlaTargets = [];
     store.leadSlaTrackers = [];
+    store.accountTeams = [];
   },
 };
