@@ -711,6 +711,26 @@ export interface DBTicketMilestone {
   createdAt: Date;
 }
 
+export interface DBKbCategory {
+  id: string;
+  orgId: string;
+  name: string;
+  description: string | null;
+  createdAt: Date;
+}
+
+export interface DBKbArticle {
+  id: string;
+  orgId: string;
+  categoryId: string;
+  title: string;
+  content: string;
+  status: "Draft" | "Published";
+  viewCount: number;
+  authorId: string;
+  createdAt: Date;
+}
+
 export const store = {
   leads: [] as DBLead[],
   accounts: [] as DBAccount[],
@@ -773,6 +793,8 @@ export const store = {
   surveyResponses: [] as DBSurveyResponse[],
   slaPolicies: [] as DBSlaPolicy[],
   ticketMilestones: [] as DBTicketMilestone[],
+  kbCategories: [] as DBKbCategory[],
+  kbArticles: [] as DBKbArticle[],
 };
 
 export const dbStore = {
@@ -3351,6 +3373,86 @@ export const dbStore = {
       return store.ticketMilestones[index];
     },
   },
+  kbCategories: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.kbCategories.filter((c) => c.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const category = store.kbCategories.find((c) => c.id === id);
+      if (category && category.orgId !== orgId) {
+        return null;
+      }
+      return category || null;
+    },
+    insert: async (
+      category: Omit<DBKbCategory, "id" | "createdAt"> & {
+        createdAt?: Date;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (category.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newCategory: DBKbCategory = {
+        ...category,
+        id: `kbcat-${Math.random().toString(36).substring(2, 11)}`,
+        createdAt: category.createdAt || new Date(),
+      };
+      store.kbCategories.push(newCategory);
+      return newCategory;
+    },
+  },
+  kbArticles: {
+    findMany: async () => {
+      const orgId = getActiveOrgId();
+      return store.kbArticles.filter((a) => a.orgId === orgId);
+    },
+    findOne: async (id: string) => {
+      const orgId = getActiveOrgId();
+      const article = store.kbArticles.find((a) => a.id === id);
+      if (article && article.orgId !== orgId) {
+        return null;
+      }
+      return article || null;
+    },
+    insert: async (
+      article: Omit<DBKbArticle, "id" | "createdAt" | "viewCount"> & {
+        createdAt?: Date;
+        viewCount?: number;
+      },
+    ) => {
+      const orgId = getActiveOrgId();
+      if (article.orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      const newArticle: DBKbArticle = {
+        ...article,
+        id: `kbart-${Math.random().toString(36).substring(2, 11)}`,
+        viewCount: article.viewCount || 0,
+        createdAt: article.createdAt || new Date(),
+      };
+      store.kbArticles.push(newArticle);
+      return newArticle;
+    },
+    update: async (
+      id: string,
+      updates: Partial<Omit<DBKbArticle, "id" | "orgId" | "createdAt">>,
+    ) => {
+      const orgId = getActiveOrgId();
+      const index = store.kbArticles.findIndex((a) => a.id === id);
+      if (index === -1) return null;
+      if (store.kbArticles[index].orgId !== orgId) {
+        throw new Error("RLS Isolation Violation: Tenant mismatch.");
+      }
+      store.kbArticles[index] = {
+        ...store.kbArticles[index],
+        ...updates,
+      };
+      return store.kbArticles[index];
+    },
+  },
   clear: () => {
     store.leads = [];
 
@@ -3414,5 +3516,7 @@ export const dbStore = {
     store.surveyResponses = [];
     store.slaPolicies = [];
     store.ticketMilestones = [];
+    store.kbCategories = [];
+    store.kbArticles = [];
   },
 };

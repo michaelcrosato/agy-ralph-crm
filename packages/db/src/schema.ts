@@ -908,3 +908,31 @@ export const ticketMilestones = pgTable("ticket_milestones", {
   isMet: boolean("is_met"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const kbCategories = pgTable("kb_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const kbArticles = pgTable("kb_articles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  orgId: uuid("org_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "cascade" }),
+  categoryId: uuid("category_id")
+    .notNull()
+    .references(() => kbCategories.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  content: text("content").notNull(),
+  status: text("status").notNull().default("Draft"), // "Draft" | "Published"
+  viewCount: integer("view_count").notNull().default(0),
+  authorId: uuid("author_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});

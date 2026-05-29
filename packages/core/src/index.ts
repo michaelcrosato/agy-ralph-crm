@@ -2463,3 +2463,12 @@ export function evaluateMilestoneCompletion(
     status: isMet ? "completed" : "breached",
   };
 }
+
+export function validateArticleStatus(status: string): boolean {
+  return status === "Draft" || status === "Published";
+}
+
+export function incrementArticleViewCount(currentCount: number): number {
+  if (currentCount < 0) return 0;
+  return currentCount + 1;
+}
