@@ -114,6 +114,9 @@ export const campaigns = pgTable("campaigns", {
   budgetedCost: text("budgeted_cost").notNull().default("0.00"),
   actualCost: text("actual_cost").notNull().default("0.00"),
   expectedRevenue: text("expected_revenue").notNull().default("0.00"),
+  utmSource: text("utm_source"),
+  utmMedium: text("utm_medium"),
+  utmCampaign: text("utm_campaign"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

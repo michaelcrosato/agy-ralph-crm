@@ -5996,6 +5996,9 @@ app.post("/api/campaigns", tenantAuth, async (c) => {
     budgetedCost,
     actualCost,
     expectedRevenue,
+    utmSource,
+    utmMedium,
+    utmCampaign,
   } = body;
 
   if (!name) {
@@ -6013,9 +6016,67 @@ app.post("/api/campaigns", tenantAuth, async (c) => {
     budgetedCost: budgetedCost || "0.00",
     actualCost: actualCost || "0.00",
     expectedRevenue: expectedRevenue || "0.00",
+    utmSource: utmSource || null,
+    utmMedium: utmMedium || null,
+    utmCampaign: utmCampaign || null,
   });
 
   return c.json({ success: true, data: campaign });
+});
+
+app.post("/api/public/campaigns/:id/track-utm", async (c) => {
+  const campaignId = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { utmSource, utmMedium, utmCampaign, leadId, contactId } = body;
+
+  // biome-ignore lint/suspicious/noExplicitAny: findOnePublic bypasses active tenant RLS for public analytics ingest
+  const campaign = await (dbStore.campaigns as any).findOnePublic(campaignId);
+  if (!campaign) {
+    return c.json({ error: "Campaign not found" }, 404);
+  }
+
+  const orgId = campaign.orgId;
+
+  await withTenant(orgId, mockDb, async () => {
+    // 1. Record CRM activity of type 'task' indicating campaign click
+    if (dbStore.activities) {
+      await dbStore.activities.insert({
+        orgId,
+        creatorId: "00000000-0000-0000-0000-000000000000",
+        type: "task",
+        subject: `UTM Campaign Link Click: ${utmCampaign || "none"}`,
+        body: `UTM Engagement Details:\nSource: ${utmSource || "none"}\nMedium: ${utmMedium || "none"}\nCampaign: ${utmCampaign || "none"}`,
+        dueDate: null,
+        custom: { utmSource, utmMedium, utmCampaign },
+      });
+    }
+
+    // 2. Upsert Campaign Member status to 'Responded' if leadId or contactId is provided
+    if (dbStore.campaignMembers && (leadId || contactId)) {
+      const existingMembers = await dbStore.campaignMembers.findForCampaign(campaignId);
+      const member = existingMembers.find(
+        (m) =>
+          (leadId && m.leadId === leadId) ||
+          (contactId && m.contactId === contactId),
+      );
+
+      if (member) {
+        await dbStore.campaignMembers.update(member.id, {
+          status: "Responded",
+        });
+      } else {
+        await dbStore.campaignMembers.insert({
+          orgId,
+          campaignId,
+          leadId: leadId || null,
+          contactId: contactId || null,
+          status: "Responded",
+        });
+      }
+    }
+  });
+
+  return c.json({ success: true });
 });
 
 app.get("/api/campaigns", tenantAuth, async (c) => {

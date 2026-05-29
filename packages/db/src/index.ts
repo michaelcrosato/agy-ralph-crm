@@ -510,6 +510,9 @@ export interface DBCampaign {
   budgetedCost: string;
   actualCost: string;
   expectedRevenue: string;
+  utmSource?: string | null;
+  utmMedium?: string | null;
+  utmCampaign?: string | null;
   createdAt: Date;
 }
 
@@ -2678,6 +2681,9 @@ export const dbStore = {
       const c = store.campaigns.find((x) => x.id === id);
       if (c && c.orgId !== orgId) return null;
       return c || null;
+    },
+    findOnePublic: async (id: string) => {
+      return store.campaigns.find((x) => x.id === id) || null;
     },
     insert: async (campaign: Omit<DBCampaign, "id" | "createdAt">) => {
       const orgId = getActiveOrgId();

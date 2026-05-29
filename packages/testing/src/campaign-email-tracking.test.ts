@@ -121,4 +121,93 @@ describe("Outbound Email Open & Click Tracking API", () => {
     });
     expect(getResB.status).toBe(404);
   });
+
+  describe("UTM Campaign Link Engagement Tracking & ROI Webhooks (TASK002)", () => {
+    it("should successfully create a campaign with UTM parameters, track engagement, and isolate data", async () => {
+      let campaignId = "";
+      let leadId = "";
+
+      // 1. Create a campaign with UTM tags for Tenant A
+      const createRes = await app.request("/api/campaigns", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokenTenantA}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: "Q2 Email blast Promo",
+          status: "Active",
+          type: "Email",
+          utmSource: "newsletter",
+          utmMedium: "email",
+          utmCampaign: "q2_promo",
+        }),
+      });
+
+      expect(createRes.status).toBe(200);
+      const createBody = await createRes.json();
+      expect(createBody.success).toBe(true);
+      expect(createBody.data.id).toBeDefined();
+      expect(createBody.data.utmSource).toBe("newsletter");
+      expect(createBody.data.utmMedium).toBe("email");
+      expect(createBody.data.utmCampaign).toBe("q2_promo");
+      campaignId = createBody.data.id;
+
+      // Create a Lead in Tenant A context
+      await withTenant(orgA, mockDb, async () => {
+        const lead = await dbStore.leads.insert({
+          orgId: orgA,
+          email: "target-lead@promo.com",
+          company: "External Corp",
+          status: "New",
+          ownerId: "user-a",
+        });
+        leadId = lead.id;
+      });
+
+      // 2. Track public UTM click event (unauthenticated client-side webhook call)
+      const trackRes = await app.request(`/api/public/campaigns/${campaignId}/track-utm`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          utmSource: "newsletter",
+          utmMedium: "email",
+          utmCampaign: "q2_promo",
+          leadId,
+        }),
+      });
+
+      expect(trackRes.status).toBe(200);
+      const trackBody = await trackRes.json();
+      expect(trackBody.success).toBe(true);
+
+      // 3. Verify Tenant A can see the task activity and campaign member responses
+      await withTenant(orgA, mockDb, async () => {
+        // CRM Activity verification
+        const activities = await dbStore.activities.findMany();
+        const utmAct = activities.find((a) => a.subject.includes("UTM Campaign Link Click"));
+        expect(utmAct).toBeDefined();
+        expect(utmAct?.body).toContain("Source: newsletter");
+        expect(utmAct?.body).toContain("Medium: email");
+        expect(utmAct?.body).toContain("Campaign: q2_promo");
+
+        // Campaign member verification
+        const members = await dbStore.campaignMembers.findForCampaign(campaignId);
+        expect(members).toHaveLength(1);
+        expect(members[0].leadId).toBe(leadId);
+        expect(members[0].status).toBe("Responded");
+      });
+
+      // 4. Verify Tenant B cannot access Tenant A's campaign details or stats (RLS checks)
+      const getResB = await app.request(`/api/campaigns/${campaignId}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${tokenTenantB}`,
+        },
+      });
+      expect(getResB.status).toBe(404);
+    });
+  });
 });
