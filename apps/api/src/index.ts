@@ -95,53 +95,56 @@ app.get(
   }),
 );
 
-app.route("/health", healthApp);
-app.route("/api/auth", authApp);
-app.route("/api/public", publicApp);
-app.route("/mcp", mcpApp);
-app.route("/api/metadata", metadataApp);
-app.route("/api/workflows", workflowsApp);
-app.route("/api/tickets", ticketsApp);
-app.route("/api/service", serviceApp);
-app.route("/api/lead-conversions", leadConversionsApp);
-app.route("/api/currencies", currenciesApp);
-app.route("/api/stage-guidance", stageGuidanceApp);
-app.route("/api/stage-gates", stageGatesApp);
-app.route("/api/leads", leadsApp);
-app.route("/api/lead-assignment-rules", leadAssignmentRulesApp);
-app.route("/api/lead-scoring-rules", leadScoringRulesApp);
-app.route("/api/accounts", accountsApp);
-app.route("/api/contacts", contactsApp);
-app.route("/api/opportunities", opportunitiesApp);
-app.route("/api/campaigns", campaignsApp);
-app.route("/api/segments", segmentsApp);
-app.route("/api/unsubscribes", unsubscribesApp);
-app.route("/api/products", productsApp);
-app.route("/api/pricebooks", pricebooksApp);
-app.route("/api/approvals", approvalsApp);
-app.route("/api/sequences", sequencesApp);
-app.route("/api/emails", emailsApp);
-app.route("/api/public/emails", publicEmailsApp);
-app.route("/api/territories", territoriesApp);
-app.route("/api/commissions", commissionsApp);
-app.route("/api/quotas", quotasApp);
-app.route("/api/admin", adminApp);
-app.route("/api/db", dbApp);
-app.route("/api/imports", importsApp);
-app.route("/api/reports", reportsApp);
-app.route("/api/leaderboards", leaderboardsApp);
-app.route("/api/forecasts", forecastsApp);
-app.route("/api/forecasting", forecastingApp);
-app.route("/api/contracts", contractsApp);
-app.route("/api/documents", documentsApp);
-app.route("/api/invoices", invoicesApp);
-app.route("/api/subscriptions", subscriptionsApp);
-app.route("/api/activities", activitiesApp);
-app.route("/api/webhooks", webhooksApp);
-app.route("/api/search", searchApp);
-app.route("/api/consent", consentApp);
-app.route("/api/productivity", productivityApp);
-app.route("/api/sales", salesApp);
+// Chain .route() calls so Hono RPC's hc<typeof routes> can infer the full
+// route surface for typed API clients (spec 018).
+const routes = app
+  .route("/health", healthApp)
+  .route("/api/auth", authApp)
+  .route("/api/public", publicApp)
+  .route("/mcp", mcpApp)
+  .route("/api/metadata", metadataApp)
+  .route("/api/workflows", workflowsApp)
+  .route("/api/tickets", ticketsApp)
+  .route("/api/service", serviceApp)
+  .route("/api/lead-conversions", leadConversionsApp)
+  .route("/api/currencies", currenciesApp)
+  .route("/api/stage-guidance", stageGuidanceApp)
+  .route("/api/stage-gates", stageGatesApp)
+  .route("/api/leads", leadsApp)
+  .route("/api/lead-assignment-rules", leadAssignmentRulesApp)
+  .route("/api/lead-scoring-rules", leadScoringRulesApp)
+  .route("/api/accounts", accountsApp)
+  .route("/api/contacts", contactsApp)
+  .route("/api/opportunities", opportunitiesApp)
+  .route("/api/campaigns", campaignsApp)
+  .route("/api/segments", segmentsApp)
+  .route("/api/unsubscribes", unsubscribesApp)
+  .route("/api/products", productsApp)
+  .route("/api/pricebooks", pricebooksApp)
+  .route("/api/approvals", approvalsApp)
+  .route("/api/sequences", sequencesApp)
+  .route("/api/emails", emailsApp)
+  .route("/api/public/emails", publicEmailsApp)
+  .route("/api/territories", territoriesApp)
+  .route("/api/commissions", commissionsApp)
+  .route("/api/quotas", quotasApp)
+  .route("/api/admin", adminApp)
+  .route("/api/db", dbApp)
+  .route("/api/imports", importsApp)
+  .route("/api/reports", reportsApp)
+  .route("/api/leaderboards", leaderboardsApp)
+  .route("/api/forecasts", forecastsApp)
+  .route("/api/forecasting", forecastingApp)
+  .route("/api/contracts", contractsApp)
+  .route("/api/documents", documentsApp)
+  .route("/api/invoices", invoicesApp)
+  .route("/api/subscriptions", subscriptionsApp)
+  .route("/api/activities", activitiesApp)
+  .route("/api/webhooks", webhooksApp)
+  .route("/api/search", searchApp)
+  .route("/api/consent", consentApp)
+  .route("/api/productivity", productivityApp)
+  .route("/api/sales", salesApp);
 
 if (process.env.NODE_ENV !== "test") {
   const port = Number(process.env.PORT) || 3001;
@@ -158,5 +161,5 @@ if (process.env.NODE_ENV !== "test") {
     });
 }
 
-export type AppType = typeof app;
+export type AppType = typeof routes;
 export default app;
