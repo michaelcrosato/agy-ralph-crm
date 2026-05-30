@@ -17,7 +17,7 @@
     "@opentelemetry/sdk-metrics": "^2.1.0",
     "@opentelemetry/semantic-conventions": "^1.39.0",
     "@opentelemetry/resources": "^2.1.0",
-    "@opentelemetry/instrumentation-pino": "^0.51.0",
+    "@opentelemetry/instrumentation-pino": "^0.64.0",
     "pino": "^9.5.0"
   },
   "devDependencies": {
