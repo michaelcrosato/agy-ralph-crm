@@ -2,7 +2,10 @@ import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, pgDb, withTenant } from "@crm/db";
 import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
+
 import { getTestPgContainer, isDockerAvailable } from "./pg-container";
 
 const backends = [

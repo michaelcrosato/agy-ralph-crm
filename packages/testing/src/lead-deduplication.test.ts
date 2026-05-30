@@ -1,7 +1,9 @@
 import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, store, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Lead De-duplication and Merging API Tests", () => {
   let tokenTenantA: string;

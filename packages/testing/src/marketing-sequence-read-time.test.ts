@@ -1,7 +1,9 @@
 import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Marketing Sequence Email Read Time Analytics & Scoring Tests (Task 0207)", () => {
   let tokenTenantA: string;

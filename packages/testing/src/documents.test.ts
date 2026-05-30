@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { compileTemplate } from "@crm/documents";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Document Templates & Mail Merge - Core Unit Tests", () => {
   it("should correctly compile text templates containing standard standard paths", () => {

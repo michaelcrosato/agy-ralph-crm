@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { rollbackStoreMigrations, runStoreMigrations } from "@crm/core";
 import { dbStore, store, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Database Migration & Rollback Versioning Engine", () => {
   let tokenTenantA: string;

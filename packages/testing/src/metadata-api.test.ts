@@ -1,7 +1,9 @@
 import { createSessionToken } from "@crm/auth";
 import { dbStore } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Metadata API & Dynamic Field Customization Tests", () => {
   let tokenTenantA: string;

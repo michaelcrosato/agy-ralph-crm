@@ -10,7 +10,9 @@ import {
   TrigramIndex,
 } from "@crm/search";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Trigram Fuzzy Search Core Engine Tests", () => {
   it("should successfully split strings into normalized trigrams", () => {

@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { computeHmacSignature, simulateWebhookDispatch } from "@crm/webhooks";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Outbound REST Webhooks - Core Unit Tests", () => {
   it("should correctly calculate HMAC-SHA256 signature hashes for payload verification", () => {

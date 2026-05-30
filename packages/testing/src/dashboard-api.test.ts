@@ -1,6 +1,8 @@
 import { verifySessionToken } from "@crm/auth";
 import { describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Dashboard Portal & Auth API Tests", () => {
   it("should generate a valid JWT session token when POSTing to /api/auth/token", async () => {

@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { validateCommunicationConsent } from "@crm/core";
 import { dbStore, store } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Contact Consent & GDPR Compliance API Tests", () => {
   let tokenTenantA: string;

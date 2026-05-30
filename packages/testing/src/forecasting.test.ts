@@ -6,7 +6,9 @@ import {
   compileForecastSummary,
 } from "@crm/forecasting";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Sales Forecasting & Quota Engine - Core Unit Tests", () => {
   it("should correctly compute individual weighted opportunity values", () => {

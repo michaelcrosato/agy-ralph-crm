@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { evaluateLeadAssignment } from "@crm/core";
 import { dbStore, mockDb, store, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Lead Assignment Rules & Auto-Routing API Tests", () => {
   let tokenTenantA: string;

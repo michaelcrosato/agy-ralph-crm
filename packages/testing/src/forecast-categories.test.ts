@@ -5,7 +5,9 @@ import {
   type ForecastCategorySummary,
 } from "@crm/forecasting";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Opportunity Forecast Category Mapping & Category-Based Forecasting Engine", () => {
   let tokenTenantA: string;

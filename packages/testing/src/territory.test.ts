@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { evaluateTerritoryRouting } from "@crm/core";
 import { dbStore, mockDb, store, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Sales Territories & Account Auto-Routing API Tests", () => {
   let tokenTenantA: string;

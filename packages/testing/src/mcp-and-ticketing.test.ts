@@ -1,7 +1,9 @@
 import { createSessionToken } from "@crm/auth";
 import { dbStore } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Support Ticketing & MCP Execution Engine Tests", () => {
   let tokenTenantA: string;

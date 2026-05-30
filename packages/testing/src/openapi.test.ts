@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("OpenAPI and Scalar Documentation (spec 017)", () => {
   it("GET /openapi.json returns a valid OpenAPI 3.1.0 document", async () => {

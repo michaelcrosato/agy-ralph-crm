@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { executePendingSequenceSteps } from "@crm/core";
 import { dbStore, mockDb, store, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Marketing Sequence Dynamic Branching Engine API & Logic Tests (Task 0183)", () => {
   let tokenTenantA: string;

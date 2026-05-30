@@ -4,7 +4,9 @@ import {
   type TicketInsert,
 } from "@crm/module-service-lite";
 import { describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Phase 5: First-Party Extensions & MCP API Service Tests", () => {
   it("should successfully instantiate and resolve support tickets inside service-lite", () => {

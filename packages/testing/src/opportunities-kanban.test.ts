@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { compileKanbanPipeline, type KanbanStageSummary } from "@crm/core";
 import { dbStore, mockDb, store, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Opportunities Kanban Board API & Integration Tests", () => {
   let tokenTenantA: string;

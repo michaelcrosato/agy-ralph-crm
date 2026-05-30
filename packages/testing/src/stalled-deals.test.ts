@@ -2,7 +2,9 @@ import { createSessionToken } from "@crm/auth";
 import { calculateStalledOpportunities } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
-import app from "../../../apps/api/src/index";
+import { createTestApp } from "./_harness";
+
+const app = createTestApp();
 
 describe("Sales Pipeline Stalled Alerts - Core Unit Tests", () => {
   it("should identify opportunities that exceed default stage thresholds", () => {
