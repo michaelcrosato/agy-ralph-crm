@@ -31,7 +31,7 @@
 - [x] **021** — [Playwright config + lead/contact/opportunity smoke E2E](./specs/021_playwright_smoke_e2e.md) · `97c0cb0` (runtime install deferred)
 - [x] **022** — [Replace console.* with pino bridged to OTel](./specs/022_pino_otel_logging.md) · `65d66ce`
 - [ ] **023** — [Decouple 129 test files from apps/api/src/index import](./specs/023_test_decouple_from_apps.md) · deps: 010
-- [ ] **024** — [Declare composite + single-column indexes on Drizzle schema](./specs/024_drizzle_indexes_declare.md) · deps: 013
+- [x] **024 (partial)** — [Declare composite + single-column indexes on Drizzle schema](./specs/024_drizzle_indexes_declare.md) · `cf290ea` — 6/21 core tables indexed; remaining tables + migrations defer to spec 013
 - [ ] **025** — [Zod-validate JSONB columns at insert/update](./specs/025_jsonb_zod_validation.md) · deps: 013
 
 ## Phase 2 — Major Features (3+ weeks)
@@ -75,6 +75,7 @@
 | 021 | `97c0cb0` | 2026-05-29 | 406/406 (+5 Playwright smoke specs; runtime install deferred) |
 | 022 | `65d66ce` | 2026-05-29 | 406/406 (pino+OTel; in-scope grep 0 console.*) |
 | 012 (partial) | `513e7d2` | 2026-05-29 | 409/409 (+3 RLS helper tests; stores split → spec 040) |
+| 024 (partial) | `cf290ea` | 2026-05-29 | 409/409 (6 core tables indexed; migration generation defers to spec 013) |
 
 ## Discovered Follow-ups
 
