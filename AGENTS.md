@@ -59,14 +59,14 @@ Agents must execute tasks recursively by strictly repeating this workflow:
 9. **Synthesis**: Concisely summarize found, changed, ran commands, and the single best next ticket.
 
 ### 5.3 Full Command Reference
-- **Bootstrap Workspace**: `pnpm install` or `bash scripts/agent/bootstrap.sh` (or `powershell -File scripts/agent/bootstrap.ps1` on Windows)
-- **Verify Clean Code & Format**: `pnpm verify` or `bash scripts/agent/check.sh` (or `powershell -File scripts/agent/check.ps1` on Windows)
-- **Run Unit/Integration Tests**: `pnpm test` or `bash scripts/agent/test.sh` (or `powershell -File scripts/agent/test.ps1` on Windows)
-- **E2E Behavior**: `pnpm test:e2e` runs `scripts/agent/test-e2e.sh` and exits cleanly with a skip warning when no Playwright config is available.
-- **Build Workspace**: `pnpm build` or `bash scripts/agent/typecheck.sh` (or `powershell -File scripts/agent/typecheck.ps1` on Windows)
+- **Bootstrap Workspace**: `pnpm install` or `pnpm run agent:bootstrap`
+- **Verify Clean Code & Format**: `pnpm verify` or `pnpm run agent:check`
+- **Run Unit/Integration Tests**: `pnpm test` or `pnpm run agent:test`
+- **E2E Behavior**: `pnpm test:e2e` or `pnpm run agent:test:e2e` and exits cleanly with a skip warning when no Playwright config is available.
+- **Build Workspace**: `pnpm build` or `pnpm run agent:typecheck`
 - **Targeted Test Execution**: `npx vitest run <test-file-path>`
-- **Biome Format & Lint Fix**: `npx biome check --write .` or `bash scripts/agent/format.sh` (or `powershell -File scripts/agent/format.ps1` on Windows)
-- **Diagnostics**: `bash scripts/agent/doctor.sh` (or `powershell -File scripts/agent/doctor.ps1` on Windows)
+- **Biome Format & Lint Fix**: `pnpm run agent:format` and `pnpm run agent:lint`
+- **Diagnostics**: `pnpm run agent:doctor`
 
 ### 5.4 Coding Conventions
 - **TypeScript**: Pinned to Node 22 baseline. Strict type checks. Ensure clean module boundaries.
