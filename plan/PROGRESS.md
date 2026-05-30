@@ -32,7 +32,7 @@
 - [x] **022** — [Replace console.* with pino bridged to OTel](./specs/022_pino_otel_logging.md) · `65d66ce`
 - [ ] **023** — [Decouple 129 test files from apps/api/src/index import](./specs/023_test_decouple_from_apps.md) · deps: 010
 - [x] **024 (partial)** — [Declare composite + single-column indexes on Drizzle schema](./specs/024_drizzle_indexes_declare.md) · `cf290ea` — 6/21 core tables indexed; remaining tables + migrations defer to spec 013
-- [ ] **025** — [Zod-validate JSONB columns at insert/update](./specs/025_jsonb_zod_validation.md) · deps: 013
+- [x] **025** — [Zod-validate JSONB columns at insert/update](./specs/025_jsonb_zod_validation.md) · `bfa929d` — runtime Zod validation of custom fields at store/PG layers with dynamic imports to avoid cycles, tests green.
 
 ## Phase 2 — Major Features (3+ weeks)
 
@@ -80,6 +80,7 @@
 | 014 | `a7f5c59` | 2026-05-30 | 412/412 (+3 db-rls tests) |
 | 017 | `41d0f5b` | 2026-05-30 | 414/414 (+2 openapi integration tests) |
 | 018 | `11dfd49` | 2026-05-30 | 414/414 (Build and type-safety green) |
+| 025 | `bfa929d` | 2026-05-30 | 416/416 (+1 jsonb integration test) |
 
 ## Discovered Follow-ups
 
