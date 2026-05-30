@@ -133,7 +133,7 @@
 
 ## Phase 4 — Wave 4 Advanced Engineering & Observability (Cycle 10+)
 
-- [ ] **065** — [RRF Search Cross-Encoder Reranking Engine](./specs/065_rrf_cross_encoder_reranker.md)
+- [x] **065** — [RRF Search Cross-Encoder Reranking Engine](./specs/065_rrf_cross_encoder_reranker.md) · `aba36c9`
 
 
 
