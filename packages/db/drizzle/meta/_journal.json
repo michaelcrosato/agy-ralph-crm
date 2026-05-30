@@ -15,6 +15,13 @@
       "when": 1780147470756,
       "tag": "0001_enable_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780149134466,
+      "tag": "0002_unique_roulette",
+      "breakpoints": true
     }
   ]
 }

@@ -256,22 +256,31 @@ export const webhooks = pgTable("webhooks", {
   status: text("status").notNull().default("active"),
 });
 
-export const tickets = pgTable("tickets", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  contactId: uuid("contact_id")
-    .notNull()
-    .references(() => contacts.id, { onDelete: "cascade" }),
-  subject: text("subject").notNull(),
-  status: text("status").notNull().default("Open"),
-  priority: text("priority").notNull().default("Medium"),
-  assignedToId: uuid("assigned_to_id").references(() => users.id, {
-    onDelete: "set null",
-  }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => contacts.id, { onDelete: "cascade" }),
+    subject: text("subject").notNull(),
+    status: text("status").notNull().default("Open"),
+    priority: text("priority").notNull().default("Medium"),
+    assignedToId: uuid("assigned_to_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_tickets_org_created").on(t.orgId, t.createdAt),
+    index("idx_tickets_org_status").on(t.orgId, t.status),
+    index("idx_tickets_org_priority").on(t.orgId, t.priority),
+    index("idx_tickets_assigned").on(t.assignedToId),
+  ],
+);
 
 export const reports = pgTable("reports", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -431,23 +440,32 @@ export const invoices = pgTable("invoices", {
   status: text("status").notNull().default("Unpaid"), // "Unpaid" | "Paid"
 });
 
-export const webhookOutbox = pgTable("webhook_outbox", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  webhookId: uuid("webhook_id")
-    .notNull()
-    .references(() => webhooks.id, { onDelete: "cascade" }),
-  event: text("event").notNull(),
-  payload: text("payload").notNull(),
-  status: text("status").notNull().default("pending"),
-  attempts: integer("attempts").notNull().default(0),
-  lastAttemptAt: timestamp("last_attempt_at"),
-  nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  lastError: text("last_error"),
-});
+export const webhookOutbox = pgTable(
+  "webhook_outbox",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    webhookId: uuid("webhook_id")
+      .notNull()
+      .references(() => webhooks.id, { onDelete: "cascade" }),
+    event: text("event").notNull(),
+    payload: text("payload").notNull(),
+    status: text("status").notNull().default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at"),
+    nextAttemptAt: timestamp("next_attempt_at").notNull().defaultNow(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    lastError: text("last_error"),
+  },
+  (t) => [
+    index("idx_webhook_outbox_org_created").on(t.orgId, t.createdAt),
+    index("idx_webhook_outbox_pending")
+      .on(t.status)
+      .where(sql`status = 'pending'`),
+  ],
+);
 
 export const webhookDlq = pgTable("webhook_dlq", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1231,26 +1249,33 @@ export const emailTemplates = pgTable("email_templates", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const emailTrackers = pgTable("email_trackers", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  activityId: uuid("activity_id").notNull(),
-  token: text("token").notNull().unique(),
-  openCount: integer("open_count").notNull().default(0),
-  clickCount: integer("click_count").notNull().default(0),
-  replyCount: integer("reply_count").notNull().default(0),
-  bounceCount: integer("bounce_count").notNull().default(0),
-  lastOpenedAt: timestamp("last_opened_at"),
-  lastClickedAt: timestamp("last_clicked_at"),
-  lastRepliedAt: timestamp("last_replied_at"),
-  lastBouncedAt: timestamp("last_bounced_at"),
-  totalReadTimeMs: integer("total_read_time_ms").notNull().default(0),
-  lastReadClassification: text("last_read_classification"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+export const emailTrackers = pgTable(
+  "email_trackers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    activityId: uuid("activity_id").notNull(),
+    token: text("token").notNull().unique(),
+    openCount: integer("open_count").notNull().default(0),
+    clickCount: integer("click_count").notNull().default(0),
+    replyCount: integer("reply_count").notNull().default(0),
+    bounceCount: integer("bounce_count").notNull().default(0),
+    lastOpenedAt: timestamp("last_opened_at"),
+    lastClickedAt: timestamp("last_clicked_at"),
+    lastRepliedAt: timestamp("last_replied_at"),
+    lastBouncedAt: timestamp("last_bounced_at"),
+    totalReadTimeMs: integer("total_read_time_ms").notNull().default(0),
+    lastReadClassification: text("last_read_classification"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_email_trackers_org_created").on(t.orgId, t.createdAt),
+    index("idx_email_trackers_activity").on(t.activityId),
+  ],
+);
 
 export const marketingSequenceFolders = pgTable("marketing_sequence_folders", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -1290,32 +1315,39 @@ export const marketingSequences = pgTable("marketing_sequences", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
-export const marketingSequenceSteps = pgTable("marketing_sequence_steps", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  sequenceId: uuid("sequence_id")
-    .notNull()
-    .references(() => marketingSequences.id, { onDelete: "cascade" }),
-  stepNumber: integer("step_number").notNull(),
-  delayDays: integer("delay_days").notNull().default(0),
-  templateId: uuid("template_id").references(() => emailTemplates.id, {
-    onDelete: "cascade",
-  }),
-  waitCondition: jsonb("wait_condition"),
-  replyToStepNumber: integer("reply_to_step_number"),
-  stepType: text("step_type").notNull().default("email"),
-  webhookUrl: text("webhook_url"),
-  webhookPayload: text("webhook_payload"),
-  taskSubject: text("task_subject"),
-  taskBody: text("task_body"),
-  taskDueDays: integer("task_due_days"),
-  smsMessage: text("sms_message"),
-  callScript: text("call_script"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+export const marketingSequenceSteps = pgTable(
+  "marketing_sequence_steps",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    sequenceId: uuid("sequence_id")
+      .notNull()
+      .references(() => marketingSequences.id, { onDelete: "cascade" }),
+    stepNumber: integer("step_number").notNull(),
+    delayDays: integer("delay_days").notNull().default(0),
+    templateId: uuid("template_id").references(() => emailTemplates.id, {
+      onDelete: "cascade",
+    }),
+    waitCondition: jsonb("wait_condition"),
+    replyToStepNumber: integer("reply_to_step_number"),
+    stepType: text("step_type").notNull().default("email"),
+    webhookUrl: text("webhook_url"),
+    webhookPayload: text("webhook_payload"),
+    taskSubject: text("task_subject"),
+    taskBody: text("task_body"),
+    taskDueDays: integer("task_due_days"),
+    smsMessage: text("sms_message"),
+    callScript: text("call_script"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_seq_steps_org_created").on(t.orgId, t.createdAt),
+    index("idx_seq_steps_org_seq").on(t.orgId, t.sequenceId),
+  ],
+);
 
 export const marketingSequenceMemberships = pgTable(
   "marketing_sequence_memberships",
@@ -1339,6 +1371,11 @@ export const marketingSequenceMemberships = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
+  (t) => [
+    index("idx_seq_members_org_created").on(t.orgId, t.createdAt),
+    index("idx_seq_members_org_seq").on(t.orgId, t.sequenceId),
+    index("idx_seq_members_record").on(t.recordType, t.recordId),
+  ],
 );
 
 export const marketingSegments = pgTable("marketing_segments", {
