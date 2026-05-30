@@ -2,7 +2,7 @@ param()
 
 $ErrorActionPreference = "Stop"
 
-$RepoRoot = Split-Path -Parent $PSScriptRoot
+$RepoRoot = $PSScriptRoot
 Set-Location $RepoRoot
 
 $AgyCommand = Get-Command agy -ErrorAction SilentlyContinue
