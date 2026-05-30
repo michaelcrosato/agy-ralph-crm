@@ -194,6 +194,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@crm/db':
+        specifier: workspace:*
+        version: link:../db
       uuid:
         specifier: ^14.0.0
         version: 14.0.0

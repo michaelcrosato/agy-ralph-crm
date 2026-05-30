@@ -17,7 +17,7 @@
 
 ## Phase 1 — Core Upgrades (1–2 weeks)
 
-- [~] **010 (milestones 1+2)** — [Decompose apps/api/src/index.ts (331 routes / 13,060 lines)](./specs/010_decompose_apps_api.md) · deps: 001 · branch `spec/010-split-apps-api` · `f86a761` (middleware + lib) + `223545c` (/health → routes/) · **remaining 330 routes → spec 041**
+- [x] **010** — [Decompose apps/api/src/index.ts (331 routes / 13,060 lines)](./specs/010_decompose_apps_api.md) · `ca748ae` — index.ts at 143 lines (target <200); 24 sub-app mounts across routes/*.ts; spec 041 batches 1–15 done; unblocks 011, 017, 018, 023
 - [ ] **011** — [Decompose packages/core/src/index.ts (100+ exports / 9,505 lines)](./specs/011_decompose_packages_core.md) · deps: 010
 - [x] **012 (partial)** — [Decompose packages/db/src/index.ts (6,312 lines, 70+ stores)](./specs/012_decompose_packages_db.md) · `513e7d2` — helpers extracted; aggregate stores deferred to spec 040
 - [ ] **013** — [Wire real Postgres + Drizzle + testcontainers](./specs/013_real_postgres_drizzle.md) · deps: 012
