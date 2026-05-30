@@ -303,7 +303,7 @@ export default function Home() {
       }
     }
 
-    initAuthAndFetch();
+    void initAuthAndFetch();
   }, [tenant, refreshData]);
 
   // Handle lead conversion

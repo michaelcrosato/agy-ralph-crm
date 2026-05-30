@@ -55,9 +55,9 @@ graph TD
 | **TICKET001** | High | Workspace bootstrap & environment diagnostics | `package.json`, `.ralph/` | **Completed** |
 | **TICKET002** | High | Create cross-platform agent utility scripts | `scripts/agent/` | **Completed** |
 | **TICKET003** | Critical | Implement Call sequence actions & integration tests | `packages/core/src/index.ts`, `apps/api/src/index.ts` | **Completed** |
-| **TICKET004** | High | Interactive tRPC Dashboard Analytics API | `apps/api/src/index.ts`, `packages/testing/src/dashboard-analytics.test.ts` | **Pending** |
-| **TICKET005** | Medium | Lead SLA Breaches Email Notification Service | `packages/core/src/index.ts`, `packages/testing/src/lead-sla-notifications.test.ts` | **Pending** |
-| **TICKET006** | Medium | Dynamic Picklist Dependency Validation | `apps/api/src/index.ts`, `packages/testing/src/picklist-dependency-validation.test.ts` | **Pending** |
+| **TICKET004** | High | Interactive tRPC Dashboard Analytics API | `apps/api/src/index.ts`, `packages/testing/src/dashboard-analytics.test.ts` | **Completed** |
+| **TICKET005** | Medium | Lead SLA Breaches Email Notification Service | `packages/core/src/index.ts`, `packages/testing/src/lead-sla-notifications.test.ts` | **Completed** |
+| **TICKET006** | Medium | Dynamic Picklist Dependency Validation | `apps/api/src/index.ts`, `packages/testing/src/picklist-dependency-validation.test.ts` | **Completed** |
 
 ---
 

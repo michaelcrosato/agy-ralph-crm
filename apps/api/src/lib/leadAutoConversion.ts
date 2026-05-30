@@ -115,7 +115,7 @@ export async function checkAndRunLeadAutoConversion(
     },
   });
 
-  triggerOutboundWebhooks(orgId, "lead.converted", {
+  await triggerOutboundWebhooks(orgId, "lead.converted", {
     leadId,
     accountId: account.id,
     contactId: contact.id,

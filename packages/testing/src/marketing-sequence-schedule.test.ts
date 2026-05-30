@@ -113,6 +113,7 @@ describe("Marketing Sequence Sending Schedule & Deferral Engine Tests (Task 0187
   it("should defer step executions when current time falls outside allowed schedule", async () => {
     let _sequenceId = "";
     let membershipId = "";
+    const saturdayTime = new Date("2026-05-30T12:00:00Z");
 
     await withTenant(orgA, mockDb, async () => {
       const seq = await dbStore.marketingSequences.insert({
@@ -157,11 +158,15 @@ describe("Marketing Sequence Sending Schedule & Deferral Engine Tests (Task 0187
         lead.id,
       );
       membershipId = membership.id;
+
+      // Backdate nextExecutionAt relative to test clock to avoid timezone/current time failures
+      await dbStore.marketingSequenceMemberships.update(membership.id, {
+        nextExecutionAt: new Date(saturdayTime.getTime() - 1000),
+      });
     });
 
     // Case A: Run worker on a Saturday (May 30, 2026 is a Saturday)
     // 2026-05-30T12:00:00Z (Saturday, DayOfWeek = 6)
-    const saturdayTime = new Date("2026-05-30T12:00:00Z");
     await withTenant(orgA, mockDb, async () => {
       const processedCount = await executePendingSequenceSteps(
         dbStore,
