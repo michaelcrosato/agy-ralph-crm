@@ -34,8 +34,11 @@ if ! bash scripts/agent/test.sh; then
 fi
 
 if [ "$fail" -eq 0 ]; then
+  echo "Running diagnostic log rotation..."
+  node scripts/agent/rotate-logs.mjs
   echo "All checks passed successfully."
 else
   echo "Agent check failed."
 fi
 exit "$fail"
+

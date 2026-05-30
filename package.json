@@ -22,7 +22,8 @@
     "agent:lint": "node scripts/agent/agent-runner.mjs lint",
     "agent:typecheck": "node scripts/agent/agent-runner.mjs typecheck",
     "agent:format": "node scripts/agent/agent-runner.mjs format",
-    "agent:status": "node scripts/agent/agent-runner.mjs status"
+    "agent:status": "node scripts/agent/agent-runner.mjs status",
+    "agent:rotate-logs": "node scripts/agent/rotate-logs.mjs"
   },
   "devDependencies": {
     "turbo": "^2.0.0",

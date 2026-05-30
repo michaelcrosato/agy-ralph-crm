@@ -93,3 +93,6 @@
 - [x] **040** — [Split `packages/db/src/index.ts` aggregate stores](./specs/040_followup_db_aggregate_stores.md) · `7a1e781` — 100+ per-aggregate stores under packages/db/src/stores/; index.ts at 132 lines
 - [x] **041** — [Batched route extraction for apps/api/src/index.ts (15 batches)](./specs/041_followup_apps_api_route_batches.md) · commits db606b3..ca748ae — index.ts at 143 lines
 - [x] **043** — [Decompose `executePendingSequenceSteps` (sequences/execution.ts)](./specs/043_followup_sequences_execution_decompose.md) · `f4a478c` (simulated) · 2026-05-30 — Decomposed monolith loop into clean, single-responsibility step handlers under execution/ sub-module, index file at 358 lines.
+- [x] **044** — [Workspace Diagnostics Log Sanitizer & Rotator](./specs/044_diagnostics_log_sanitizer_rotator.md) · `completed` · 2026-05-30 — Implemented rotate-logs.mjs with credentials sanitization, UTF-16LE auto-detection, log rotation up to index 3, and full check.ps1/sh integrations.
+
+

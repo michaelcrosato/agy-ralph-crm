@@ -1,7 +1,7 @@
 # TICKET009: Automated Diagnostic Log Sanitizer & Workspace Rotator
 
 ## Details
-- **Status**: pending
+- **Status**: completed
 - **Priority**: Medium
 - **Goal**: Implement a workspace diagnostics log rotation script (`scripts/agent/rotate-logs.mjs`) to auto-rotate, compress, and sanitize test output logs (`test_output.log`) exceeding 2MB, preventing context pollution for autonomous agents.
 - **Context**: Large log files like `test_output.log` are heavy and can pollute token boundaries if they are accidentally scanned or included in workspace listings. Sanitizing secrets (e.g., matching env patterns or token strings) is critical for agent safety.
@@ -47,10 +47,10 @@
 ---
 
 ## Acceptance Criteria
-- [ ] Log rotator handles absent `test_output.log` gracefully without non-zero exit codes.
-- [ ] Log files exceeding 2MB are successfully shifted and rotated up to index 3.
-- [ ] Detected token payloads are sanitized to `[REDACTED_SECRET]`.
-- [ ] Runs successfully in the agent verify checks pipeline.
+- [x] Log rotator handles absent `test_output.log` gracefully without non-zero exit codes.
+- [x] Log files exceeding 2MB are successfully shifted and rotated up to index 3.
+- [x] Detected token payloads are sanitized to `[REDACTED_SECRET]`.
+- [x] Runs successfully in the agent verify checks pipeline.
 
 ---
 

@@ -60,5 +60,9 @@ if ($failed -gt 0) {
     exit 1
 }
 
+Write-Host "Running diagnostic log rotation..." -ForegroundColor Cyan
+node scripts/agent/rotate-logs.mjs
+
 Write-Host "All checks passed." -ForegroundColor Green
 exit 0
+

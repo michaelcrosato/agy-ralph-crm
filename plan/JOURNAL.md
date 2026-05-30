@@ -36,3 +36,32 @@
   - Comprehensive verification check `pnpm run agent:check` completed successfully with `0` exit status.
   - Exact regression parity: **142/142 test files** and **469/469 tests** passed cleanly.
 
+## [2026-05-30] Cycle 2 — Workspace Diagnostics Log Sanitizer & Rotator
+
+### 1. REPO BASELINE
+- **Branch**: `main`, fully clean working tree.
+- **Verification Command**: `pnpm run agent:check` (combines Biome formatting, lint checks, typescript builds, and Vitest test suites).
+- **Test Baseline**: 142 passed test files, 469 passed tests.
+
+### 2. ARCHITECTURAL FINDINGS & TICKET009
+- Continuous autonomous agent execution appends log output to `test_output.log`, which can grow very large (> 2MB), causing token bloat during directory scans/listings.
+- Logs can occasionally print sensitive auth/Bearer tokens, private keys, or passwords.
+- Redaction and rotation of these logs is necessary. Normalizing output to UTF-8 resolves PowerShell UTF-16LE read errors (`unsupported mime type text/plain; charset=utf-16le`).
+
+### 3. ACTION PLAN & IMPLEMENTATION (Spec 044)
+- Developed `scripts/agent/rotate-logs.mjs` with:
+  - UTF-16LE and UTF-8 auto-detection.
+  - High-performance regex filters targeting Bearer headers, JWTs, inline passwords/secrets, and PEM private keys.
+  - White-space preservation logic for key-value separators (preserving exact spacing).
+  - Rotation shift indexing up to `.3.log`.
+  - Normalization to UTF-8.
+- Integrated `agent:rotate-logs` npm script into root `package.json`.
+- Integrated execution at the end of successful `check.ps1` and `check.sh` runs.
+- Developed comprehensive integration tests in `packages/testing/src/rotate-logs.test.ts`.
+
+### 4. VERIFICATION LOG
+- Ran targeted Vitest tests: `npx vitest run packages/testing/src/rotate-logs.test.ts` (3/3 passed).
+- Ran workspace-wide pre-check: `pnpm run agent:check` (143/143 test files and 472/472 tests passed 100% cleanly).
+- Formatting and linting validated green via Biome.
+
+
