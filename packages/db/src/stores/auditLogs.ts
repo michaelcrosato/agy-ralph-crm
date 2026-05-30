@@ -15,7 +15,7 @@ export const auditLogsStore = {
     const newLog: DBAuditLog = {
       ...log,
       id: genId("log"),
-      createdAt: new Date(),
+      createdAt: (log as any).createdAt || new Date(),
     };
     store.auditLogs.push(newLog);
     return newLog;

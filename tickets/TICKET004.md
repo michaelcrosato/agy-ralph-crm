@@ -1,7 +1,7 @@
 # TICKET004: Interactive tRPC Dashboard Analytics API
 
 ## Details
-- **Status**: pending
+- **Status**: completed
 - **Priority**: High
 - **Goal**: Implement a high-performance analytics endpoint inside Hono/tRPC routers to aggregate Leads count, conversion velocity, and SLA statuses by active tenant.
 - **Context**: The frontend dashboard panel requires quick telemetry access to render metrics under strict organization RLS isolation.
@@ -40,9 +40,9 @@
 ---
 
 ## Acceptance Criteria
-- [ ] Endpoint `GET /api/dashboard/analytics` successfully returns aggregated JSON telemetry.
-- [ ] Non-authenticated or mismatched tenant request returns `401` or `RLS Violation`.
-- [ ] Aggregate counts match exactly with the active tenant's database seed.
+- [x] Endpoint `GET /api/dashboard/analytics` successfully returns aggregated JSON telemetry.
+- [x] Non-authenticated or mismatched tenant request returns `401` or `RLS Violation`.
+- [x] Aggregate counts match exactly with the active tenant's database seed.
 
 ---
 
