@@ -1,14 +1,23 @@
 import { hasPermission, Permission } from "@crm/auth";
 import { createMiddleware } from "hono/factory";
 import type { Env } from "./tenantAuth";
+import { tenantAuth } from "./tenantAuth";
 
 /**
  * Custom Hono RBAC middleware verifying context TenantContext bitmask permissions.
  * Rejects the request with a `403 Forbidden` response if the bitmask verification fails.
+ * Self-authenticating: dynamically invokes tenantAuth if not already authenticated.
  */
 export function requirePermission(requiredPermission: Permission) {
   return createMiddleware<Env>(async (c, next) => {
-    const tenant = c.get("tenant");
+    let tenant = c.get("tenant");
+    if (!tenant) {
+      // Self-authenticate dynamically if tenantAuth hasn't run yet
+      await tenantAuth(c, async () => {
+        tenant = c.get("tenant");
+      });
+    }
+
     if (!tenant) {
       return c.json(
         { error: "Unauthorized: Missing active tenant session" },
@@ -32,9 +41,17 @@ export function requirePermission(requiredPermission: Permission) {
  * - GET requests require READ_RECORDS
  * - DELETE requests require DELETE_RECORDS
  * - POST / PATCH / PUT requests require WRITE_RECORDS
+ * Self-authenticating: dynamically invokes tenantAuth if not already authenticated.
  */
 export const resourceRbac = createMiddleware<Env>(async (c, next) => {
-  const tenant = c.get("tenant");
+  let tenant = c.get("tenant");
+  if (!tenant) {
+    // Self-authenticate dynamically if tenantAuth hasn't run yet
+    await tenantAuth(c, async () => {
+      tenant = c.get("tenant");
+    });
+  }
+
   if (!tenant) {
     return c.json(
       { error: "Unauthorized: Missing active tenant session" },
