@@ -17,7 +17,7 @@
 
 ## Phase 1 — Core Upgrades (1–2 weeks)
 
-- [ ] **010** — [Decompose apps/api/src/index.ts (331 routes / 13,060 lines)](./specs/010_decompose_apps_api.md) · deps: 001
+- [~] **010 (milestones 1+2)** — [Decompose apps/api/src/index.ts (331 routes / 13,060 lines)](./specs/010_decompose_apps_api.md) · deps: 001 · branch `spec/010-split-apps-api` · `f86a761` (middleware + lib) + `223545c` (/health → routes/) · **remaining 330 routes → spec 041**
 - [ ] **011** — [Decompose packages/core/src/index.ts (100+ exports / 9,505 lines)](./specs/011_decompose_packages_core.md) · deps: 010
 - [x] **012 (partial)** — [Decompose packages/db/src/index.ts (6,312 lines, 70+ stores)](./specs/012_decompose_packages_db.md) · `513e7d2` — helpers extracted; aggregate stores deferred to spec 040
 - [ ] **013** — [Wire real Postgres + Drizzle + testcontainers](./specs/013_real_postgres_drizzle.md) · deps: 012
@@ -81,3 +81,4 @@
 
 - **039** — [Fix 22 floating-promise sites surfaced by Biome 2.4](./specs/039_followup_floating_promises.md) (opened from spec 002)
 - **040** — [Split `packages/db/src/index.ts` aggregate stores](./specs/040_followup_db_aggregate_stores.md) (opened from spec 012)
+- **041** — [Batched route extraction for apps/api/src/index.ts (13 batches)](./specs/041_followup_apps_api_route_batches.md) (opened from spec 010 milestone-2)
