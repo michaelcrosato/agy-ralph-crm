@@ -1,3 +1,5 @@
+import { genId } from "@crm/db";
+
 export const TESTING_VERSION = "0.1.0";
 
 export interface MockSeedConfig {
@@ -117,7 +119,7 @@ export function generateHighScaleSeed(
 
   for (let i = 0; i < config.accountCount; i++) {
     accounts.push({
-      id: `acc-scale-${i}-${Math.random().toString(36).substring(2, 7)}`,
+      id: `${genId("acc-scale")}-${i}`,
       orgId,
       ownerId: "user-scale-admin",
       name: `Scale Account ${i}`,
@@ -129,7 +131,7 @@ export function generateHighScaleSeed(
   for (let i = 0; i < config.contactCount; i++) {
     const parentAccount = accounts[i % (accounts.length || 1)];
     contacts.push({
-      id: `con-scale-${i}-${Math.random().toString(36).substring(2, 7)}`,
+      id: `${genId("con-scale")}-${i}`,
       orgId,
       ownerId: "user-scale-admin",
       accountId: parentAccount ? parentAccount.id : "null",
@@ -142,7 +144,7 @@ export function generateHighScaleSeed(
 
   for (let i = 0; i < config.leadCount; i++) {
     leads.push({
-      id: `lead-scale-${i}-${Math.random().toString(36).substring(2, 7)}`,
+      id: `${genId("lead-scale")}-${i}`,
       orgId,
       ownerId: "user-scale-admin",
       status: i % 3 === 0 ? "New" : i % 3 === 1 ? "Working" : "Converted",
@@ -155,7 +157,7 @@ export function generateHighScaleSeed(
   for (let i = 0; i < config.opportunityCount; i++) {
     const parentAccount = accounts[i % (accounts.length || 1)];
     opportunities.push({
-      id: `opp-scale-${i}-${Math.random().toString(36).substring(2, 7)}`,
+      id: `${genId("opp-scale")}-${i}`,
       orgId,
       ownerId: "user-scale-admin",
       name: `Scale Opportunity ${i}`,

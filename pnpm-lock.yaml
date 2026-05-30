@@ -134,6 +134,9 @@ importers:
       '@crm/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@crm/db':
+        specifier: workspace:*
+        version: link:../../packages/db
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.8.0
@@ -182,6 +185,9 @@ importers:
 
   packages/core:
     dependencies:
+      uuid:
+        specifier: ^14.0.0
+        version: 14.0.0
       zod:
         specifier: ^3.23.0
         version: 3.25.76
@@ -207,6 +213,9 @@ importers:
       postgres:
         specifier: ^3.4.0
         version: 3.4.9
+      uuid:
+        specifier: ^14.0.0
+        version: 14.0.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^1.8.0
@@ -2005,6 +2014,10 @@ packages:
   undici-types@6.21.0:
     resolution: {integrity: sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==}
 
+  uuid@14.0.0:
+    resolution: {integrity: sha512-Qo+uWgilfSmAhXCMav1uYFynlQO7fMFiMVZsQqZRMIXp0O7rR7qjkj+cPvBHLgBqi960QCoo/PH2/6ZtVqKvrg==}
+    hasBin: true
+
   vite-node@1.6.1:
     resolution: {integrity: sha512-YAXkfvGtuTzwWbDSACdJSg4A4DZiAqckWe90Zapc/sEX3XvHcw1NdurM/6od8J207tSDqNbSsgdCacBgvJKFuA==}
     engines: {node: ^18.0.0 || >=20.0.0}
@@ -3218,6 +3231,8 @@ snapshots:
   ufo@1.6.4: {}
 
   undici-types@6.21.0: {}
+
+  uuid@14.0.0: {}
 
   vite-node@1.6.1(@types/node@22.19.19):
     dependencies:

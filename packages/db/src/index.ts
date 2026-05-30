@@ -1,7 +1,9 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { sql } from "drizzle-orm";
 import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { genId } from "./_ids";
 
+export { genId } from "./_ids";
 export * from "./schema";
 
 export const DB_VERSION = "0.1.0";
@@ -1395,7 +1397,7 @@ export const dbStore = {
     ) => {
       const newUser: DBUser = {
         ...user,
-        id: user.id || `user-${Math.random().toString(36).substring(2, 11)}`,
+        id: user.id || genId("user"),
         createdAt: new Date(),
       };
       store.users.push(newUser);
@@ -1414,7 +1416,7 @@ export const dbStore = {
       }
       const newMembership: DBMembership = {
         ...membership,
-        id: `membership-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("membership"),
       };
       store.memberships.push(newMembership);
       return newMembership;
@@ -1440,7 +1442,7 @@ export const dbStore = {
       }
       const newLead: DBLead = {
         ...lead,
-        id: `lead-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("lead"),
       };
       store.leads.push(newLead);
       return newLead;
@@ -1490,7 +1492,7 @@ export const dbStore = {
       const newAcc: DBAccount = {
         ...acc,
         parentAccountId: acc.parentAccountId || null,
-        id: `account-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("account"),
       };
       store.accounts.push(newAcc);
       return newAcc;
@@ -1569,7 +1571,7 @@ export const dbStore = {
       const newContact: DBContact = {
         ...c,
         reportsToId: c.reportsToId || null,
-        id: `contact-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("contact"),
       };
       store.contacts.push(newContact);
       return newContact;
@@ -1650,7 +1652,7 @@ export const dbStore = {
         ...o,
         currencyCode: o.currencyCode || "USD",
         amountCorporate: o.amountCorporate || null,
-        id: `opp-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("opp"),
       };
       store.opportunities.push(newOpp);
       return newOpp;
@@ -1684,7 +1686,7 @@ export const dbStore = {
       }
       const newLog: DBAuditLog = {
         ...log,
-        id: `log-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("log"),
         createdAt: new Date(),
       };
       store.auditLogs.push(newLog);
@@ -1703,7 +1705,7 @@ export const dbStore = {
       }
       const newDef: DBFieldDefinition = {
         ...def,
-        id: `field-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("field"),
       };
       store.fieldDefinitions.push(newDef);
       return newDef;
@@ -1728,7 +1730,7 @@ export const dbStore = {
       }
       const newLayout: DBLayoutDefinition = {
         ...layout,
-        id: `layout-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("layout"),
       };
       store.layoutDefinitions.push(newLayout);
       return newLayout;
@@ -1746,7 +1748,7 @@ export const dbStore = {
       }
       const newWorkflow: DBWorkflow = {
         ...w,
-        id: `workflow-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("workflow"),
       };
       store.workflows.push(newWorkflow);
       return newWorkflow;
@@ -1772,7 +1774,7 @@ export const dbStore = {
       }
       const newTicket: DBTicket = {
         ...ticket,
-        id: `ticket-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("ticket"),
         status: ticket.status || "Open",
         priority: ticket.priority || "Medium",
         createdAt: new Date(),
@@ -1816,7 +1818,7 @@ export const dbStore = {
       }
       const newAct: DBActivity = {
         ...act,
-        id: `activity-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("activity"),
         createdAt: act.createdAt || new Date(),
       };
       store.activities.push(newAct);
@@ -1835,7 +1837,7 @@ export const dbStore = {
       }
       const newLink: DBActivityLink = {
         ...link,
-        id: `link-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("link"),
       };
       store.activityLinks.push(newLink);
       return newLink;
@@ -1861,7 +1863,7 @@ export const dbStore = {
       }
       const newReport: DBReport = {
         ...report,
-        id: `report-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("report"),
         createdAt: new Date(),
       };
       store.reports.push(newReport);
@@ -1886,7 +1888,7 @@ export const dbStore = {
       }
       const newProduct: DBProduct = {
         ...p,
-        id: `product-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("product"),
       };
       store.products.push(newProduct);
       return newProduct;
@@ -1910,7 +1912,7 @@ export const dbStore = {
       }
       const newPb: DBPricebook = {
         ...pb,
-        id: `pricebook-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("pricebook"),
       };
       store.pricebooks.push(newPb);
       return newPb;
@@ -1934,7 +1936,7 @@ export const dbStore = {
       }
       const newPbe: DBPricebookEntry = {
         ...pbe,
-        id: `pbe-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("pbe"),
       };
       store.pricebookEntries.push(newPbe);
       return newPbe;
@@ -1958,7 +1960,7 @@ export const dbStore = {
       }
       const newOp: DBOpportunityProduct = {
         ...op,
-        id: `line-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("line"),
       };
       store.opportunityProducts.push(newOp);
       return newOp;
@@ -2007,7 +2009,7 @@ export const dbStore = {
       }
       const newQuota: DBQuota = {
         ...quota,
-        id: `quota-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("quota"),
       };
       store.quotas.push(newQuota);
       return newQuota;
@@ -2033,7 +2035,7 @@ export const dbStore = {
       }
       const newMapping: DBStageForecastMapping = {
         ...m,
-        id: `sfm-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("sfm"),
       };
       store.stageForecastMappings.push(newMapping);
       return newMapping;
@@ -2051,7 +2053,7 @@ export const dbStore = {
       }
       const newFa: DBForecastAdjustment = {
         ...fa,
-        id: `fa-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("fa"),
         createdAt: new Date(),
       };
       store.forecastAdjustments.push(newFa);
@@ -2077,7 +2079,7 @@ export const dbStore = {
       }
       const newSp: DBStageProbability = {
         ...sp,
-        id: `sp-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("sp"),
       };
       store.stageProbabilities.push(newSp);
       return newSp;
@@ -2095,7 +2097,7 @@ export const dbStore = {
       }
       const newWebhook: DBWebhook = {
         ...webhook,
-        id: `webhook-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("webhook"),
       };
       store.webhooks.push(newWebhook);
       return newWebhook;
@@ -2113,7 +2115,7 @@ export const dbStore = {
       }
       const newDelivery: DBWebhookDelivery = {
         ...delivery,
-        id: `delivery-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("delivery"),
         createdAt: new Date(),
       };
       store.webhookDeliveries.push(newDelivery);
@@ -2138,7 +2140,7 @@ export const dbStore = {
       }
       const newTemplate: DBDocumentTemplate = {
         ...template,
-        id: `template-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("template"),
         createdAt: new Date(),
       };
       store.documentTemplates.push(newTemplate);
@@ -2157,7 +2159,7 @@ export const dbStore = {
       }
       const newMerged: DBMergedDocument = {
         ...merged,
-        id: `merged-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("merged"),
         createdAt: new Date(),
       };
       store.mergedDocuments.push(newMerged);
@@ -2182,7 +2184,7 @@ export const dbStore = {
       }
       const newSub: DBSubscription = {
         ...sub,
-        id: `subscription-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("subscription"),
       };
       store.subscriptions.push(newSub);
       return newSub;
@@ -2222,7 +2224,7 @@ export const dbStore = {
       }
       const newInv: DBInvoice = {
         ...inv,
-        id: `invoice-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("invoice"),
       };
       store.invoices.push(newInv);
       return newInv;
@@ -2262,7 +2264,7 @@ export const dbStore = {
       }
       const newOutbox: DBWebhookOutbox = {
         ...o,
-        id: `outbox-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("outbox"),
         createdAt: new Date(),
       };
       store.webhookOutbox.push(newOutbox);
@@ -2313,7 +2315,7 @@ export const dbStore = {
       }
       const newDlq: DBWebhookDlq = {
         ...d,
-        id: `dlq-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("dlq"),
         failedAt: new Date(),
       };
       store.webhookDlq.push(newDlq);
@@ -2338,7 +2340,7 @@ export const dbStore = {
       }
       const newAppr: DBOpportunityApproval = {
         ...appr,
-        id: `approval-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("approval"),
         createdAt: new Date(),
       };
       store.opportunityApprovals.push(newAppr);
@@ -2381,7 +2383,7 @@ export const dbStore = {
       }
       const newStep: DBOpportunityApprovalStep = {
         ...step,
-        id: `step-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("step"),
       };
       store.opportunityApprovalSteps.push(newStep);
       return newStep;
@@ -2423,7 +2425,7 @@ export const dbStore = {
       }
       const newComm: DBCommission = {
         ...comm,
-        id: `commission-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("commission"),
         createdAt: new Date(),
       };
       store.commissions.push(newComm);
@@ -2481,7 +2483,7 @@ export const dbStore = {
       }
       const newRule: DBLeadAssignmentRule = {
         ...rule,
-        id: `rule-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("rule"),
         createdAt: new Date(),
       };
       store.leadAssignmentRules.push(newRule);
@@ -2524,7 +2526,7 @@ export const dbStore = {
       }
       const newEntry: DBLeadAssignmentRuleEntry = {
         ...entry,
-        id: `entry-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("entry"),
       };
       store.leadAssignmentRuleEntries.push(newEntry);
       return newEntry;
@@ -2566,7 +2568,7 @@ export const dbStore = {
       }
       const newTerritory: DBTerritory = {
         ...territory,
-        id: `territory-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("territory"),
         createdAt: new Date(),
       };
       store.territories.push(newTerritory);
@@ -2607,7 +2609,7 @@ export const dbStore = {
       }
       const newMember: DBTerritoryMember = {
         ...member,
-        id: `member-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("member"),
       };
       store.territoryMembers.push(newMember);
       return newMember;
@@ -2647,7 +2649,7 @@ export const dbStore = {
       }
       const newSplit: DBOpportunitySplit = {
         ...split,
-        id: `split-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("split"),
         createdAt: new Date(),
       };
       store.opportunitySplits.push(newSplit);
@@ -2692,7 +2694,7 @@ export const dbStore = {
       }
       const newCampaign: DBCampaign = {
         ...campaign,
-        id: `campaign-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("campaign"),
         createdAt: new Date(),
       };
       store.campaigns.push(newCampaign);
@@ -2760,7 +2762,7 @@ export const dbStore = {
       }
       const newMember: DBCampaignMember = {
         ...member,
-        id: `member-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("member"),
         createdAt: new Date(),
       };
       store.campaignMembers.push(newMember);
@@ -2818,7 +2820,7 @@ export const dbStore = {
       }
       const newHistory: DBOpportunityStageHistory = {
         ...history,
-        id: `history-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("history"),
         createdAt: new Date(),
       };
       store.opportunityStageHistory.push(newHistory);
@@ -2851,7 +2853,7 @@ export const dbStore = {
       }
       const newRole: DBOpportunityContactRole = {
         ...role,
-        id: `ocr-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("ocr"),
         createdAt: new Date(),
       };
       store.opportunityContactRoles.push(newRole);
@@ -2910,7 +2912,7 @@ export const dbStore = {
       }
       const newInfluence: DBCampaignInfluence = {
         ...inf,
-        id: `cinf-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("cinf"),
         createdAt: new Date(),
       };
       store.campaignInfluence.push(newInfluence);
@@ -2951,7 +2953,7 @@ export const dbStore = {
       }
       const newContract: DBContract = {
         ...contract,
-        id: `contract-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("contract"),
         createdAt: new Date(),
       };
       store.contracts.push(newContract);
@@ -3002,7 +3004,7 @@ export const dbStore = {
       }
       const newTarget: DBLeadSlaTarget = {
         ...target,
-        id: `target-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("target"),
         createdAt: new Date(),
       };
       store.leadSlaTargets.push(newTarget);
@@ -3049,7 +3051,7 @@ export const dbStore = {
       }
       const newTracker: DBLeadSlaTracker = {
         ...tracker,
-        id: `tracker-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("tracker"),
         createdAt: new Date(),
       };
       store.leadSlaTrackers.push(newTracker);
@@ -3090,7 +3092,7 @@ export const dbStore = {
       }
       const newMember: DBAccountTeamMember = {
         ...member,
-        id: `team-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("team"),
         createdAt: new Date(),
       };
       store.accountTeams.push(newMember);
@@ -3121,7 +3123,7 @@ export const dbStore = {
         return store.accountTeams[index];
       }
       const newMember: DBAccountTeamMember = {
-        id: `team-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("team"),
         orgId,
         accountId,
         userId,
@@ -3161,7 +3163,7 @@ export const dbStore = {
       }
       const newMember: DBOpportunityTeamMember = {
         ...member,
-        id: `team-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("team"),
         createdAt: new Date(),
       };
       store.opportunityTeams.push(newMember);
@@ -3196,7 +3198,7 @@ export const dbStore = {
         return store.opportunityTeams[index];
       }
       const newMember: DBOpportunityTeamMember = {
-        id: `team-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("team"),
         orgId,
         opportunityId,
         userId,
@@ -3238,7 +3240,7 @@ export const dbStore = {
       }
       const newRule: DBLeadScoringRule = {
         ...r,
-        id: `rule-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("rule"),
         createdAt: new Date(),
       };
       store.leadScoringRules.push(newRule);
@@ -3291,7 +3293,7 @@ export const dbStore = {
       }
       const newComp: DBOpportunityCompetitor = {
         ...comp,
-        id: Math.random().toString(36).substring(2, 9),
+        id: genId("opcomp"),
         createdAt: new Date(),
       };
       store.opportunityCompetitors.push(newComp);
@@ -3352,7 +3354,7 @@ export const dbStore = {
       }
       const newMapping: DBLeadConversionMapping = {
         ...mapping,
-        id: `mapping-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("mapping"),
         createdAt: new Date(),
       };
       store.leadConversionMappings.push(newMapping);
@@ -3398,7 +3400,7 @@ export const dbStore = {
       }
       const newCurrency: DBCurrency = {
         ...c,
-        id: `currency-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("currency"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -3447,7 +3449,7 @@ export const dbStore = {
       }
       const newGate: DBOpportunityStageGate = {
         ...g,
-        id: `gate-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("gate"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -3506,7 +3508,7 @@ export const dbStore = {
       }
       const newGuidance: DBStageGuidance = {
         ...g,
-        id: `guidance-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("guidance"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -3568,7 +3570,7 @@ export const dbStore = {
       }
       const newSchedule: DBOpportunityProductSchedule = {
         ...s,
-        id: `schedule-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("schedule"),
         createdAt: new Date(),
       };
       store.opportunityProductSchedules.push(newSchedule);
@@ -3624,7 +3626,7 @@ export const dbStore = {
       }
       const newRule: DBLeadAutoConversionRule = {
         ...rule,
-        id: `conversion-rule-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("conversion-rule"),
         createdAt: new Date(),
       };
       store.leadAutoConversionRules.push(newRule);
@@ -3687,7 +3689,7 @@ export const dbStore = {
       }
       const newRule: DBOpportunityStageDurationRule = {
         ...rule,
-        id: `duration-rule-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("duration-rule"),
         createdAt: now,
         updatedAt: now,
       };
@@ -3735,7 +3737,7 @@ export const dbStore = {
       }
       const newPref: DBContactConsentPreference = {
         ...preference,
-        id: `consent-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("consent"),
         createdAt: now,
         updatedAt: now,
       };
@@ -3769,7 +3771,7 @@ export const dbStore = {
       const now = new Date();
       const newSettings: DBEmailCalendarSyncSettings = {
         ...settings,
-        id: `settings-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("settings"),
         createdAt: now,
         updatedAt: now,
       };
@@ -3813,7 +3815,7 @@ export const dbStore = {
       }
       const newRun: DBEmailCalendarSyncRun = {
         ...run,
-        id: `run-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("run"),
       };
       store.emailCalendarSyncRuns.push(newRun);
       return newRun;
@@ -3844,7 +3846,7 @@ export const dbStore = {
       }
       const newReq: DBEsignatureRequest = {
         ...req,
-        id: `esign-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("esign"),
         sentAt: req.sentAt || new Date(),
         completedAt: req.completedAt || null,
       };
@@ -3892,7 +3894,7 @@ export const dbStore = {
       }
       const newSurvey: DBSurvey = {
         ...survey,
-        id: `survey-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("survey"),
         createdAt: survey.createdAt || new Date(),
       };
       store.surveys.push(newSurvey);
@@ -3944,7 +3946,7 @@ export const dbStore = {
       const newRes: DBSurveyResponse = {
         ...res,
         ticketId: res.ticketId || null,
-        id: `sres-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("sres"),
         createdAt: res.createdAt || new Date(),
       };
       store.surveyResponses.push(newRes);
@@ -3975,7 +3977,7 @@ export const dbStore = {
       }
       const newPolicy: DBSlaPolicy = {
         ...policy,
-        id: `sla-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("sla"),
         createdAt: policy.createdAt || new Date(),
       };
       store.slaPolicies.push(newPolicy);
@@ -4028,7 +4030,7 @@ export const dbStore = {
       }
       const newMilestone: DBTicketMilestone = {
         ...milestone,
-        id: `milestone-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("milestone"),
         createdAt: milestone.createdAt || new Date(),
       };
       store.ticketMilestones.push(newMilestone);
@@ -4075,7 +4077,7 @@ export const dbStore = {
       }
       const newCategory: DBKbCategory = {
         ...category,
-        id: `kbcat-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("kbcat"),
         createdAt: category.createdAt || new Date(),
       };
       store.kbCategories.push(newCategory);
@@ -4107,7 +4109,7 @@ export const dbStore = {
       }
       const newArticle: DBKbArticle = {
         ...article,
-        id: `kbart-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("kbart"),
         viewCount: article.viewCount || 0,
         createdAt: article.createdAt || new Date(),
       };
@@ -4155,7 +4157,7 @@ export const dbStore = {
       }
       const newComment: DBTicketComment = {
         ...comment,
-        id: `tcom-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("tcom"),
         createdAt: comment.createdAt || new Date(),
       };
       store.ticketComments.push(newComment);
@@ -4186,7 +4188,7 @@ export const dbStore = {
       }
       const newTag: DBTicketTag = {
         ...tag,
-        id: `ttag-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("ttag"),
         createdAt: tag.createdAt || new Date(),
       };
       store.ticketTags.push(newTag);
@@ -4217,7 +4219,7 @@ export const dbStore = {
       }
       const newLink: DBTicketTagLink = {
         ...link,
-        id: `tlink-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("tlink"),
         createdAt: link.createdAt || new Date(),
       };
       store.ticketTagLinks.push(newLink);
@@ -4258,7 +4260,7 @@ export const dbStore = {
       }
       const newRule: DBTicketAssignmentRule = {
         ...rule,
-        id: `trule-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("trule"),
         createdAt: rule.createdAt || new Date(),
       };
       store.ticketAssignmentRules.push(newRule);
@@ -4303,7 +4305,7 @@ export const dbStore = {
       }
       const newEntry: DBTicketAssignmentRuleEntry = {
         ...entry,
-        id: `trent-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("trent"),
       };
       store.ticketAssignmentRuleEntries.push(newEntry);
       return newEntry;
@@ -4353,7 +4355,7 @@ export const dbStore = {
       }
       const newRule: DBTicketEscalationRule = {
         ...rule,
-        id: `tescr-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("tescr"),
         createdAt: rule.createdAt || new Date(),
       };
       store.ticketEscalationRules.push(newRule);
@@ -4402,7 +4404,7 @@ export const dbStore = {
       }
       const newEscalation: DBTicketEscalation = {
         ...escalation,
-        id: `tesc-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("tesc"),
         createdAt: escalation.createdAt || new Date(),
       };
       store.ticketEscalations.push(newEscalation);
@@ -4433,7 +4435,7 @@ export const dbStore = {
       }
       const newMacro: DBTicketMacro = {
         ...macro,
-        id: `tmac-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("tmac"),
         createdAt: macro.createdAt || new Date(),
       };
       store.ticketMacros.push(newMacro);
@@ -4464,7 +4466,7 @@ export const dbStore = {
       }
       const newMigration: DBSchemaMigration = {
         ...migration,
-        id: `mig-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("mig"),
         appliedAt: migration.appliedAt || new Date(),
       };
       store.schemaMigrations.push(newMigration);
@@ -4503,7 +4505,7 @@ export const dbStore = {
       }
       const newReport: DBScheduledReport = {
         ...r,
-        id: `sr-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("sr"),
         createdAt: r.createdAt || new Date(),
       };
       store.scheduledReports.push(newReport);
@@ -4558,7 +4560,7 @@ export const dbStore = {
       }
       const newRun: DBScheduledReportRun = {
         ...r,
-        id: `srr-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("srr"),
         runAt: r.runAt || new Date(),
       };
       store.scheduledReportRuns.push(newRun);
@@ -4585,7 +4587,7 @@ export const dbStore = {
       }
       const newDep: DBPicklistDependency = {
         ...d,
-        id: `pldep-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("pldep"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -4642,7 +4644,7 @@ export const dbStore = {
       }
       const newRule: DBValidationRule = {
         ...r,
-        id: `valrule-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("valrule"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -4699,7 +4701,7 @@ export const dbStore = {
       }
       const newTemplate: DBEmailTemplate = {
         ...t,
-        id: `emailtpl-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("emailtpl"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -4774,7 +4776,7 @@ export const dbStore = {
       }
       const newTracker: DBEmailTracker = {
         ...t,
-        id: `tracker-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("tracker"),
         openCount: 0,
         clickCount: 0,
         replyCount: 0,
@@ -4872,7 +4874,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSegment = {
         ...item,
-        id: `seg-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("seg"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -4931,7 +4933,7 @@ export const dbStore = {
         ...item,
         senderType: item.senderType ?? "system",
         senderUserId: item.senderUserId ?? null,
-        id: `seq-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("seq"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -4994,7 +4996,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceStep = {
         ...item,
-        id: `step-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("step"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5066,7 +5068,7 @@ export const dbStore = {
       const newItem: DBMarketingSequenceMembership = {
         ...item,
         engagementScore: item.engagementScore ?? 0,
-        id: `memb-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("memb"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5141,7 +5143,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceExitTrigger = {
         ...item,
-        id: `trig-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("trig"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5192,7 +5194,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceScoreTrigger = {
         ...item,
-        id: `sctr-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("sctr"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5249,7 +5251,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceGlobalVariable = {
         ...item,
-        id: `msvg-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("msvg"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5289,7 +5291,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceFolder = {
         ...item,
-        id: `msfo-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("msfo"),
         createdAt: new Date(),
       };
       store.marketingSequenceFolders.push(newItem);
@@ -5344,7 +5346,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceTag = {
         ...item,
-        id: `msta-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("msta"),
         createdAt: new Date(),
       };
       store.marketingSequenceTags.push(newItem);
@@ -5389,7 +5391,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceTagMapping = {
         ...item,
-        id: `mstm-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("mstm"),
       };
       store.marketingSequenceTagMappings.push(newItem);
       return newItem;
@@ -5453,7 +5455,7 @@ export const dbStore = {
         minSendsToEvaluate: 10,
         evaluationMetric: "open_rate",
         ...item,
-        id: `split-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("split"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5530,7 +5532,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceStepBranch = {
         ...item,
-        id: `branch-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("branch"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5600,7 +5602,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceGoal = {
         ...item,
-        id: `goal-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("goal"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5646,7 +5648,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceConversion = {
         ...item,
-        id: `conv-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("conv"),
         createdAt: new Date(),
       };
       store.marketingSequenceConversions.push(newItem);
@@ -5696,7 +5698,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceSuppression = {
         ...item,
-        id: `supp-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("supp"),
         createdAt: new Date(),
       };
       store.marketingSequenceSuppressions.push(newItem);
@@ -5744,7 +5746,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceExclusion = {
         ...item,
-        id: `excl-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("excl"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5791,7 +5793,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceAbAllocation = {
         ...item,
-        id: `alloc-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("alloc"),
         createdAt: new Date(),
       };
       store.marketingSequenceAbAllocations.push(newItem);
@@ -5818,7 +5820,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceCap = {
         ...item,
-        id: `cap-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("cap"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5886,7 +5888,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceLinkAction = {
         ...item,
-        id: `act-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("act"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5937,7 +5939,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceOpenAction = {
         ...item,
-        id: `act-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("act"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -5988,7 +5990,7 @@ export const dbStore = {
       }
       const newItem: DBMarketingSequenceReplyAction = {
         ...item,
-        id: `act-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("act"),
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -6033,7 +6035,7 @@ export const dbStore = {
       }
       const newItem: DBEmailClickEvent = {
         ...item,
-        id: `ev-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("ev"),
         createdAt: new Date(),
       };
       store.emailClickEvents.push(newItem);
@@ -6059,7 +6061,7 @@ export const dbStore = {
       }
       const newItem: DBEmailUnsubscribe = {
         ...item,
-        id: `unsub-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("unsub"),
         createdAt: new Date(),
       };
       store.emailUnsubscribes.push(newItem);
@@ -6091,7 +6093,7 @@ export const dbStore = {
       }
       const newItem: DBEmailOpenEvent = {
         ...item,
-        id: `op-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("op"),
         createdAt: new Date(),
       };
       store.emailOpenEvents.push(newItem);
@@ -6123,7 +6125,7 @@ export const dbStore = {
       }
       const newItem: DBEmailReplyEvent = {
         ...item,
-        id: `rep-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("rep"),
         createdAt: new Date(),
       };
       store.emailReplyEvents.push(newItem);
@@ -6155,7 +6157,7 @@ export const dbStore = {
       }
       const newItem: DBEmailBounceEvent = {
         ...item,
-        id: `bnc-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("bnc"),
         createdAt: new Date(),
       };
       store.emailBounceEvents.push(newItem);
@@ -6187,7 +6189,7 @@ export const dbStore = {
       }
       const newItem: DBEmailReadTimeEvent = {
         ...item,
-        id: `rdt-${Math.random().toString(36).substring(2, 11)}`,
+        id: genId("rdt"),
         createdAt: new Date(),
       };
       store.emailReadTimeEvents.push(newItem);

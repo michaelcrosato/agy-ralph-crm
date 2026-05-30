@@ -1,3 +1,4 @@
+import { genId } from "@crm/db";
 export const SERVICE_LITE_VERSION = "0.1.0";
 
 export interface TicketInsert {
@@ -18,7 +19,7 @@ export interface TicketRecord {
 // createTicket is a first-party module extension function to initialize support tickets
 export function createTicket(ticket: TicketInsert): TicketRecord {
   return {
-    id: `ticket-${Math.random().toString(36).substring(2, 11)}`,
+    id: genId("ticket"),
     orgId: ticket.orgId,
     contactId: ticket.contactId,
     subject: ticket.subject,

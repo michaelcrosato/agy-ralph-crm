@@ -118,6 +118,7 @@ import {
   type DBStageForecastMapping,
   type DBStageGuidance,
   dbStore,
+  genId,
   mockDb,
   store,
   withTenant,
@@ -9730,8 +9731,8 @@ app.post("/api/emails/:activityId/tracker", tenantAuth, async (c) => {
     return c.json({ success: false, error: "Email activity not found" }, 404);
   }
 
-  // Generate unique token
-  const token = `tr-${Math.random().toString(36).substring(2, 11)}${Math.random().toString(36).substring(2, 11)}`;
+  // Generate unique token (UUID v7 has 128 bits of entropy — replaces previous Math.random concatenation).
+  const token = genId("tr");
 
   const tracker = await dbStore.emailTrackers.insert({
     orgId: tenant.orgId,

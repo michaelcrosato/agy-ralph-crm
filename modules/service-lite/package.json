@@ -10,7 +10,8 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@crm/core": "workspace:*"
+    "@crm/core": "workspace:*",
+    "@crm/db": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

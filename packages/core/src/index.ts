@@ -1,3 +1,5 @@
+import { v7 as uuidv7 } from "uuid";
+
 export const CORE_VERSION = "0.1.0";
 
 export interface Organization {
@@ -1162,7 +1164,7 @@ export function validateAccountTeamMember(
 ): { success: boolean; error?: string } {
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const mockRegex = /^(account|user|team)-[a-z0-9]+$/i;
+  const mockRegex = /^(account|user|team)-[a-z0-9-]+$/i;
 
   if (
     !accountId ||
@@ -1810,7 +1812,7 @@ export function validateOpportunityTeamMember(
 ): { success: boolean; error?: string } {
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const mockRegex = /^(opportunities|opportunity|opp|user|team)-[a-z0-9]+$/i;
+  const mockRegex = /^(opportunities|opportunity|opp|user|team)-[a-z0-9-]+$/i;
 
   if (
     !opportunityId ||
@@ -1839,7 +1841,7 @@ export function validateOpportunityProductSchedule(
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const mockRegex =
-    /^(opportunity_products|opportunity-product|opp-prod|schedule|item|line)-[a-z0-9]+$/i;
+    /^(opportunity_products|opportunity-product|opp-prod|schedule|item|line)-[a-z0-9-]+$/i;
 
   if (
     !opportunityProductId ||
@@ -6096,7 +6098,7 @@ export async function executePendingSequenceSteps(
     // Auto-generate email tracking record for task 0180
     // biome-ignore lint/suspicious/noExplicitAny: emailTrackers check
     if ((dbStore as any).emailTrackers) {
-      const trackerToken = `seq-track-${Math.random().toString(36).substring(2, 15)}`;
+      const trackerToken = `seq-track-${uuidv7()}`;
       // biome-ignore lint/suspicious/noExplicitAny: emailTrackers insert
       await (dbStore as any).emailTrackers.insert({
         orgId,
