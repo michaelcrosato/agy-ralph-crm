@@ -7,7 +7,9 @@ echo "========================================="
 echo " AGENT FORMAT: Biome Lint & Write"
 echo "========================================="
 
-if command -v npx &> /dev/null; then
+if command -v pnpm &> /dev/null; then
+  pnpm exec biome check --write .
+elif command -v npx &> /dev/null; then
   npx biome check --write .
 else
   echo "[ERROR] npx is not found. Cannot autoformat."

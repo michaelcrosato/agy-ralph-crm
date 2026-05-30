@@ -7,7 +7,9 @@ echo "========================================="
 echo " AGENT LINT: Biome Linter Check"
 echo "========================================="
 
-if command -v npx &> /dev/null; then
+if command -v pnpm &> /dev/null; then
+  pnpm exec biome check .
+elif command -v npx &> /dev/null; then
   npx biome check .
 else
   echo "[ERROR] npx is not found. Cannot run Biome linter."

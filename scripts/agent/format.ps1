@@ -6,7 +6,13 @@ Write-Host "=========================================" -ForegroundColor Green
 Write-Host " AGENT FORMAT: Biome Auto-Formatter" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green
 
-if (Get-Command npx -ErrorAction SilentlyContinue) {
+if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+    pnpm exec biome check --write .
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Biome format check failed." -ForegroundColor Red
+        exit 1
+    }
+} elseif (Get-Command npx -ErrorAction SilentlyContinue) {
     npx -y biome check --write .
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] Biome format check failed." -ForegroundColor Red

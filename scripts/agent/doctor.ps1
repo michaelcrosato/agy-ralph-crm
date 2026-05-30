@@ -39,7 +39,14 @@ if ($PM -and (Get-Command $PM -ErrorAction SilentlyContinue)) {
     Write-Host "[WARN] No package manager command found." -ForegroundColor Yellow
 }
 
-if (Get-Command npx -ErrorAction SilentlyContinue) {
+if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+    Write-Host "Biome check:" -ForegroundColor Cyan
+    try {
+        pnpm exec biome --version
+    } catch {
+        Write-Host "Biome is not available via pnpm" -ForegroundColor Yellow
+    }
+} elseif (Get-Command npx -ErrorAction SilentlyContinue) {
     Write-Host "Biome check:" -ForegroundColor Cyan
     try {
         npx biome --version

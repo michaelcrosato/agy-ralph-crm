@@ -6,7 +6,13 @@ Write-Host "=========================================" -ForegroundColor Green
 Write-Host " AGENT LINT: Biome Linter Check" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green
 
-if (Get-Command npx -ErrorAction SilentlyContinue) {
+if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+    pnpm exec biome check .
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "[ERROR] Biome lint failed." -ForegroundColor Red
+        exit 1
+    }
+} elseif (Get-Command npx -ErrorAction SilentlyContinue) {
     npx -y biome check .
     if ($LASTEXITCODE -ne 0) {
         Write-Host "[ERROR] Biome lint failed." -ForegroundColor Red

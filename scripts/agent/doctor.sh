@@ -46,7 +46,10 @@ else
 fi
 
 # Biome linter check
-if command -v npx &> /dev/null; then
+if command -v pnpm &> /dev/null; then
+  echo "Biome check:"
+  pnpm exec biome --version || echo "Biome is not available via pnpm"
+elif command -v npx &> /dev/null; then
   echo "Biome check:"
   npx biome --version || echo "no Biome globally found (will run via local npx)"
 else

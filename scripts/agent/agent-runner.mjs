@@ -1,6 +1,6 @@
-import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { resolve, dirname, join } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const command = process.argv[2];
@@ -37,9 +37,23 @@ if (process.platform === "win32") {
 
   if (existsSync(scriptPaths.ps1)) {
     if (resolveCommand("pwsh")) {
-      run(["pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPaths.ps1]);
+      run([
+        "pwsh",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        scriptPaths.ps1,
+      ]);
     } else if (resolveCommand("powershell")) {
-      run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPaths.ps1]);
+      run([
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        scriptPaths.ps1,
+      ]);
     } else if (resolveCommand("bash") && existsSync(scriptPaths.sh)) {
       run(["bash", scriptPaths.sh]);
     }
