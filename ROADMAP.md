@@ -70,4 +70,4 @@ graph TD
 
 ## 5. Maintenance Loop
 
-Agents running AFK must periodically run the maintenance script `pnpm agent:check` to ensure the codebase remains formatted, linted, and compiles flawlessly. If any regression occurs, check `git diff` and fix immediately.
+Agents running AFK must periodically run the maintenance script `pnpm run agent:check` to ensure the codebase remains formatted, linted, and compiles flawlessly. If any regression occurs, check `git diff` and fix immediately.

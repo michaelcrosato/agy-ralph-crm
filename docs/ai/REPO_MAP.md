@@ -68,16 +68,16 @@ Verification of all modules is centralized under:
 Use this order for every coding loop:
 1. Read `AGENTS.md`, `GOAL.md`, `ROADMAP.md`, `docs/ai/REPO_MAP.md`.
 2. Read the highest-priority pending `tickets/TICKET0NN.md`.
-3. Run `scripts/agent/status.sh` for quick repo context.
+3. Run `pnpm run agent:status` for quick repo context.
 4. Execute the smallest atomic ticket steps and keep edits scoped.
-5. Run `scripts/agent/check.sh` (format + lint + typecheck + test).
+5. Run `pnpm run agent:check` (format + lint + typecheck + test).
 6. Update ticket status and notes.
 7. For unattended AFK execution, use `run-afk-loop.ps1` at repository root.
 
 ## 6. Debugging & Diagnostics
 
-- `scripts/agent/doctor.sh` for environment health checks.
-- `scripts/agent/bootstrap.sh` to (re)install workspace dependencies.
+- `pnpm run agent:doctor` for environment health checks.
+- `pnpm run agent:bootstrap` to (re)install workspace dependencies.
 - `pnpm run agent:check` for full automated verification path.
 - `test_output.log`, `playwright-report/`, `coverage/` for recent failure evidence.
 
