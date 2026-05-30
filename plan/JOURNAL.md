@@ -320,4 +320,29 @@
 - Executed local E2E suite successfully: `pnpm test:e2e` (all 5 smoke tests passed cleanly).
 - Verified formatting, linting, and building: `pnpm verify` (completed successfully with exit status 0).
 
+## [2026-05-30] Cycle 13 — Deep RBAC (Role-Based Access Control) Enforcement Engine (Spec 068)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 154 passed test files, 536 passed tests, 5 passed E2E tests.
+
+### 2. ARCHITECTURAL FINDINGS
+- A multi-tenant CRM with a parsed JWT `permissionsMask` must actively enforce the mask on API requests. Failing to validate the mask on read/write/delete operations is an architectural security vulnerability.
+- Enforcing functional permissions checking dynamically via custom Hono middleware makes API code highly secure, DRY, and maintainable. Combining an explicit `requirePermission` middleware and a dynamic `resourceRbac` CRUD mapper reduces custom route edits while securing 100% of core CRM paths.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Deep RBAC Enforcement (Spec 068)**:
+  - Declared structured `Permission` enum constants (`READ_RECORDS`, `WRITE_RECORDS`, `DELETE_RECORDS`, `MANAGE_USERS`, `MANAGE_METADATA`, `MANAGE_INTEGRATIONS`) and bitwise check helpers in `@crm/auth`.
+  - Implemented Hono validation middlewares inside `apps/api/src/middleware/rbac.ts`: explicit bitwise checker `requirePermission` and automatic CRUD method mapper `resourceRbac`.
+  - Wired `resourceRbac` globally across `accountsApp`, `contactsApp`, `leadsApp`, and `opportunitiesApp` routers, and `customApp` record sub-app.
+  - Wired explicit `requirePermission(Permission.MANAGE_METADATA)` globally on `metadataApp` and `requirePermission(Permission.MANAGE_USERS)` on administrative `adminApp`, `dbApp`, and `importsApp` controllers.
+  - Authored a comprehensive integration suite `packages/testing/src/rbac.test.ts` validating permissions-level CRUD denials, metadata/admin restrictions, and zero-permission exclusions.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `7dbd18d`.
+- Executed targeted suite successfully: `npx vitest run packages/testing/src/rbac.test.ts` (6/6 green).
+- Verified linter, formatter, typecheck, and tests: `pnpm verify` and `pnpm test` passed flawlessly.
+
+
 
