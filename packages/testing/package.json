@@ -16,6 +16,7 @@
     "@crm/documents": "workspace:*",
     "@crm/forecasting": "workspace:*",
     "@crm/metadata": "workspace:*",
+    "@crm/mcp": "workspace:*",
     "@crm/module-service-lite": "workspace:*",
     "@crm/search": "workspace:*",
     "@crm/webhooks": "workspace:*",

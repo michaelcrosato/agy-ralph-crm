@@ -16,6 +16,7 @@
     "@crm/db": "workspace:*",
     "@crm/documents": "workspace:*",
     "@crm/forecasting": "workspace:*",
+    "@crm/mcp": "workspace:*",
     "@crm/metadata": "workspace:*",
     "@crm/module-service-lite": "workspace:*",
     "@crm/observability": "workspace:*",
