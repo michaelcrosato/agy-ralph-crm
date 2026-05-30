@@ -27,7 +27,7 @@
 - [ ] **017** — [@hono/zod-openapi for type-safe routes + auto OpenAPI](./specs/017_zod_openapi_hono.md) · deps: 010
 - [ ] **018** — [Typed Hono RPC client for apps/web](./specs/018_hono_rpc_client.md) · deps: 017
 - [x] **019** — [Drizzle 0.30 → 0.45.2 (partial; cleared GHSA-gpj5-g38j-94v9 high CVE)](./specs/019_drizzle_upgrade.md) · `c6ccad2` · _migration-conflict-check CI job carried forward to spec 013_
-- [ ] **020** — [Next.js 16.0.0-alpha → 16.2 stable + Turbopack + React Compiler](./specs/020_nextjs_16_stable.md)
+- [x] **020** — [Next.js 16.0.0-alpha → 16.2.6 stable + Turbopack + React Compiler](./specs/020_nextjs_16_stable.md) · _committed inline below_
 - [ ] **021** — [Playwright config + lead/contact/opportunity smoke E2E](./specs/021_playwright_smoke_e2e.md) · deps: 020
 - [ ] **022** — [Replace console.* with pino bridged to OTel](./specs/022_pino_otel_logging.md) · deps: 016
 - [ ] **023** — [Decouple 129 test files from apps/api/src/index import](./specs/023_test_decouple_from_apps.md) · deps: 010
