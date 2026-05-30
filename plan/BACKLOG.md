@@ -10,10 +10,6 @@ This backlog tracks adjacent feature ideas, technical debt recommendations, and 
   - *Description*: Implement a high-performance cross-encoder semantic reranker (using a local transformer model or remote cohort provider) to refine the top $N$ hits returned by Reciprocal Rank Fusion (RRF).
   - *Benefit*: Maximizes precision for deep semantic queries.
 
-- **BG-005: Merkle Tree Cryptographic Integrity Audit Pipeline**
-  - *Description*: Create a robust CLI utility and cron workflow that validates the SHA-256 tamper-evident hash chain of the `audit_logs` table to guarantee that no logs have been silently modified or deleted.
-  - *Benefit*: Delivers absolute regulatory WORM compliance and tamper evidence.
-
 - **BG-006: Full-Stack OpenAPI SDK Generation & Next.js Dashboard Integration**
   - *Description*: Automate TypeScript client SDK generation from the `@hono/zod-openapi` schema definitions and refactor the Next.js `apps/web` pages to consume the client end-to-end.
   - *Benefit*: Solidifies compile-time type safety across the monorepo boundary.

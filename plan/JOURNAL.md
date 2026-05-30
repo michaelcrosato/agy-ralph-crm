@@ -272,3 +272,28 @@
 - Executed whole workspace verification: `pnpm run agent:check` (completed successfully with exit status 0).
 - All 152 test files and 525 tests passed cleanly, and diagnostic log rotator rotated and sanitized credentials flawlessly.
 
+## [2026-05-30] Cycle 11 — Merkle Tree Cryptographic Integrity Audit Pipeline (Spec 066)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 153 passed test files, 530 passed tests. 100% green and regression-free.
+
+### 2. ARCHITECTURAL FINDINGS
+- Cryptographic hash chaining in multi-tenant audit logs must handle timezone shifts gracefully. Database engines storing timestamps without timezone columns can cause driver-level timezone parsing offsets. Constructing UTC strings from the local components parsed by the DB client guarantees absolute offset-invariance.
+- Running parallel containerized PostgreSQL integration tests against a single shared test container will trigger sequence collisions if tests use the same tenant organization context. Allocating isolated tenant organization contexts per integration test case allows flawless parallelized execution.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Cryptographic Audit Chain (Spec 066)**:
+  - modernised Drizzle schema `schema.ts` and mock types `_store.ts` adding `seq`, `prevHash`, and `hash`.
+  - generated additive SQL migration `0005_high_beyonder.sql`.
+  - developed hash-chaining insert interceptors inside Mock store (`auditLogs.ts`) and PostgreSQL adapter store (`pg-factory.ts`) computing chained SHA-256 hashes chronologically per organization.
+  - built CLI verification utility `verify-audit-integrity.mjs` resolving tenant-by-tenant cryptographic logs and verifying index sequences and SHA-256 links with UTC offset robustness.
+  - wired verification script to `doctor.ps1` and `doctor.sh` as diagnostic pre-flight gates.
+  - created comprehensive integration tests in `packages/testing/src/audit-integrity.test.ts` validating chain linkage, isolation, and positive tamper-evidence checks.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `ec9ee88`.
+- Executed whole workspace verification: `pnpm run agent:check` (completed successfully with exit status 0).
+- All 153 test files and 530 tests passed cleanly.
+

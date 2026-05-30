@@ -134,6 +134,7 @@
 ## Phase 4 — Wave 4 Advanced Engineering & Observability (Cycle 10+)
 
 - [x] **065** — [RRF Search Cross-Encoder Reranking Engine](./specs/065_rrf_cross_encoder_reranker.md) · `aba36c9`
+- [x] **066** — [BG-005: Merkle Tree Cryptographic Integrity Audit Pipeline](./specs/066_merkle_tree_audit_integrity.md) · `ec9ee88` · 5/5 pass
 
 
 
