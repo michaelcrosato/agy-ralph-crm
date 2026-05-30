@@ -1,44 +1,53 @@
 # /plan/ROADMAP.md — 2026 Modernization Blueprint
 
-> Audit date: 2026-05-29 · Author: Principal SWE Agent (Opus 4.7, 1M ctx)
-> Source repo: `agy-ralph-crm` (multi-tenant CRM core; Node 22 / pnpm + turbo / Hono + Next.js 16-alpha / Drizzle + mock Postgres / Vitest 1.6 / Biome 1.8)
+> Audit date: 2026-05-29 (initial) · Refreshed: 2026-05-30 · Author: Principal SWE Agent (Opus 4.7, 1M ctx)
+> Source repo: `agy-ralph-crm` (multi-tenant CRM core; Node 22 / pnpm + turbo / Hono + Next.js 16.2 / Drizzle + mock Postgres / Vitest 3 / Biome 2.4 / OTel)
 
 ---
 
-## 1. REPO BASELINE
+## 1. REPO BASELINE — Refreshed 2026-05-30 (post Phase-0 + partial Phase-1)
 
-**Purpose.** Modular multi-tenant CRM operating system designed for autonomous AI execution. Core primitives: Accounts/Contacts/Leads/Opportunities, activity timelines, marketing automation with ECA (event-condition-action) sequences. 130 ralph specs delivered; 403 vitest tests / 129 files green.
+**Purpose.** Modular multi-tenant CRM operating system designed for autonomous AI execution. Core primitives: Accounts/Contacts/Leads/Opportunities, activity timelines, marketing automation with ECA (event-condition-action) sequences. 130 ralph specs delivered; **131 vitest files / 409 tests** green at refresh.
 
-**Stack scale.**
+**Stack scale** (✅ = current / ⚠️ = action-needed / 🚨 = blocking).
 
 | Surface | Tech | Version | Lines | Status |
 | --- | --- | --- | --- | --- |
-| Monorepo orchestration | pnpm + turborepo | 11.1.2 + 2.x | — | ✅ green |
-| Runtime | Node.js | 22.0.0 pinned (local 24.15) | — | ⚠️ Jan/Mar 2026 CVEs require 22.22.0+ |
-| API | Hono | 4.0.0 | `apps/api/src/index.ts` ≈ 13,060 | 🚨 monolith violates 400-line budget by 32× |
-| Web | Next.js | 16.0.0-alpha.0 (React 19) | `apps/web/src/app/` | ⚠️ alpha; 16.2 stable available |
-| Domain logic | Pure TS | — | `packages/core/src/index.ts` ≈ 9,505 | 🚨 monolith |
-| Persistence | Drizzle + Postgres | 0.30 (mock-backed) | `packages/db/src/index.ts` ≈ 6,312; `schema.ts` ≈ 1,645 | 🚨 mock store, real Postgres not wired |
-| Tests | Vitest | 1.6.0 | 129 files / 403 tests | ⚠️ v3 available, 40% faster on large suites |
-| Lint/Format | Biome | 1.8.0 | — | ⚠️ v2.4 available |
+| Monorepo orchestration | pnpm + turborepo | 11.1.2 + 2.x | — | ✅ corepack-managed (spec 005) |
+| Runtime | Node.js | engines `>=22.22.0 <23` (`.nvmrc` 22.22.0; local 24.15) | — | ✅ Jan/Mar 2026 CVEs floor enforced (spec 001) |
+| API | Hono | 4.0.0 | `apps/api/src/index.ts` ≈ 13,060 | 🚨 monolith — **spec 010 still pending** |
+| Web | Next.js | 16.2.6 stable + Turbopack + React Compiler | `apps/web/src/app/` | ✅ spec 020 landed; Playwright 1.60 wired (spec 021) |
+| Domain logic | Pure TS | — | `packages/core/src/index.ts` ≈ 9,505 | 🚨 monolith — **spec 011 still pending** |
+| Persistence | Drizzle + Postgres | drizzle-orm 0.45.2 (mock-backed runtime) | `packages/db/src/index.ts` ≈ 6,300; `schema.ts` ≈ 1,700 (6 hot tables indexed) | 🟡 helpers split (spec 012 partial / 040); real PG still pending (spec 013) |
+| Tests | Vitest | 3.2.4 | **131 files / 409 tests** | ✅ spec 003 done; +3 genid, +3 db-rls |
+| Lint/Format | Biome | 2.4.16 | — | ✅ test domain + noFloatingPromises (warn) enabled (spec 002) |
+| IDs | `uuid` v7 | 14.x | 112 sites swapped from `Math.random()` | ✅ spec 008 |
 | Validation | Zod | 3.23 | — | ✅ |
-| Observability | — | — | — | 🚨 zero OTel / structured logs / metrics |
-| CI | — | — | — | 🚨 no `.github/workflows/` |
-| E2E | — | — | — | 🚨 no Playwright config |
+| Observability | `@crm/observability` (OTel SDK 0.218 + pino 9) | new | `packages/observability/` | ✅ specs 016 + 022; collector + smoke deferred |
+| CI | GitHub Actions | `.github/workflows/ci.yml` | 5 jobs | ✅ spec 004; remote run unverified (no push) |
+| Dep updates | Dependabot | weekly Mon | — | ✅ spec 007 |
+| E2E | Playwright | 1.60 + 5 smoke specs | `apps/web/e2e/` | 🟡 scaffold landed (spec 021); browsers + first remote run pending |
+| Doctor gate | `agent:doctor` | extended | — | ✅ exit ≠ 0 on high/critical CVE (spec 006) |
 
 **Architecture (current vs target).**
 
 ```mermaid
 graph TD
-  subgraph "Current (2026-05-29)"
-    APIcur["apps/api/src/index.ts<br/>13K-line monolith"]
-    Corecur["packages/core/src/index.ts<br/>9.5K-line monolith"]
-    DBcur["packages/db/src/index.ts<br/>6.3K-line mock store"]
-    Webcur["apps/web (Next 16-α)"]
+  subgraph "Current (2026-05-30, post Phase-0)"
+    APIcur["apps/api/src/index.ts<br/>13K monolith"]
+    Corecur["packages/core/src/index.ts<br/>9.5K monolith"]
+    DBcur["packages/db/src/index.ts<br/>6.3K mock store<br/>+ _tenant.ts / _rls.ts extracted"]
+    Webcur["apps/web (Next 16.2 stable<br/>+ Turbopack + React Compiler)"]
+    OTel["@crm/observability<br/>(OTel + pino, init wired)"]
+    CI["GitHub Actions CI<br/>(verify/build/test/lint/doctor)"]
+    PWcur["apps/web/e2e<br/>(Playwright smoke scaffold)"]
     Webcur --> APIcur
     APIcur --> Corecur
+    APIcur --> OTel
     Corecur --> DBcur
     DBcur -.->|"in-memory<br/>(NOT real PG)"| MockMap[("Map/Array"):::mock]
+    PWcur -.-> Webcur
+    CI -.-> APIcur
   end
   classDef mock fill:#ffd,stroke:#900;
 ```
