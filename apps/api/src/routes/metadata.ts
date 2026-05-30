@@ -1,11 +1,14 @@
+import { Permission } from "@crm/auth";
 import { compileEmailTemplate } from "@crm/core";
 import { dbStore } from "@crm/db";
 import { compileFormLayout } from "@crm/metadata";
 import { Hono } from "hono";
+import { requirePermission } from "../middleware/rbac";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
 /** Tenant metadata: field definitions, picklist deps, validation rules, layouts. */
 export const metadataApp = new Hono<Env>();
+metadataApp.use("*", tenantAuth, requirePermission(Permission.MANAGE_METADATA));
 
 metadataApp.post("/fields", tenantAuth, async (c) => {
   const tenant = c.get("tenant");

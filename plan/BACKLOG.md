@@ -22,6 +22,10 @@ This backlog tracks adjacent feature ideas, technical debt recommendations, and 
   - *Description*: Establish a headless Playwright runtime service inside the GitHub Actions pipeline to run full browser-level flow checks against the CRM.
   - *Benefit*: Safeguards the user interface from regression.
 
+- [~] **TD-005: Deep RBAC (Role-Based Access Control) Enforcement Engine** (Spec 068)
+  - *Description*: Inject granular permission verification middleware across core CRM routes (GET/POST/PATCH/DELETE) matching the session jwt bitmask.
+  - *Benefit*: Hardens tenant Org-isolation with standard functional authorization gates.
+
 - **TD-004: OpenTelemetry Collector Service & Grafana Performance Dashboard**
   - *Description*: Configure an OTEL Collector, Prometheus, and Jaeger stack in a local `docker-compose.yaml` to aggregate live telemetry (traces, metrics, logs) from Hono.
   - *Benefit*: Establishes enterprise-grade production observability.

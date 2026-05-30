@@ -1,3 +1,4 @@
+import { Permission } from "@crm/auth";
 import {
   calculateAdjustedForecast,
   calculateGlobalCompetitorAnalytics,
@@ -18,6 +19,7 @@ import {
 import { runReport } from "@crm/reporting";
 import { Hono } from "hono";
 import { triggerOutboundWebhooks } from "../lib/webhooks";
+import { requirePermission, resourceRbac } from "../middleware/rbac";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
 export const adminApp = new Hono<Env>();
@@ -27,6 +29,16 @@ export const reportsApp = new Hono<Env>();
 export const leaderboardsApp = new Hono<Env>();
 export const forecastsApp = new Hono<Env>();
 export const forecastingApp = new Hono<Env>();
+
+adminApp.use("*", tenantAuth, requirePermission(Permission.MANAGE_USERS));
+dbApp.use("*", tenantAuth, requirePermission(Permission.MANAGE_USERS));
+importsApp.use("*", tenantAuth, requirePermission(Permission.MANAGE_USERS));
+
+reportsApp.use("*", tenantAuth, resourceRbac);
+leaderboardsApp.use("*", tenantAuth, resourceRbac);
+forecastsApp.use("*", tenantAuth, resourceRbac);
+forecastingApp.use("*", tenantAuth, resourceRbac);
+
 adminApp.post("/seed", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));

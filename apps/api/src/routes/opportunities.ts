@@ -11,7 +11,10 @@ export { approvalsApp } from "./opportunities/approvals";
 export { pricebooksApp } from "./opportunities/pricebooks";
 export { productsApp } from "./opportunities/products";
 
+import { resourceRbac } from "../middleware/rbac";
+
 export const opportunitiesApp = new Hono<Env>();
+opportunitiesApp.use("*", resourceRbac);
 
 // Mount the modular sub-apps under opportunitiesApp root paths to preserve exact routing paths.
 // We mount crudApp last to prevent its parameterized /:id route from colliding with static routes.

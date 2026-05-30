@@ -1,12 +1,13 @@
 import { dbStore } from "@crm/db";
 import { defineObject } from "@crm/metadata";
 import { Hono } from "hono";
+import { resourceRbac } from "../middleware/rbac";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
 export const customApp = new Hono<Env>();
 
-// Apply tenantAuth middleware globally on this router
-customApp.use("*", tenantAuth);
+// Apply tenantAuth and resourceRbac middleware globally on this router
+customApp.use("*", tenantAuth, resourceRbac);
 
 // Helper to find custom entity type by name
 async function findCustomType(typeName: string) {

@@ -2,6 +2,19 @@ import * as jose from "jose";
 
 export const AUTH_VERSION = "0.1.0";
 
+export enum Permission {
+  READ_RECORDS = 1 << 0, // 1
+  WRITE_RECORDS = 1 << 1, // 2
+  DELETE_RECORDS = 1 << 2, // 4
+  MANAGE_USERS = 1 << 3, // 8
+  MANAGE_METADATA = 1 << 4, // 16
+  MANAGE_INTEGRATIONS = 1 << 5, // 32
+}
+
+export function hasPermission(mask: number, permission: Permission): boolean {
+  return (mask & permission) === permission;
+}
+
 export interface TenantContext {
   userId: string;
   orgId: string;

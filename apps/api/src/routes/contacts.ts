@@ -10,10 +10,12 @@ import {
   enforcePicklistDependencies,
 } from "../lib/validation";
 import { triggerOutboundWebhooks } from "../lib/webhooks";
+import { resourceRbac } from "../middleware/rbac";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
 /** Contact CRUD + hierarchy + duplicates + merge. Mounted at /api/contacts. */
 export const contactsApp = new Hono<Env>();
+contactsApp.use("*", tenantAuth, resourceRbac);
 
 contactsApp.get("/", tenantAuth, async (c) => {
   const contacts = await dbStore.contacts.findMany();
