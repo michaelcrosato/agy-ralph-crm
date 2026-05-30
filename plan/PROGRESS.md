@@ -25,7 +25,7 @@
 - [ ] **015** — [Composite (tenant_id, …) indexes on hot tables](./specs/015_composite_indexes.md) · deps: 013
 - [x] **016** — [OpenTelemetry traces + metrics + log correlation](./specs/016_otel_instrumentation.md) · `8ae56cd`
 - [x] **017** — [@hono/zod-openapi for type-safe routes + auto OpenAPI](./specs/017_zod_openapi_hono.md) · `41d0f5b` — health and leads routes fully migrated, validation parity confirmed, doc and UI tested green (133 passed/1 skipped)
-- [ ] **018** — [Typed Hono RPC client for apps/web](./specs/018_hono_rpc_client.md) · deps: 017
+- [x] **018** — [Typed Hono RPC client for apps/web](./specs/018_hono_rpc_client.md) · `11dfd49` — new packages/api-client/ package, consumed in 3 server components and main dashboard client page, build green.
 - [x] **019** — [Drizzle 0.30 → 0.45.2 (partial; cleared GHSA-gpj5-g38j-94v9 high CVE)](./specs/019_drizzle_upgrade.md) · `c6ccad2` · _migration-conflict-check CI job carried forward to spec 013_
 - [x] **020** — [Next.js 16.0.0-alpha → 16.2.6 stable + Turbopack + React Compiler](./specs/020_nextjs_16_stable.md) · _committed inline below_
 - [x] **021** — [Playwright config + lead/contact/opportunity smoke E2E](./specs/021_playwright_smoke_e2e.md) · `97c0cb0` (runtime install deferred)
@@ -79,6 +79,7 @@
 | 013 | `c03ae3e` | 2026-05-30 | 412/412 (+3 db-rls tests) |
 | 014 | `a7f5c59` | 2026-05-30 | 412/412 (+3 db-rls tests) |
 | 017 | `41d0f5b` | 2026-05-30 | 414/414 (+2 openapi integration tests) |
+| 018 | `11dfd49` | 2026-05-30 | 414/414 (Build and type-safety green) |
 
 ## Discovered Follow-ups
 
