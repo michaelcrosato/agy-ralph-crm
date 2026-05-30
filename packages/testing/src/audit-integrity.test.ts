@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import { resolve } from "node:path";
 import { GENESIS_HASH, verifyAuditChain } from "@crm/audit";
 import { dbStore, mockDb, pgDb, withTenant } from "@crm/db";
 import { sql } from "drizzle-orm";
@@ -203,6 +204,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
         // Verify using CLI verification script (should pass exit code 0)
         const runVerification = () => {
           execSync("node scripts/agent/verify-audit-integrity.mjs", {
+            cwd: resolve(__dirname, "../../.."),
             env: {
               ...process.env,
               DB_DRIVER: "pg",
@@ -240,6 +242,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
         // CLI check passes initially
         const runVerification = () => {
           execSync("node scripts/agent/verify-audit-integrity.mjs", {
+            cwd: resolve(__dirname, "../../.."),
             env: {
               ...process.env,
               DB_DRIVER: "pg",
@@ -286,6 +289,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
 
         const runVerification = () => {
           execSync("node scripts/agent/verify-audit-integrity.mjs", {
+            cwd: resolve(__dirname, "../../.."),
             env: {
               ...process.env,
               DB_DRIVER: "pg",
