@@ -331,6 +331,9 @@ importers:
       '@crm/db':
         specifier: workspace:*
         version: link:../db
+      '@crm/metadata':
+        specifier: workspace:*
+        version: link:../metadata
       '@modelcontextprotocol/sdk':
         specifier: ^1.11.0
         version: 1.29.0(zod@3.25.76)

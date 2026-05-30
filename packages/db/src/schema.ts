@@ -1737,3 +1737,36 @@ export const marketingSequenceTagMappings = pgTable(
       .references(() => marketingSequenceTags.id, { onDelete: "cascade" }),
   },
 );
+
+export const customEntityTypes = pgTable(
+  "custom_entity_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    fieldsJson: jsonb("fields_json").notNull(), // list of CustomFieldSpec
+  },
+  (t) => [index("idx_custom_entity_types_org_name").on(t.orgId, t.name)],
+);
+
+export const customEntityRecords = pgTable(
+  "custom_entity_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    typeId: uuid("type_id")
+      .notNull()
+      .references(() => customEntityTypes.id, { onDelete: "cascade" }),
+    data: jsonb("data").notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_custom_entity_records_org_type").on(t.orgId, t.typeId),
+    index("idx_custom_entity_records_created").on(t.createdAt),
+  ],
+);

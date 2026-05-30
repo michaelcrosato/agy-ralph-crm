@@ -64,4 +64,33 @@
 - Ran workspace-wide pre-check: `pnpm run agent:check` (143/143 test files and 472/472 tests passed 100% cleanly).
 - Formatting and linting validated green via Biome.
 
+## [2026-05-30] Cycle 3 — Dynamic Custom Objects: Database, REST, and MCP Integration
+
+### 1. REPO BASELINE
+- **Branch**: `main`, fully clean working tree (pre-commit).
+- **Verification Command**: `pnpm verify` and `pnpm test`
+- **Test Baseline**: 144 passed test files, 477 passed tests.
+
+### 2. ARCHITECTURAL FINDINGS
+- Twenty's no-code Custom Objects architecture requires full integration across:
+  - Database schema models (`custom_entity_types` and `custom_entity_records` tables).
+  - In-memory mock store registries (`customEntityTypesStore` & `customEntityRecordsStore`) for fast mock backend testing.
+  - Dynamically mounted Hono REST endpoints `/api/custom/:typeName` supporting full CRUD (insert, list, retrieve, patch, delete) with runtime-compiled Zod validation.
+  - Autocomplete and Model Context Protocol (MCP) dynamic tool resolution (`crm_create_<objectName>`, `crm_get_<objectName>`, etc.) inside `packages/mcp`.
+
+### 3. ACTION PLAN & IMPLEMENTATION (Spec 046)
+- **Database Schema**: Declared `customEntityTypes` and `customEntityRecords` tables with indexes and references in `packages/db/src/schema.ts`.
+- **Database Mappings**: Added DBCustomEntityType and DBCustomEntityRecord interfaces in `_store.ts` and registered them in the global `store` registry.
+- **Mock Stores**: Implemented `customEntityTypes.ts` and `customEntityRecords.ts` mock stores, registering them in `mockStores` and `storeMetadata` in `pg-factory.ts`.
+- **Drizzle Migrations**: Generated migration `0003_charming_princess_powerful.sql` using Drizzle Kit.
+- **REST Endpoints**: Created Hono route app `apps/api/src/routes/custom.ts` providing CRUD handling under `/api/custom/:typeName` scoped strictly per tenant orgId. Registered the sub-app on `/api/custom` in `apps/api/src/index.ts`.
+- **Dynamic MCP Tools**: Updated `packages/mcp/package.json` to depend on `@crm/metadata` and updated `packages/mcp/src/index.ts` to dynamically resolve custom entity types and create tools for them (`crm_get_<obj>`, `crm_list_<obj>`, `crm_create_<obj>`, `crm_update_<obj>`, `crm_delete_<obj>`). Supported dynamic execution of these tools.
+- **Integration Tests**: Added `packages/testing/src/custom-objects-full-stack.test.ts` providing comprehensive REST API and MCP server CRUD assertions with strict organization tenant RLS verification.
+
+### 4. VERIFICATION LOG
+- Formatted drizzle metadata snapshot files via Biome.
+- Ran targeted Vitest tests: `npx vitest run packages/testing/src/custom-objects-full-stack.test.ts` (4/4 passed).
+- Ran workspace-wide verification checks: `pnpm verify` (completed successfully with exit status 0).
+- Ran full workspace test suite: `pnpm test` (145/145 test files, 481/481 tests passed 100% cleanly).
+
 

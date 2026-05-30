@@ -1224,7 +1224,25 @@ export interface DBForecastAdjustment {
   createdAt: Date;
 }
 
+export interface DBCustomEntityType {
+  id: string;
+  orgId: string;
+  name: string;
+  fieldsJson: any; // list of CustomFieldSpec
+}
+
+export interface DBCustomEntityRecord {
+  id: string;
+  orgId: string;
+  typeId: string;
+  data: Record<string, unknown>;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export const store = {
+  customEntityTypes: [] as DBCustomEntityType[],
+  customEntityRecords: [] as DBCustomEntityRecord[],
   emailTemplates: [] as DBEmailTemplate[],
   emailTrackers: [] as DBEmailTracker[],
   picklistDependencies: [] as DBPicklistDependency[],

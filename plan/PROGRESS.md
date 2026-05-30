@@ -95,6 +95,8 @@
 - [x] **043** — [Decompose `executePendingSequenceSteps` (sequences/execution.ts)](./specs/043_followup_sequences_execution_decompose.md) · `f4a478c` (simulated) · 2026-05-30 — Decomposed monolith loop into clean, single-responsibility step handlers under execution/ sub-module, index file at 358 lines.
 - [x] **044** — [Workspace Diagnostics Log Sanitizer & Rotator](./specs/044_diagnostics_log_sanitizer_rotator.md) · `completed` · 2026-05-30 — Implemented rotate-logs.mjs with credentials sanitization, UTF-16LE auto-detection, log rotation up to index 3, and full check.ps1/sh integrations.
 - [x] **045** — [Automatic Migration Conflict Prevention Gate](./specs/045_migration_conflict_prevention_gate.md) · `completed` · 2026-05-30 — Implemented check-migrations.mjs with idx continuity, tag existence, and prefix uniqueness checks, hooked into doctor, verified via check-migrations.test.ts.
+- [x] **046** — [Dynamic Custom Objects: Database, REST, and Dynamic MCP Integration](./specs/046_dynamic_custom_objects_full_stack.md) · `completed`
+
 
 
 

@@ -12,6 +12,7 @@
     "@crm/auth": "workspace:*",
     "@crm/core": "workspace:*",
     "@crm/db": "workspace:*",
+    "@crm/metadata": "workspace:*",
     "@modelcontextprotocol/sdk": "^1.11.0",
     "zod": "^3.23.0"
   },

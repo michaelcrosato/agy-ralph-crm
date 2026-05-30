@@ -22,6 +22,13 @@
       "when": 1780149134466,
       "tag": "0002_unique_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780159455137,
+      "tag": "0003_charming_princess_powerful",
+      "breakpoints": true
     }
   ]
 }

@@ -33,6 +33,7 @@ import {
   subscriptionsApp,
 } from "./routes/contracts";
 import { currenciesApp } from "./routes/currencies";
+import { customApp } from "./routes/custom";
 import { dashboardApp } from "./routes/dashboard";
 import { healthApp } from "./routes/health";
 import { leadConversionsApp } from "./routes/lead-conversions";
@@ -105,6 +106,7 @@ const routes = app
   .route("/api/public", publicApp)
   .route("/mcp", mcpApp)
   .route("/api/metadata", metadataApp)
+  .route("/api/custom", customApp)
   .route("/api/workflows", workflowsApp)
   .route("/api/tickets", ticketsApp)
   .route("/api/service", serviceApp)

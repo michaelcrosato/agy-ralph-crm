@@ -12,6 +12,8 @@ import { contactConsentPreferencesStore } from "./contactConsentPreferences";
 import { contactsStore } from "./contacts";
 import { contractsStore } from "./contracts";
 import { currenciesStore } from "./currencies";
+import { customEntityRecordsStore } from "./customEntityRecords";
+import { customEntityTypesStore } from "./customEntityTypes";
 import { documentTemplatesStore } from "./documentTemplates";
 import { emailBounceEventsStore } from "./emailBounceEvents";
 import { emailCalendarSyncRunsStore } from "./emailCalendarSyncRuns";
@@ -121,6 +123,8 @@ function getDb() {
 }
 
 const mockStores = {
+  customEntityTypes: customEntityTypesStore,
+  customEntityRecords: customEntityRecordsStore,
   users: usersStore,
   memberships: membershipsStore,
   leads: leadsStore,

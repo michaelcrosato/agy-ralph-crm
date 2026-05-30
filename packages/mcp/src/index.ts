@@ -50,330 +50,432 @@ export function createMcpServer(options: McpServerOptions) {
 
   // 1. Tool Schemas List
   server.setRequestHandler(ListToolsRequestSchema, async () => {
+    const staticTools = [
+      // ACCOUNTS
+      {
+        name: "crm_get_account",
+        description: "Retrieve CRM account details by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            accountId: { type: "string" },
+          },
+          required: ["accountId"],
+        },
+      },
+      {
+        name: "crm_list_accounts",
+        description: "List all account records.",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "crm_create_account",
+        description: "Create a new account.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            domain: { type: "string" },
+            custom: { type: "object" },
+          },
+          required: ["name"],
+        },
+      },
+      {
+        name: "crm_update_account",
+        description: "Update an existing account.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            accountId: { type: "string" },
+            name: { type: "string" },
+            domain: { type: "string" },
+            custom: { type: "object" },
+          },
+          required: ["accountId"],
+        },
+      },
+      {
+        name: "crm_delete_account",
+        description: "Delete an account by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            accountId: { type: "string" },
+          },
+          required: ["accountId"],
+        },
+      },
+
+      // CONTACTS
+      {
+        name: "crm_get_contact",
+        description: "Retrieve contact details by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            contactId: { type: "string" },
+          },
+          required: ["contactId"],
+        },
+      },
+      {
+        name: "crm_list_contacts",
+        description: "List contact records.",
+        inputSchema: { type: "object", properties: {} },
+      },
+      {
+        name: "crm_create_contact",
+        description: "Create a new contact record.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ownerId: { type: "string" },
+            accountId: { type: "string" },
+            firstName: { type: "string" },
+            lastName: { type: "string" },
+            email: { type: "string" },
+            custom: { type: "object" },
+          },
+          required: ["lastName"],
+        },
+      },
+      {
+        name: "crm_update_contact",
+        description: "Update an existing contact.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            contactId: { type: "string" },
+            ownerId: { type: "string" },
+            accountId: { type: "string" },
+            firstName: { type: "string" },
+            lastName: { type: "string" },
+            email: { type: "string" },
+            custom: { type: "object" },
+          },
+          required: ["contactId"],
+        },
+      },
+      {
+        name: "crm_delete_contact",
+        description: "Delete a contact by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            contactId: { type: "string" },
+          },
+          required: ["contactId"],
+        },
+      },
+
+      // LEADS
+      {
+        name: "crm_get_lead",
+        description: "Retrieve lead details by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            leadId: { type: "string" },
+          },
+          required: ["leadId"],
+        },
+      },
+      {
+        name: "crm_list_leads",
+        description: "List lead records with optional status filter.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            status: { type: "string" },
+          },
+        },
+      },
+      {
+        name: "crm_create_lead",
+        description: "Create a new lead.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ownerId: { type: "string" },
+            status: { type: "string" },
+            email: { type: "string" },
+            company: { type: "string" },
+            custom: { type: "object" },
+          },
+        },
+      },
+      {
+        name: "crm_update_lead",
+        description: "Update an existing lead.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            leadId: { type: "string" },
+            ownerId: { type: "string" },
+            status: { type: "string" },
+            email: { type: "string" },
+            company: { type: "string" },
+            custom: { type: "object" },
+          },
+          required: ["leadId"],
+        },
+      },
+      {
+        name: "crm_delete_lead",
+        description: "Delete a lead by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            leadId: { type: "string" },
+          },
+          required: ["leadId"],
+        },
+      },
+
+      // OPPORTUNITIES
+      {
+        name: "crm_get_opportunity",
+        description: "Retrieve opportunity details by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            opportunityId: { type: "string" },
+          },
+          required: ["opportunityId"],
+        },
+      },
+      {
+        name: "crm_list_opportunities",
+        description: "List opportunities with optional stage filter.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            stage: { type: "string" },
+          },
+        },
+      },
+      {
+        name: "crm_create_opportunity",
+        description: "Create a new opportunity.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ownerId: { type: "string" },
+            accountId: { type: "string" },
+            campaignId: { type: "string" },
+            stage: { type: "string" },
+            name: { type: "string" },
+            amount: { type: "string" },
+            closeDate: { type: "string" },
+            custom: { type: "object" },
+          },
+          required: ["name"],
+        },
+      },
+      {
+        name: "crm_update_opportunity",
+        description: "Update an existing opportunity.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            opportunityId: { type: "string" },
+            ownerId: { type: "string" },
+            accountId: { type: "string" },
+            campaignId: { type: "string" },
+            stage: { type: "string" },
+            name: { type: "string" },
+            amount: { type: "string" },
+            closeDate: { type: "string" },
+            custom: { type: "object" },
+          },
+          required: ["opportunityId"],
+        },
+      },
+      {
+        name: "crm_delete_opportunity",
+        description: "Delete an opportunity by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            opportunityId: { type: "string" },
+          },
+          required: ["opportunityId"],
+        },
+      },
+
+      // TICKETS
+      {
+        name: "crm_get_ticket",
+        description: "Retrieve ticket details by ID.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ticketId: { type: "string" },
+          },
+          required: ["ticketId"],
+        },
+      },
+      {
+        name: "crm_list_tickets",
+        description: "List tickets with optional status filter.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            status: { type: "string" },
+          },
+        },
+      },
+      {
+        name: "crm_create_ticket",
+        description:
+          "Create a support ticket from an AI assistant, auto-matching contacts and running assignment.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            subject: { type: "string" },
+            body: { type: "string" },
+            email: { type: "string" },
+            firstName: { type: "string" },
+            lastName: { type: "string" },
+            priority: {
+              type: "string",
+              enum: ["Low", "Medium", "High", "Urgent"],
+            },
+            assignedToId: { type: "string" },
+          },
+          required: ["subject", "body", "email"],
+        },
+      },
+      {
+        name: "crm_add_ticket_comment",
+        description: "Add a comment/reply to a support ticket.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ticketId: { type: "string" },
+            body: { type: "string" },
+            authorId: { type: "string" },
+          },
+          required: ["ticketId", "body", "authorId"],
+        },
+      },
+      {
+        name: "crm_apply_ticket_macro",
+        description: "Apply a canned response macro to a support ticket.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            ticketId: { type: "string" },
+            macroId: { type: "string" },
+          },
+          required: ["ticketId", "macroId"],
+        },
+      },
+    ];
+
+    const customTypes = await wrap(async () =>
+      dbStore.customEntityTypes.findMany(),
+    );
+    const dynamicTools: any[] = [];
+
+    function mapFieldToSchema(field: any) {
+      switch (field.type) {
+        case "string":
+        case "rich_text":
+          return { type: "string" };
+        case "number":
+          return { type: "number" };
+        case "boolean":
+          return { type: "boolean" };
+        case "date":
+          return { type: "string", description: "ISO date string" };
+        case "lookup":
+          return {
+            type: "object",
+            properties: {
+              entity_type: { type: "string" },
+              entity_id: { type: "string" },
+            },
+            required: ["entity_type", "entity_id"],
+          };
+        case "picklist":
+          return { type: "string", enum: field.options || [] };
+        case "multi_picklist":
+          return {
+            type: "array",
+            items: { type: "string", enum: field.options || [] },
+          };
+        default:
+          return { type: "string" };
+      }
+    }
+
+    for (const customType of customTypes) {
+      const objName = customType.name.toLowerCase();
+      const properties: Record<string, any> = {};
+      const required: string[] = [];
+      for (const field of customType.fieldsJson) {
+        properties[field.apiName] = mapFieldToSchema(field);
+        if (field.required) {
+          required.push(field.apiName);
+        }
+      }
+
+      dynamicTools.push(
+        {
+          name: `crm_get_${objName}`,
+          description: `Retrieve ${customType.name} custom record details by ID.`,
+          inputSchema: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+            },
+            required: ["id"],
+          },
+        },
+        {
+          name: `crm_list_${objName}`,
+          description: `List all ${customType.name} custom records.`,
+          inputSchema: { type: "object", properties: {} },
+        },
+        {
+          name: `crm_create_${objName}`,
+          description: `Create a new ${customType.name} custom record.`,
+          inputSchema: {
+            type: "object",
+            properties,
+            ...(required.length > 0 ? { required } : {}),
+          },
+        },
+        {
+          name: `crm_update_${objName}`,
+          description: `Update an existing ${customType.name} custom record.`,
+          inputSchema: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              ...properties,
+            },
+            required: ["id"],
+          },
+        },
+        {
+          name: `crm_delete_${objName}`,
+          description: `Delete a ${customType.name} custom record by ID.`,
+          inputSchema: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+            },
+            required: ["id"],
+          },
+        },
+      );
+    }
+
     return {
-      tools: [
-        // ACCOUNTS
-        {
-          name: "crm_get_account",
-          description: "Retrieve CRM account details by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              accountId: { type: "string" },
-            },
-            required: ["accountId"],
-          },
-        },
-        {
-          name: "crm_list_accounts",
-          description: "List all account records.",
-          inputSchema: { type: "object", properties: {} },
-        },
-        {
-          name: "crm_create_account",
-          description: "Create a new account.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              name: { type: "string" },
-              domain: { type: "string" },
-              custom: { type: "object" },
-            },
-            required: ["name"],
-          },
-        },
-        {
-          name: "crm_update_account",
-          description: "Update an existing account.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              accountId: { type: "string" },
-              name: { type: "string" },
-              domain: { type: "string" },
-              custom: { type: "object" },
-            },
-            required: ["accountId"],
-          },
-        },
-        {
-          name: "crm_delete_account",
-          description: "Delete an account by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              accountId: { type: "string" },
-            },
-            required: ["accountId"],
-          },
-        },
-
-        // CONTACTS
-        {
-          name: "crm_get_contact",
-          description: "Retrieve contact details by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              contactId: { type: "string" },
-            },
-            required: ["contactId"],
-          },
-        },
-        {
-          name: "crm_list_contacts",
-          description: "List contact records.",
-          inputSchema: { type: "object", properties: {} },
-        },
-        {
-          name: "crm_create_contact",
-          description: "Create a new contact record.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              ownerId: { type: "string" },
-              accountId: { type: "string" },
-              firstName: { type: "string" },
-              lastName: { type: "string" },
-              email: { type: "string" },
-              custom: { type: "object" },
-            },
-            required: ["lastName"],
-          },
-        },
-        {
-          name: "crm_update_contact",
-          description: "Update an existing contact.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              contactId: { type: "string" },
-              ownerId: { type: "string" },
-              accountId: { type: "string" },
-              firstName: { type: "string" },
-              lastName: { type: "string" },
-              email: { type: "string" },
-              custom: { type: "object" },
-            },
-            required: ["contactId"],
-          },
-        },
-        {
-          name: "crm_delete_contact",
-          description: "Delete a contact by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              contactId: { type: "string" },
-            },
-            required: ["contactId"],
-          },
-        },
-
-        // LEADS
-        {
-          name: "crm_get_lead",
-          description: "Retrieve lead details by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              leadId: { type: "string" },
-            },
-            required: ["leadId"],
-          },
-        },
-        {
-          name: "crm_list_leads",
-          description: "List lead records with optional status filter.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              status: { type: "string" },
-            },
-          },
-        },
-        {
-          name: "crm_create_lead",
-          description: "Create a new lead.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              ownerId: { type: "string" },
-              status: { type: "string" },
-              email: { type: "string" },
-              company: { type: "string" },
-              custom: { type: "object" },
-            },
-          },
-        },
-        {
-          name: "crm_update_lead",
-          description: "Update an existing lead.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              leadId: { type: "string" },
-              ownerId: { type: "string" },
-              status: { type: "string" },
-              email: { type: "string" },
-              company: { type: "string" },
-              custom: { type: "object" },
-            },
-            required: ["leadId"],
-          },
-        },
-        {
-          name: "crm_delete_lead",
-          description: "Delete a lead by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              leadId: { type: "string" },
-            },
-            required: ["leadId"],
-          },
-        },
-
-        // OPPORTUNITIES
-        {
-          name: "crm_get_opportunity",
-          description: "Retrieve opportunity details by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              opportunityId: { type: "string" },
-            },
-            required: ["opportunityId"],
-          },
-        },
-        {
-          name: "crm_list_opportunities",
-          description: "List opportunities with optional stage filter.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              stage: { type: "string" },
-            },
-          },
-        },
-        {
-          name: "crm_create_opportunity",
-          description: "Create a new opportunity.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              ownerId: { type: "string" },
-              accountId: { type: "string" },
-              campaignId: { type: "string" },
-              stage: { type: "string" },
-              name: { type: "string" },
-              amount: { type: "string" },
-              closeDate: { type: "string" },
-              custom: { type: "object" },
-            },
-            required: ["name"],
-          },
-        },
-        {
-          name: "crm_update_opportunity",
-          description: "Update an existing opportunity.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              opportunityId: { type: "string" },
-              ownerId: { type: "string" },
-              accountId: { type: "string" },
-              campaignId: { type: "string" },
-              stage: { type: "string" },
-              name: { type: "string" },
-              amount: { type: "string" },
-              closeDate: { type: "string" },
-              custom: { type: "object" },
-            },
-            required: ["opportunityId"],
-          },
-        },
-        {
-          name: "crm_delete_opportunity",
-          description: "Delete an opportunity by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              opportunityId: { type: "string" },
-            },
-            required: ["opportunityId"],
-          },
-        },
-
-        // TICKETS
-        {
-          name: "crm_get_ticket",
-          description: "Retrieve ticket details by ID.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              ticketId: { type: "string" },
-            },
-            required: ["ticketId"],
-          },
-        },
-        {
-          name: "crm_list_tickets",
-          description: "List tickets with optional status filter.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              status: { type: "string" },
-            },
-          },
-        },
-        {
-          name: "crm_create_ticket",
-          description:
-            "Create a support ticket from an AI assistant, auto-matching contacts and running assignment.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              subject: { type: "string" },
-              body: { type: "string" },
-              email: { type: "string" },
-              firstName: { type: "string" },
-              lastName: { type: "string" },
-              priority: {
-                type: "string",
-                enum: ["Low", "Medium", "High", "Urgent"],
-              },
-              assignedToId: { type: "string" },
-            },
-            required: ["subject", "body", "email"],
-          },
-        },
-        {
-          name: "crm_add_ticket_comment",
-          description: "Add a comment/reply to a support ticket.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              ticketId: { type: "string" },
-              body: { type: "string" },
-              authorId: { type: "string" },
-            },
-            required: ["ticketId", "body", "authorId"],
-          },
-        },
-        {
-          name: "crm_apply_ticket_macro",
-          description: "Apply a canned response macro to a support ticket.",
-          inputSchema: {
-            type: "object",
-            properties: {
-              ticketId: { type: "string" },
-              macroId: { type: "string" },
-            },
-            required: ["ticketId", "macroId"],
-          },
-        },
-      ],
+      tools: [...staticTools, ...dynamicTools],
     };
   });
 
@@ -780,8 +882,111 @@ export function createMcpServer(options: McpServerOptions) {
           };
         }
 
-        default:
-          throw new Error("Unknown tool call");
+        default: {
+          const customTypes = await dbStore.customEntityTypes.findMany();
+          for (const customType of customTypes) {
+            const objName = customType.name.toLowerCase();
+            if (name === `crm_get_${objName}`) {
+              const record = await dbStore.customEntityRecords.findOne(args.id);
+              if (!record || record.typeId !== customType.id) {
+                return {
+                  content: [{ type: "text", text: "Record not found" }],
+                  isError: true,
+                };
+              }
+              return {
+                content: [{ type: "text", text: JSON.stringify(record) }],
+              };
+            }
+            if (name === `crm_list_${objName}`) {
+              const allRecords = await dbStore.customEntityRecords.findMany();
+              const records = allRecords.filter(
+                (r: any) => r.typeId === customType.id,
+              );
+              return {
+                content: [{ type: "text", text: JSON.stringify(records) }],
+              };
+            }
+            if (name === `crm_create_${objName}`) {
+              const { defineObject } = await import("@crm/metadata");
+              const definition = defineObject({
+                name: customType.name,
+                fields: customType.fieldsJson,
+              });
+              const validation = definition.validateRecord(args);
+              if (!validation.success) {
+                return {
+                  content: [
+                    {
+                      type: "text",
+                      text: `Validation failed: ${validation.errors?.join(", ")}`,
+                    },
+                  ],
+                  isError: true,
+                };
+              }
+              const record = await dbStore.customEntityRecords.insert({
+                orgId: tenantContext.orgId,
+                typeId: customType.id,
+                data: validation.data as Record<string, unknown>,
+              });
+              return {
+                content: [{ type: "text", text: JSON.stringify(record) }],
+              };
+            }
+            if (name === `crm_update_${objName}`) {
+              const record = await dbStore.customEntityRecords.findOne(args.id);
+              if (!record || record.typeId !== customType.id) {
+                return {
+                  content: [{ type: "text", text: "Record not found" }],
+                  isError: true,
+                };
+              }
+              const { defineObject } = await import("@crm/metadata");
+              const definition = defineObject({
+                name: customType.name,
+                fields: customType.fieldsJson,
+              });
+              const { id, ...updates } = args;
+              const mergedData = { ...(record.data || {}), ...updates };
+              const validation = definition.validateRecord(mergedData);
+              if (!validation.success) {
+                return {
+                  content: [
+                    {
+                      type: "text",
+                      text: `Validation failed: ${validation.errors?.join(", ")}`,
+                    },
+                  ],
+                  isError: true,
+                };
+              }
+              const updated = await dbStore.customEntityRecords.update(
+                args.id,
+                {
+                  data: validation.data as Record<string, unknown>,
+                },
+              );
+              return {
+                content: [{ type: "text", text: JSON.stringify(updated) }],
+              };
+            }
+            if (name === `crm_delete_${objName}`) {
+              const record = await dbStore.customEntityRecords.findOne(args.id);
+              if (!record || record.typeId !== customType.id) {
+                return {
+                  content: [{ type: "text", text: "Record not found" }],
+                  isError: true,
+                };
+              }
+              const success = await dbStore.customEntityRecords.delete(args.id);
+              return {
+                content: [{ type: "text", text: JSON.stringify({ success }) }],
+              };
+            }
+          }
+          throw new Error(`Unknown tool call: ${name}`);
+        }
       }
     });
   });
