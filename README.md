@@ -1,5 +1,7 @@
 # Modular CRM Core System (README.md)
 
+[![CI](https://github.com/michaelcrosato/agy-ralph-crm/actions/workflows/ci.yml/badge.svg)](https://github.com/michaelcrosato/agy-ralph-crm/actions/workflows/ci.yml)
+
 Welcome to the Modular CRM Core codebase. This repository is built as a highly robust, multi-tenant relational CRM operating system designed for **100% autonomous AI generation** and execution.
 
 ---
