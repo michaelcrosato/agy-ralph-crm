@@ -1,7 +1,10 @@
 import { calculateOpportunityCommission } from "@crm/core";
 import { dbStore } from "@crm/db";
+import { createLogger } from "@crm/observability";
 import { Hono } from "hono";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
+
+const log = createLogger({ name: "sales-ops" });
 
 export const territoriesApp = new Hono<Env>();
 export const commissionsApp = new Hono<Env>();
@@ -142,7 +145,12 @@ commissionsApp.post("/calculate", tenantAuth, async (c) => {
       if (!Number.isNaN(d.getTime())) {
         period = d.toISOString().substring(0, 7);
       }
-    } catch (_) {}
+    } catch (err) {
+      log.warn(
+        { err, closeDate: opportunity.closeDate },
+        "Invalid closeDate format, using current month as period",
+      );
+    }
   }
 
   // Check if opportunity has splits!
