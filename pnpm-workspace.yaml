@@ -7,4 +7,5 @@ allowBuilds:
   "@biomejs/biome": true
   "es5-ext": true
   "esbuild": true
+  protobufjs: true
   "sharp": true

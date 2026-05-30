@@ -21,7 +21,8 @@
     "@crm/forecasting": "workspace:*",
     "@crm/webhooks": "workspace:*",
     "@crm/documents": "workspace:*",
-    "@crm/search": "workspace:*"
+    "@crm/search": "workspace:*",
+    "@crm/observability": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

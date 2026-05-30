@@ -1,3 +1,12 @@
+// MUST be the first import: initializes OTel + auto-instrumentations
+// before any module they patch (http, pg, etc.) is required.
+import { initOtel } from "@crm/observability";
+
+initOtel({
+  serviceName: process.env.OTEL_SERVICE_NAME ?? "crm-api",
+  serviceVersion: "0.1.0",
+});
+
 import {
   createSessionToken,
   type TenantContext,
