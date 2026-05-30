@@ -92,3 +92,4 @@
 - [x] **039** — [Fix 22 floating-promise sites surfaced by Biome 2.4](./specs/039_followup_floating_promises.md) · `f24fcae` — elevated to error and fully clean
 - [x] **040** — [Split `packages/db/src/index.ts` aggregate stores](./specs/040_followup_db_aggregate_stores.md) · `7a1e781` — 100+ per-aggregate stores under packages/db/src/stores/; index.ts at 132 lines
 - [x] **041** — [Batched route extraction for apps/api/src/index.ts (15 batches)](./specs/041_followup_apps_api_route_batches.md) · commits db606b3..ca748ae — index.ts at 143 lines
+- [x] **043** — [Decompose `executePendingSequenceSteps` (sequences/execution.ts)](./specs/043_followup_sequences_execution_decompose.md) · `f4a478c` (simulated) · 2026-05-30 — Decomposed monolith loop into clean, single-responsibility step handlers under execution/ sub-module, index file at 358 lines.
