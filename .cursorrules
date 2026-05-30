@@ -1,0 +1,10 @@
+# Cursor Rules Pointer
+
+All canonical instructions, execution rules, and monorepo boundaries live in [AGENTS.md](file:///C:/dev/agy-ralph-crm/AGENTS.md).
+
+## Critical Command Shorthands
+- **Full Verification**: `pnpm verify`
+- **Vitest Suites**: `pnpm test`
+- **Agent Lint**: `pnpm run agent:lint`
+- **Agent Check**: `pnpm run agent:check`
+- **Status Check**: `pnpm run agent:status`

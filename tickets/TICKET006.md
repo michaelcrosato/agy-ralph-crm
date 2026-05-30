@@ -38,9 +38,9 @@
 ---
 
 ## Acceptance Criteria
-- [ ] Mismatched dependent picklist values (e.g. state "California", city "Seattle") reject Lead creation with code `400`.
-- [ ] Valid dependent values (e.g. state "California", city "San Francisco") persist successfully.
-- [ ] Verification validation enforces strict tenant organization boundaries.
+- [x] Mismatched dependent picklist values (e.g. state "California", city "Seattle") reject Lead creation with code `400`.
+- [x] Valid dependent values (e.g. state "California", city "San Francisco") persist successfully.
+- [x] Verification validation enforces strict tenant organization boundaries.
 
 ---
 

@@ -54,7 +54,7 @@ Upon task instantiation, agents must follow this reading order:
 2. `GOAL.md` - System architecture, scope matrix, and desired end state.
 3. `ROADMAP.md` - Phased implementation plans, risk maps, unblocked tickets.
 4. `docs/ai/REPO_MAP.md` - Subdirectory mappings and entry points.
-5. `tickets/TICKET004.md` (or the highest-priority unblocked ticket) - The top ticket to be resolved.
+5. The highest-priority unblocked ticket in `tickets/` (for example `tickets/TICKET007.md`).
 
 ### 5.2 Key Commands
 - **Workspace Verify Check**: `pnpm verify` (Runs compiler, lint, and Biome checks)

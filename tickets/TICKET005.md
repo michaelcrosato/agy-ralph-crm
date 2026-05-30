@@ -42,9 +42,9 @@
 ---
 
 ## Acceptance Criteria
-- [ ] Breached SLA timer triggers a mock email log with correct subject and body personalizations.
-- [ ] Strict RLS checks prevent tenant B from reading tenant A's breached Leads.
-- [ ] Non-breached Leads do not trigger alerts.
+- [x] Breached SLA timer triggers a mock email log with correct subject and body personalizations.
+- [x] Strict RLS checks prevent tenant B from reading tenant A's breached Leads.
+- [x] Non-breached Leads do not trigger alerts.
 
 ---
 
