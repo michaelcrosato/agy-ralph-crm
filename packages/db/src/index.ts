@@ -167,17 +167,40 @@ export const dbStore = new Proxy({} as any, {
       };
     }
     const storeObj = (stores as any)[prop];
-    if (storeObj && (prop === "accounts" || prop === "contacts")) {
+    const isMutationTracked = prop === "accounts" || prop === "contacts";
+    const isValidationCachable =
+      prop === "picklistDependencies" || prop === "validationRules";
+    if (storeObj && (isMutationTracked || isValidationCachable)) {
       return new Proxy(storeObj, {
         get(target, method: string) {
           const original = target[method];
           if (typeof original === "function") {
-            if (method === "insert" || method === "update") {
+            if (
+              method === "insert" ||
+              method === "update" ||
+              method === "delete"
+            ) {
               return async (...args: any[]) => {
                 const result = await original.apply(target, args);
-                const callback = (globalThis as any).__crm_onMutationCallback;
-                if (result?.id && callback) {
-                  callback(prop, result.id, result);
+                if (
+                  isMutationTracked &&
+                  (method === "insert" || method === "update")
+                ) {
+                  const callback = (globalThis as any).__crm_onMutationCallback;
+                  if (result?.id && callback) {
+                    callback(prop, result.id, result);
+                  }
+                }
+                if (isValidationCachable) {
+                  const valCallback = (globalThis as any)
+                    .__crm_onValidationMutation;
+                  if (valCallback) {
+                    try {
+                      valCallback(prop);
+                    } catch (e) {
+                      // ignore callback errors
+                    }
+                  }
                 }
                 return result;
               };

@@ -1,6 +1,6 @@
 # 049 — TD-002: Dynamic Field Picklist Validation Optimization
 
-**Phase:** 2 (Replenish) · **Priority:** Medium · **Status:** `[ ] Todo` · **Depends on:** 035
+**Phase:** 2 (Replenish) · **Priority:** Medium · **Status:** `[x] Done` · **Depends on:** 035
 
 ## Description & Expected Impact
 
@@ -11,10 +11,10 @@ We will optimize this by implementing:
 
 ## Definition of Done & Acceptance Criteria
 
-- [ ] **In-Memory Cache (`apps/api/src/lib/validation.ts`)**:
+- [x] **In-Memory Cache (`apps/api/src/lib/validation.ts`)**:
   - Implement rolling TTL caching for `dbStore.picklistDependencies.findMany()` and `dbStore.validationRules.findMany()`.
   - Expose a `clearValidationCaches()` helper.
   - Intercept updates in tests or dynamically invalidate caches upon new rule/dependency insertions.
-- [ ] **Integration Tests**:
+- [x] **Integration Tests**:
   - Verify that picklist/rule changes are correctly picked up after cache invalidation.
   - Ensure all 480+ workspace test suites remain fully green.

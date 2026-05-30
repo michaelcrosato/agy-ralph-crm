@@ -144,6 +144,35 @@
 - Verified the complete workspace compiler and linter rules: `pnpm verify` (completed successfully with exit status 0).
 - Executed the full workspace test suite: `pnpm test` (all 147 files, 487 tests passed 100% green and regression-free).
 
+## [2026-05-30] Cycle 6 — Picklist & Validation Caching (Spec 049) + Webhook Concurrency (Spec 050)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, fully clean working tree.
+- **Verification Command**: `pnpm verify` and `pnpm test`
+- **Test Baseline**: 147 passed test files, 487 passed tests.
+
+### 2. ARCHITECTURAL FINDINGS
+- Every record creation/patch triggers sequential DB queries for validation rules and picklist dependencies, multiplying network latency overhead.
+- Scoping in-memory cache definitions by tenant (`orgId`) maintains strict RLS boundaries and completely isolates Tenant data.
+- Overriding store accessors using a Proxy inside `packages/db` enables dynamic cache invalidation on any `insert`, `update`, or `delete` writes.
+- Processing outbound webhook delivery jobs concurrently using `Promise.all` minimizes total queue execution holding time and improves transactional connection throughput.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Validation Cache (Spec 049)**:
+  - Added rolling TTL in-memory caching mapping tenant `orgId` in `apps/api/src/lib/validation.ts`.
+  - Exposed `clearValidationCaches()` helper.
+  - Attached dynamic cache invalidation trigger using `globalThis.__crm_onValidationMutation` in `packages/db/src/index.ts` Proxy intercepts.
+  - Created `packages/testing/src/validation-caching.test.ts` asserting TTL correctness, automatic invalidation on writes, and manual clearing.
+- **Webhook Concurrency (Spec 050)**:
+  - Promoted BG-003 to active Spec 050.
+  - Refactored sequential outbound webhook worker loop to perform concurrent dispatches via `Promise.all` in `packages/webhooks/src/index.ts`.
+  - Ensured correct asynchronous counters for successes, failures, and DLQ movements.
+
+### 4. VERIFICATION LOG
+- Rebuilt packages and executed targeted checks: `npx vitest run packages/testing/src/validation-caching.test.ts` (3/3 green) and `webhook-outbox.test.ts` (5/5 green).
+- Ran linter, formatter, and typecheck: `pnpm verify` (100% successful with exit code 0).
+- Ran entire monorepo-wide test suite: `pnpm test` (all 148 test files, 490 tests passed 100% green and regression-free).
+
 
 
 

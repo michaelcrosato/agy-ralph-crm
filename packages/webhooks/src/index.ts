@@ -99,7 +99,7 @@ export async function enqueueOutboundWebhooks(
   }
 }
 
-// Processes pending/failed webhook outbox items, executing them and handling retries/DLQ movements
+// Processes pending/failed webhook outbox items concurrently, executing them and handling retries/DLQ movements
 export async function processOutboxItems(
   orgId: string,
   dbStoreInstance: WebhookDBStore,
@@ -119,65 +119,129 @@ export async function processOutboxItems(
     return isPendingOrFailed && isDue;
   });
 
+  if (eligibleItems.length === 0) {
+    return { successes, failures, dlqTransitions };
+  }
+
   // Also prefetch webhooks to avoid repeatedly querying
   const webhooks = await dbStoreInstance.webhooks.findMany().catch(() => []);
 
-  for (const entry of eligibleItems) {
-    const webhook = webhooks.find((w) => w.id === entry.webhookId);
-    if (webhook?.status !== "active") {
-      // Clean up orphaned or inactive webhook outbox items
-      await dbStoreInstance.webhookOutbox.delete(entry.id).catch(() => {});
-      continue;
-    }
+  await Promise.all(
+    eligibleItems.map(async (entry) => {
+      const webhook = webhooks.find((w) => w.id === entry.webhookId);
+      if (webhook?.status !== "active") {
+        // Clean up orphaned or inactive webhook outbox items
+        await dbStoreInstance.webhookOutbox.delete(entry.id).catch(() => {});
+        return;
+      }
 
-    // Set to processing
-    await dbStoreInstance.webhookOutbox
-      .update(entry.id, { status: "processing" })
-      .catch(() => {});
+      // Set to processing
+      await dbStoreInstance.webhookOutbox
+        .update(entry.id, { status: "processing" })
+        .catch(() => {});
 
-    let payloadObj: Record<string, unknown>;
-    try {
-      payloadObj = JSON.parse(entry.payload);
-    } catch {
-      payloadObj = { raw: entry.payload };
-    }
+      let payloadObj: Record<string, unknown>;
+      try {
+        payloadObj = JSON.parse(entry.payload);
+      } catch {
+        payloadObj = { raw: entry.payload };
+      }
 
-    try {
-      const result = await simulateWebhookDispatch({
-        targetUrl: webhook.targetUrl,
-        secret: webhook.secret,
-        event: entry.event,
-        payload: payloadObj,
-      });
-
-      if (result.statusCode === 200) {
-        // Success: Log delivery history and remove from outbox
-        await dbStoreInstance.webhookDeliveries.insert({
-          orgId,
-          webhookId: webhook.id,
+      try {
+        const result = await simulateWebhookDispatch({
+          targetUrl: webhook.targetUrl,
+          secret: webhook.secret,
           event: entry.event,
-          statusCode: result.statusCode,
-          payload: result.payloadString,
+          payload: payloadObj,
         });
 
-        await dbStoreInstance.webhookOutbox.delete(entry.id);
-        successes++;
-      } else {
-        // HTTP Failure: Handle retry logic or DLQ
-        const nextAttempts = entry.attempts + 1;
-        const errorMessage = `HTTP status ${result.statusCode}`;
+        if (result.statusCode === 200) {
+          // Success: Log delivery history and remove from outbox
+          await dbStoreInstance.webhookDeliveries.insert({
+            orgId,
+            webhookId: webhook.id,
+            event: entry.event,
+            statusCode: result.statusCode,
+            payload: result.payloadString,
+          });
 
-        // Insert failed delivery log
+          await dbStoreInstance.webhookOutbox.delete(entry.id);
+          successes++;
+        } else {
+          // HTTP Failure: Handle retry logic or DLQ
+          const nextAttempts = entry.attempts + 1;
+          const errorMessage = `HTTP status ${result.statusCode}`;
+
+          // Insert failed delivery log
+          await dbStoreInstance.webhookDeliveries.insert({
+            orgId,
+            webhookId: webhook.id,
+            event: entry.event,
+            statusCode: result.statusCode,
+            payload: result.payloadString,
+          });
+
+          if (nextAttempts >= 5) {
+            // Transition to Dead Letter Queue (DLQ)
+            await dbStoreInstance.webhookDlq.insert({
+              orgId,
+              webhookId: webhook.id,
+              event: entry.event,
+              payload: entry.payload,
+              attempts: nextAttempts,
+              lastError: errorMessage,
+            });
+
+            // Log system audit log failure record
+            const systemUserId = "user-00000000-0000-0000-0000-000000000000";
+            await dbStoreInstance.auditLogs
+              .insert({
+                orgId,
+                recordId: webhook.id,
+                recordType: "webhook",
+                action: "dlq_transition",
+                userId: systemUserId,
+                changes: {
+                  status: { before: "outbox", after: "dlq" },
+                  attempts: { before: entry.attempts, after: nextAttempts },
+                  lastError: { before: entry.lastError, after: errorMessage },
+                },
+              })
+              .catch(() => {});
+
+            await dbStoreInstance.webhookOutbox.delete(entry.id);
+            dlqTransitions++;
+          } else {
+            // Calculate exponential backoff (2^attempts seconds)
+            const backoffSec = 2 ** nextAttempts;
+            const nextAttemptDate = new Date(Date.now() + backoffSec * 1000);
+
+            await dbStoreInstance.webhookOutbox.update(entry.id, {
+              status: "failed",
+              attempts: nextAttempts,
+              lastAttemptAt: new Date(),
+              nextAttemptAt: nextAttemptDate,
+              lastError: errorMessage,
+            });
+
+            failures++;
+          }
+        }
+      } catch (err) {
+        // General Execution Exception: Handle like a failure
+        const nextAttempts = entry.attempts + 1;
+        const errorMessage =
+          err instanceof Error ? err.message : "Execution exception";
+
         await dbStoreInstance.webhookDeliveries.insert({
           orgId,
           webhookId: webhook.id,
           event: entry.event,
-          statusCode: result.statusCode,
-          payload: result.payloadString,
+          statusCode: 500,
+          payload: JSON.stringify({ error: errorMessage }),
         });
 
         if (nextAttempts >= 5) {
-          // Transition to Dead Letter Queue (DLQ)
           await dbStoreInstance.webhookDlq.insert({
             orgId,
             webhookId: webhook.id,
@@ -187,7 +251,6 @@ export async function processOutboxItems(
             lastError: errorMessage,
           });
 
-          // Log system audit log failure record
           const systemUserId = "user-00000000-0000-0000-0000-000000000000";
           await dbStoreInstance.auditLogs
             .insert({
@@ -207,7 +270,6 @@ export async function processOutboxItems(
           await dbStoreInstance.webhookOutbox.delete(entry.id);
           dlqTransitions++;
         } else {
-          // Calculate exponential backoff (2^attempts seconds)
           const backoffSec = 2 ** nextAttempts;
           const nextAttemptDate = new Date(Date.now() + backoffSec * 1000);
 
@@ -222,64 +284,8 @@ export async function processOutboxItems(
           failures++;
         }
       }
-    } catch (err) {
-      // General Execution Exception: Handle like a failure
-      const nextAttempts = entry.attempts + 1;
-      const errorMessage =
-        err instanceof Error ? err.message : "Execution exception";
-
-      await dbStoreInstance.webhookDeliveries.insert({
-        orgId,
-        webhookId: webhook.id,
-        event: entry.event,
-        statusCode: 500,
-        payload: JSON.stringify({ error: errorMessage }),
-      });
-
-      if (nextAttempts >= 5) {
-        await dbStoreInstance.webhookDlq.insert({
-          orgId,
-          webhookId: webhook.id,
-          event: entry.event,
-          payload: entry.payload,
-          attempts: nextAttempts,
-          lastError: errorMessage,
-        });
-
-        const systemUserId = "user-00000000-0000-0000-0000-000000000000";
-        await dbStoreInstance.auditLogs
-          .insert({
-            orgId,
-            recordId: webhook.id,
-            recordType: "webhook",
-            action: "dlq_transition",
-            userId: systemUserId,
-            changes: {
-              status: { before: "outbox", after: "dlq" },
-              attempts: { before: entry.attempts, after: nextAttempts },
-              lastError: { before: entry.lastError, after: errorMessage },
-            },
-          })
-          .catch(() => {});
-
-        await dbStoreInstance.webhookOutbox.delete(entry.id);
-        dlqTransitions++;
-      } else {
-        const backoffSec = 2 ** nextAttempts;
-        const nextAttemptDate = new Date(Date.now() + backoffSec * 1000);
-
-        await dbStoreInstance.webhookOutbox.update(entry.id, {
-          status: "failed",
-          attempts: nextAttempts,
-          lastAttemptAt: new Date(),
-          nextAttemptAt: nextAttemptDate,
-          lastError: errorMessage,
-        });
-
-        failures++;
-      }
-    }
-  }
+    }),
+  );
 
   return { successes, failures, dlqTransitions };
 }

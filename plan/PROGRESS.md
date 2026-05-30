@@ -98,7 +98,8 @@
 - [x] **046** — [Dynamic Custom Objects: Database, REST, and Dynamic MCP Integration](./specs/046_dynamic_custom_objects_full_stack.md) · `completed`
 - [x] **047** — [pgvector + embeddings on Accounts/Contacts for semantic search (Full-Stack)](./specs/047_pgvector_semantic_search_full_stack.md) · `completed` · 2026-05-30 — Full-stack pgvector: RLS-isolated embeddings table, async mutation listener embedder service, /api/search/semantic Hono REST endpoint, and 2 extensive backend test suites.
 - [x] **048** — [BG-001: Automated Memory Leak Telemetry](./specs/048_memory_leak_telemetry.md) · `completed` · 2026-05-30 — Added MemoryTelemetry engine tracking heapUsed history and event loop latency lag, wrapped sequence step executions, and added 4 extensive leak scenario test cases.
-- [ ] **049** — [TD-002: Dynamic Field Picklist Validation Optimization](./specs/049_picklist_validation_optimization.md) · `todo`
+- [x] **049** — [TD-002: Dynamic Field Picklist Validation Optimization](./specs/049_picklist_validation_optimization.md) · `completed` · 2026-05-30 — Implemented rolling TTL in-memory cache and mutation-triggered dynamic cache invalidation, verified via 3 caching tests
+- [x] **050** — [BG-003: Webhook Outbox Batching & Concurrency Optimization](./specs/050_webhook_outbox_batching_optimization.md) · `completed` · 2026-05-30 — Optimized webhook outbox processing with high-performance concurrent Promise.all execution, reducing database connection time and passing all 5 outbox specs
 
 
 
