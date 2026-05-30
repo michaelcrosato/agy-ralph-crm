@@ -297,3 +297,27 @@
 - Executed whole workspace verification: `pnpm run agent:check` (completed successfully with exit status 0).
 - All 153 test files and 530 tests passed cleanly.
 
+## [2026-05-30] Cycle 12 — Continuous Playwright E2E Integration in CI (Spec 067)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check` and `pnpm test:e2e`
+- **Test Baseline**: 153 passed test files, 530 passed tests, 5 passed E2E tests.
+
+### 2. ARCHITECTURAL FINDINGS
+- Running browser-level smoke tests inside a headless container is a standard mechanism to prevent frontend user interface regressions.
+- Provisioning browser runtimes dynamically and caching the binaries inside `~/.cache/ms-playwright` minimizes build durations and eliminates network download latency during CI runs.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Playwright CI Integration (Spec 067)**:
+  - Added the `test-e2e` job inside `.github/workflows/ci.yml` triggering after code dependencies setup.
+  - Setup cache configuration for `~/.cache/ms-playwright` with lockfile-dependent keys.
+  - Configured dynamic Chromium installation via `pnpm run test:e2e:install` and headless smoke tests via `pnpm test:e2e`.
+  - Configured HTML failure log and trace artifact collection using `actions/upload-artifact@v4`.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `e783842`.
+- Executed local E2E suite successfully: `pnpm test:e2e` (all 5 smoke tests passed cleanly).
+- Verified formatting, linting, and building: `pnpm verify` (completed successfully with exit status 0).
+
+
