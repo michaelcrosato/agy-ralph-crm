@@ -148,6 +148,7 @@ import { type Env, tenantAuth } from "./middleware/tenantAuth";
 import { authApp } from "./routes/auth";
 import { healthApp } from "./routes/health";
 import { mcpApp } from "./routes/mcp";
+import { metadataApp } from "./routes/metadata";
 import { publicApp } from "./routes/public";
 
 // Re-exports preserve the public surface used by 130 integration test
@@ -168,152 +169,8 @@ app.route("/health", healthApp);
 app.route("/api/auth", authApp);
 app.route("/api/public", publicApp);
 app.route("/mcp", mcpApp);
+app.route("/api/metadata", metadataApp);
 
-// Metadata Management Endpoints
-app.post("/api/metadata/fields", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
-  const body = await c.req.json().catch(() => ({}));
-  const { objectType, apiName, label, dataType, validationRules } = body;
-
-  if (!objectType || !apiName || !label || !dataType) {
-    return c.json({ error: "Missing required metadata parameters" }, 400);
-  }
-
-  const def = await dbStore.fieldDefinitions.insert({
-    orgId: tenant.orgId,
-    objectType,
-    apiName,
-    label,
-    dataType,
-    validationRules: validationRules || null,
-  });
-
-  return c.json({ success: true, data: def });
-});
-
-app.get("/api/metadata/fields", tenantAuth, async (c) => {
-  const fields = await dbStore.fieldDefinitions.findMany();
-  return c.json({ success: true, data: fields });
-});
-
-app.post("/api/metadata/picklist-dependencies", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
-  const body = await c.req.json().catch(() => ({}));
-  const { objectType, parentField, dependentField, dependencyMap } = body;
-
-  if (!objectType || !parentField || !dependentField || !dependencyMap) {
-    return c.json(
-      { error: "Missing required picklist dependency parameters" },
-      400,
-    );
-  }
-
-  const dep = await dbStore.picklistDependencies.insert({
-    orgId: tenant.orgId,
-    objectType,
-    parentField,
-    dependentField,
-    dependencyMap,
-  });
-
-  return c.json({ success: true, data: dep });
-});
-
-app.get("/api/metadata/picklist-dependencies", tenantAuth, async (c) => {
-  const deps = await dbStore.picklistDependencies.findMany();
-  return c.json({ success: true, data: deps });
-});
-
-app.delete("/api/metadata/picklist-dependencies/:id", tenantAuth, async (c) => {
-  const id = c.req.param("id");
-  const deleted = await dbStore.picklistDependencies.delete(id);
-  if (!deleted) {
-    return c.json(
-      { error: "Picklist dependency not found or tenant mismatch" },
-      404,
-    );
-  }
-  return c.json({ success: true });
-});
-
-app.post("/api/metadata/validation-rules", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
-  const body = await c.req.json().catch(() => ({}));
-  const { name, description, objectType, errorMessage, criteria, isActive } =
-    body;
-
-  if (!name || !objectType || !errorMessage || !criteria) {
-    return c.json(
-      { error: "Missing required validation rule parameters" },
-      400,
-    );
-  }
-
-  const rule = await dbStore.validationRules.insert({
-    orgId: tenant.orgId,
-    name,
-    description: description || null,
-    objectType,
-    errorMessage,
-    criteria,
-    isActive: isActive !== undefined ? Number(isActive) : 1,
-  });
-
-  return c.json({ success: true, data: rule });
-});
-
-app.get("/api/metadata/validation-rules", tenantAuth, async (c) => {
-  const rules = await dbStore.validationRules.findMany();
-  return c.json({ success: true, data: rules });
-});
-
-app.delete("/api/metadata/validation-rules/:id", tenantAuth, async (c) => {
-  const id = c.req.param("id");
-  const deleted = await dbStore.validationRules.delete(id);
-  if (!deleted) {
-    return c.json(
-      { error: "Validation rule not found or tenant mismatch" },
-      404,
-    );
-  }
-  return c.json({ success: true });
-});
-
-app.post("/api/metadata/layouts/:objectType", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
-  const objectType = c.req.param("objectType");
-  const body = await c.req.json().catch(() => ({}));
-  const { sections } = body;
-
-  if (!sections) {
-    return c.json({ error: "Missing sections layout structure" }, 400);
-  }
-
-  const layout = await dbStore.layoutDefinitions.insert({
-    orgId: tenant.orgId,
-    objectType,
-    sections,
-  });
-
-  return c.json({ success: true, data: layout });
-});
-
-app.get("/api/metadata/layouts/:objectType", tenantAuth, async (c) => {
-  const objectType = c.req.param("objectType");
-  const layoutDef = await dbStore.layoutDefinitions.findOne(objectType);
-
-  const fields = await dbStore.fieldDefinitions.findMany();
-  const customFieldNames = fields
-    .filter((f) => f.objectType === objectType)
-    .map((f) => f.apiName);
-
-  const baseLayout = layoutDef || {
-    sections: [{ title: "Standard Info", fields: ["name", "email"] }],
-  };
-
-  const compiled = compileFormLayout(customFieldNames, baseLayout);
-  return c.json({ success: true, data: compiled });
-});
 
 // Workflow Automation Endpoints
 app.post("/api/workflows", tenantAuth, async (c) => {
