@@ -550,13 +550,35 @@ export default function Home() {
             <div style={{ position: "relative", width: "280px" }}>
               <input
                 type="text"
+                aria-label="Search records"
                 placeholder="Fuzzy search Leads, Contacts..."
                 className="glass-input"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => searchQuery && setShowSearchResults(true)}
+                style={{ paddingRight: searchQuery ? "2rem" : undefined }}
               />
-              {showSearchResults && searchResults.length > 0 && (
+              {searchQuery && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  onClick={() => setSearchQuery("")}
+                  style={{
+                    position: "absolute",
+                    right: "0.5rem",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    background: "none",
+                    border: "none",
+                    color: "var(--text-secondary)",
+                    cursor: "pointer",
+                    padding: "0.25rem",
+                  }}
+                >
+                  ✕
+                </button>
+              )}
+              {showSearchResults && searchQuery && (searchResults.length > 0 ? (
                 <div
                   className="glass-panel"
                   style={{
@@ -631,7 +653,25 @@ export default function Home() {
                     </button>
                   ))}
                 </div>
-              )}
+              ) : (
+                <div
+                  className="glass-panel"
+                  style={{
+                    position: "absolute",
+                    top: "105%",
+                    left: 0,
+                    right: 0,
+                    zIndex: 100,
+                    padding: "1rem",
+                    background: "rgba(15, 23, 42, 0.95)",
+                    textAlign: "center",
+                    color: "var(--text-secondary)",
+                    fontSize: "0.85rem",
+                  }}
+                >
+                  No results found for "{searchQuery}"
+                </div>
+              ))}
             </div>
 
             {/* Tenant Workspace Dropdown Selector */}
