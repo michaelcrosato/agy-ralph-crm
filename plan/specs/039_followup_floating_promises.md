@@ -1,6 +1,6 @@
 # 039 — Follow-up: Fix 22 floating-promise sites surfaced by Biome 2.4
 
-**Phase:** 1 (follow-up of spec 002) · **Priority:** Medium · **Status:** `[ ] Todo`
+**Phase:** 1 (follow-up of spec 002) · **Priority:** Medium · **Status:** `[x] Done`
 
 ## Description & Expected Impact
 Biome 2.4's type-aware `lint/nursery/noFloatingPromises` rule (enabled at `warn` level by spec 002) surfaces **22 floating-promise sites**: 21 in `apps/api/src/index.ts` (webhook triggers, audit-log inserts, etc.) and 1 in `apps/web/src/app/page.tsx:306`. All pre-existed spec 002 and are FIXABLE by the rule's autofix, but each one needs hand-judgement:
@@ -8,10 +8,10 @@ Biome 2.4's type-aware `lint/nursery/noFloatingPromises` rule (enabled at `warn`
 - For path-critical operations: switch to `await <promise>` so caller sees errors.
 
 ## Definition of Done & Acceptance Criteria
-- [ ] Each of the 22 sites reviewed individually; choose `void` vs `await` per site context.
-- [ ] Rule level promoted from `warn` to `error` in `biome.json` once all 22 are clean.
-- [ ] `pnpm verify` exits 0 with the rule at `error`.
-- [ ] `pnpm test` 406/406.
+- [x] Each of the 22 sites reviewed individually; choose `void` vs `await` per site context.
+- [x] Rule level promoted from `warn` to `error` in `biome.json` once all 22 are clean.
+- [x] `pnpm verify` exits 0 with the rule at `error`.
+- [x] `pnpm test` 406/406 (actual: 410/410).
 
 ## Implementation Approach
 - Likely sites are listed via `pnpm exec biome check . --max-diagnostics=100 | grep noFloatingPromises`.
