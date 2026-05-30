@@ -9,7 +9,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "vitest": "^1.6.0",
+    "vitest": "^3.2.4",
     "@crm/db": "workspace:*",
     "@crm/auth": "workspace:*",
     "@crm/core": "workspace:*",
