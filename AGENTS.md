@@ -81,4 +81,49 @@ Agents must execute tasks recursively by strictly repeating this workflow:
 - **Use Ripgrep strategically**: Target searches specifically using `grep_search` rather than reading large files line-by-line.
 - **Skip Noise**: Always respect the rules outlined in `.aiignore`.
 
-*Last Updated: May 29, 2026*
+---
+
+## Cursor Cloud specific instructions
+
+### Runtime requirements
+
+- **Node.js 22** and **pnpm 11** (see root `packageManager` / `engines`). The VM may report `v22.22.x` instead of exactly `22.0.0`; pnpm only warns—this is fine for local dev.
+- **No Docker or PostgreSQL** is required today: persistence uses in-memory `@crm/db` stores (`mockDb` / `dbStore`).
+
+### Automatic dependency refresh
+
+On VM startup, run `pnpm install` from the repo root (see update script). Do not add service startup to the update script.
+
+### Running services (manual)
+
+| Service | Command | Port |
+|---------|---------|------|
+| API + Web (recommended) | `pnpm dev` (Turbo; keep running in tmux) | API **3001**, Web **3000** |
+| API only | `pnpm --filter api dev` | **3001** |
+| Web only | `pnpm --filter web dev` | **3000** |
+
+Health check: `curl http://localhost:3001/health` → `{"status":"ok",...}`.
+
+The web app calls `http://localhost:3001` (see `apps/web/src/app/page.tsx`). If the API is down, the UI falls back to embedded mock data.
+
+### Verification without servers
+
+CI-style checks need only install + build:
+
+- `pnpm verify` — Biome + per-package verify via Turbo
+- `pnpm build` — TypeScript compile (≈ `typecheck` in agent docs)
+- `pnpm test` — **403 tests** in `@crm/testing` (129 files); Hono app is exercised in-process
+
+Root `package.json` does **not** define `pnpm typecheck`, `pnpm lint`, or `pnpm test:e2e`. Use `pnpm build`, `npx biome check .`, and `pnpm test` instead (or `pnpm run agent:check`).
+
+### Agent helper scripts
+
+`scripts/agent/bootstrap.sh`, `doctor.sh`, `check.sh` — see README quick start.
+
+### Hello-world smoke test
+
+1. `pnpm dev` in tmux.
+2. `curl http://localhost:3001/health`
+3. Create a lead via API with a session token from `@crm/auth`, or open `http://localhost:3000`, select **org-acme-corp**, and open **Leads Base**.
+
+*Last Updated: May 30, 2026*
