@@ -216,6 +216,8 @@ searchApp.get("/hybrid", tenantAuth, async (c) => {
   const typesParam = c.req.query("types");
   const thresholdParam = c.req.query("threshold");
   const limitParam = c.req.query("limit");
+  const rerankParam = c.req.query("rerank");
+  const rerankLimitParam = c.req.query("rerankLimit");
 
   const types = typesParam
     ? (typesParam.split(",") as (
@@ -231,11 +233,17 @@ searchApp.get("/hybrid", tenantAuth, async (c) => {
     : undefined;
 
   const limit = limitParam ? Number.parseInt(limitParam, 10) : undefined;
+  const rerank = rerankParam === "true";
+  const rerankLimit = rerankLimitParam
+    ? Number.parseInt(rerankLimitParam, 10)
+    : undefined;
 
   const results = await globalHybridSearch(q, {
     types,
     threshold,
     limit,
+    rerank,
+    rerankLimit,
     dbStore,
   });
 

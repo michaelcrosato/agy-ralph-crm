@@ -36,7 +36,7 @@ const getLeadAnalyticsRoute = createRoute({
 });
 
 dashboardApp.openapi(getLeadAnalyticsRoute, async (c) => {
-  const tenant = c.get("tenant");
+  const _tenant = c.get("tenant");
 
   // 1. Fetch leads
   const leads = await dbStore.leads.findMany();

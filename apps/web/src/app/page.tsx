@@ -578,100 +578,102 @@ export default function Home() {
                   ✕
                 </button>
               )}
-              {showSearchResults && searchQuery && (searchResults.length > 0 ? (
-                <div
-                  className="glass-panel"
-                  style={{
-                    position: "absolute",
-                    top: "105%",
-                    left: 0,
-                    right: 0,
-                    zIndex: 100,
-                    padding: "0.5rem",
-                    background: "rgba(15, 23, 42, 0.95)",
-                  }}
-                >
+              {showSearchResults &&
+                searchQuery &&
+                (searchResults.length > 0 ? (
                   <div
-                    className="text-xs mb-2"
+                    className="glass-panel"
                     style={{
-                      color: "var(--text-muted)",
-                      borderBottom: "1px solid var(--glass-border)",
-                      paddingBottom: "4px",
+                      position: "absolute",
+                      top: "105%",
+                      left: 0,
+                      right: 0,
+                      zIndex: 100,
+                      padding: "0.5rem",
+                      background: "rgba(15, 23, 42, 0.95)",
                     }}
                   >
-                    Fuzzy Search Results
-                  </div>
-                  {searchResults.map((result) => (
-                    <button
-                      type="button"
-                      key={result.id}
-                      className="p-2 flex items-center justify-between hover:bg-white/5 rounded cursor-pointer w-full text-left"
+                    <div
+                      className="text-xs mb-2"
                       style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "0.5rem",
-                        borderRadius: "8px",
-                        background: "none",
-                        border: "none",
-                        color: "inherit",
-                        font: "inherit",
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                      onClick={() => {
-                        setSearchQuery(result.title);
-                        setShowSearchResults(false);
+                        color: "var(--text-muted)",
+                        borderBottom: "1px solid var(--glass-border)",
+                        paddingBottom: "4px",
                       }}
                     >
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>
-                          {result.title}
-                        </div>
-                        <div
-                          style={{
-                            color: "var(--text-secondary)",
-                            fontSize: "0.75rem",
-                          }}
-                        >
-                          {result.subtitle}
-                        </div>
-                      </div>
-                      <span
-                        className={`badge ${
-                          result.type === "Lead"
-                            ? "badge-lead"
-                            : result.type === "Contact"
-                              ? "badge-contact"
-                              : result.type === "Opportunity"
-                                ? "badge-opp"
-                                : "badge-account"
-                        }`}
+                      Fuzzy Search Results
+                    </div>
+                    {searchResults.map((result) => (
+                      <button
+                        type="button"
+                        key={result.id}
+                        className="p-2 flex items-center justify-between hover:bg-white/5 rounded cursor-pointer w-full text-left"
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "0.5rem",
+                          borderRadius: "8px",
+                          background: "none",
+                          border: "none",
+                          color: "inherit",
+                          font: "inherit",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                        onClick={() => {
+                          setSearchQuery(result.title);
+                          setShowSearchResults(false);
+                        }}
                       >
-                        {result.type}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  className="glass-panel"
-                  style={{
-                    position: "absolute",
-                    top: "105%",
-                    left: 0,
-                    right: 0,
-                    zIndex: 100,
-                    padding: "1rem",
-                    background: "rgba(15, 23, 42, 0.95)",
-                    textAlign: "center",
-                    color: "var(--text-secondary)",
-                    fontSize: "0.85rem",
-                  }}
-                >
-                  No results found for "{searchQuery}"
-                </div>
-              ))}
+                        <div>
+                          <div style={{ fontWeight: 600, fontSize: "0.85rem" }}>
+                            {result.title}
+                          </div>
+                          <div
+                            style={{
+                              color: "var(--text-secondary)",
+                              fontSize: "0.75rem",
+                            }}
+                          >
+                            {result.subtitle}
+                          </div>
+                        </div>
+                        <span
+                          className={`badge ${
+                            result.type === "Lead"
+                              ? "badge-lead"
+                              : result.type === "Contact"
+                                ? "badge-contact"
+                                : result.type === "Opportunity"
+                                  ? "badge-opp"
+                                  : "badge-account"
+                          }`}
+                        >
+                          {result.type}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div
+                    className="glass-panel"
+                    style={{
+                      position: "absolute",
+                      top: "105%",
+                      left: 0,
+                      right: 0,
+                      zIndex: 100,
+                      padding: "1rem",
+                      background: "rgba(15, 23, 42, 0.95)",
+                      textAlign: "center",
+                      color: "var(--text-secondary)",
+                      fontSize: "0.85rem",
+                    }}
+                  >
+                    No results found for "{searchQuery}"
+                  </div>
+                ))}
             </div>
 
             {/* Tenant Workspace Dropdown Selector */}

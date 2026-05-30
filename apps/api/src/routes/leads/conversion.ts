@@ -2,7 +2,6 @@ import { convertLeadWithMappings } from "@crm/core";
 import { dbStore } from "@crm/db";
 import { executeWorkflows } from "@crm/workflow";
 import { OpenAPIHono } from "@hono/zod-openapi";
-import { checkAndRunLeadAutoConversion } from "../../lib/leadAutoConversion";
 import { triggerOutboundWebhooks } from "../../lib/webhooks";
 import { type Env, tenantAuth } from "../../middleware/tenantAuth";
 

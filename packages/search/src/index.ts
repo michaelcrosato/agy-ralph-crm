@@ -340,6 +340,8 @@ export async function globalFuzzySearch(
 
 export interface HybridSearchOptions extends GlobalSearchOptions {
   limit?: number;
+  rerank?: boolean;
+  rerankLimit?: number;
 }
 
 export interface HybridSearchResult extends SearchResult {
@@ -496,7 +498,17 @@ export async function globalHybridSearch(
 
   // Sort and limit
   fusedResults.sort((a, b) => b.rrfScore - a.rrfScore);
-  return fusedResults.slice(0, limit);
+  const slicedResults = fusedResults.slice(0, limit);
+
+  if (options.rerank) {
+    const { rerankSearchHits } = await import("./rerank.js");
+    return rerankSearchHits(query, slicedResults, {
+      rerankLimit: options.rerankLimit,
+    });
+  }
+
+  return slicedResults;
 }
 
+export * from "./rerank.js";
 export * from "./semantic.js";
