@@ -128,6 +128,7 @@
 - [x] **061** — [Add dedicated unit tests for `domain/shared/` utilities](./specs/061_shared_domain_unit_tests.md)
 - [x] **062** — [Split `routes/service.ts` (1,196 → ≤400 lines)](./specs/062_split_service_routes.md)
 - [x] **063** — [Split `routes/leads.ts` (962 → ≤400 lines)](./specs/063_split_leads_routes.md)
+- [ ] **064** — [Reciprocal Rank Fusion (RRF) Hybrid Search (Lexical + Semantic)](./specs/064_hybrid_rrf_search.md)
 
 
 
