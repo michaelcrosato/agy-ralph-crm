@@ -97,6 +97,8 @@
 - [x] **045** — [Automatic Migration Conflict Prevention Gate](./specs/045_migration_conflict_prevention_gate.md) · `completed` · 2026-05-30 — Implemented check-migrations.mjs with idx continuity, tag existence, and prefix uniqueness checks, hooked into doctor, verified via check-migrations.test.ts.
 - [x] **046** — [Dynamic Custom Objects: Database, REST, and Dynamic MCP Integration](./specs/046_dynamic_custom_objects_full_stack.md) · `completed`
 - [x] **047** — [pgvector + embeddings on Accounts/Contacts for semantic search (Full-Stack)](./specs/047_pgvector_semantic_search_full_stack.md) · `completed` · 2026-05-30 — Full-stack pgvector: RLS-isolated embeddings table, async mutation listener embedder service, /api/search/semantic Hono REST endpoint, and 2 extensive backend test suites.
+- [ ] **048** — [BG-001: Automated Memory Leak Telemetry](./specs/048_memory_leak_telemetry.md) · `todo`
+
 
 
 
