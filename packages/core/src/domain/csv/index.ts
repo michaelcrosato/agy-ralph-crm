@@ -1,4 +1,5 @@
 import type { CSVColumnMapping, RowValidationError } from "../../types";
+import { validateImportRow } from "./import";
 
 export function parseCSV(content: string): string[][] {
   const result: string[][] = [];
@@ -42,93 +43,16 @@ export function processCSVImport(
   }
 
   const headers = rows[0].map((h) => h.toLowerCase());
-  const dataRows = rows.slice(1);
-
-  const getCellValue = (row: string[], field: string): string | null => {
-    const mapVal = mapping[field];
-    if (!mapVal) return null;
-
-    if (/^\d+$/.test(mapVal)) {
-      const idx = Number.parseInt(mapVal, 10);
-      return row[idx] !== undefined ? row[idx] : null;
-    }
-
-    const idx = headers.indexOf(mapVal.toLowerCase());
-    if (idx !== -1) {
-      return row[idx] !== undefined ? row[idx] : null;
-    }
-
-    return null;
-  };
-
-  for (let i = 0; i < dataRows.length; i++) {
-    const row = dataRows[i];
-    const rowNum = i + 2;
-
-    const record: Record<string, unknown> = {};
-    let rowHasError = false;
-
-    if (entityType === "lead") {
-      const company = getCellValue(row, "company");
-      const email = getCellValue(row, "email");
-      const status = getCellValue(row, "status") || "New";
-
-      if (!company && !email) {
-        errors.push({
-          row: rowNum,
-          column: "company/email",
-          message: "Either Company or Email is required for Leads.",
-        });
-        rowHasError = true;
-      }
-
-      if (email && !email.includes("@")) {
-        errors.push({
-          row: rowNum,
-          column: "email",
-          message: `Invalid email address format: ${email}`,
-        });
-        rowHasError = true;
-      }
-
-      if (!rowHasError) {
-        record.company = company || null;
-        record.email = email || null;
-        record.status = status;
-      }
-    } else if (entityType === "contact") {
-      const firstName = getCellValue(row, "firstName");
-      const lastName = getCellValue(row, "lastName");
-      const email = getCellValue(row, "email");
-
-      if (!lastName) {
-        errors.push({
-          row: rowNum,
-          column: "lastName",
-          message: "Last Name is required for Contacts.",
-        });
-        rowHasError = true;
-      }
-
-      if (email && !email.includes("@")) {
-        errors.push({
-          row: rowNum,
-          column: "email",
-          message: `Invalid email address format: ${email}`,
-        });
-        rowHasError = true;
-      }
-
-      if (!rowHasError) {
-        record.firstName = firstName || "";
-        record.lastName = lastName || "";
-        record.email = email || null;
-      }
-    }
-
-    if (!rowHasError) {
-      valid.push(record);
-    }
+  for (let i = 1; i < rows.length; i++) {
+    const { record, errors: rowErrors } = validateImportRow(
+      entityType,
+      headers,
+      rows[i],
+      mapping,
+      i + 1,
+    );
+    if (rowErrors.length > 0) errors.push(...rowErrors);
+    else if (record) valid.push(record);
   }
 
   return { valid, errors };
@@ -163,3 +87,5 @@ export function parseUtmParams(urlStr: string) {
     };
   }
 }
+
+export * from "./import";
