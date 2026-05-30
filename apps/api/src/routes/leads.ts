@@ -10,11 +10,11 @@ import { slaRouter } from "./leads/sla";
 export const leadsApp = new OpenAPIHono<Env>();
 
 // Mount the decomposed leads sub-routers at the root path
-leadsApp.route("/", crudRouter);
 leadsApp.route("/", slaRouter);
 leadsApp.route("/", conversionRouter);
 leadsApp.route("/", dedupRouter);
 leadsApp.route("/", assignmentRouter);
 leadsApp.route("/", scoringRouter);
+leadsApp.route("/", crudRouter);
 
 export { leadAssignmentRulesApp, leadScoringRulesApp };

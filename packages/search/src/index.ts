@@ -338,4 +338,165 @@ export async function globalFuzzySearch(
   return results;
 }
 
-export * from "./semantic";
+export interface HybridSearchOptions extends GlobalSearchOptions {
+  limit?: number;
+}
+
+export interface HybridSearchResult extends SearchResult {
+  rrfScore: number;
+}
+
+export function getSearchEmbeddingProvider() {
+  const processEnv = (globalThis as any).process?.env || {};
+  const providerType = processEnv.EMBEDDINGS_PROVIDER || "mock";
+  if (providerType === "openai") {
+    const apiKey = processEnv.OPENAI_API_KEY;
+    if (apiKey) {
+      return {
+        dimensions: 1536,
+        async embed(text: string): Promise<number[]> {
+          const response = await fetch("https://api.openai.com/v1/embeddings", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+              input: text,
+              model: "text-embedding-3-small",
+            }),
+          });
+          if (!response.ok) {
+            throw new Error(`OpenAI API failed: ${response.statusText}`);
+          }
+          const body = (await response.json()) as any;
+          return body.data[0].embedding;
+        },
+      };
+    }
+  }
+  return {
+    dimensions: 1536,
+    async embed(text: string): Promise<number[]> {
+      const { createMockEmbeddingProvider } = await import("./semantic.js");
+      return createMockEmbeddingProvider(1536).embed(text);
+    },
+  };
+}
+
+export async function globalHybridSearch(
+  query: string,
+  options: HybridSearchOptions,
+): Promise<HybridSearchResult[]> {
+  const targetTypes = options.types || [
+    "Lead",
+    "Account",
+    "Contact",
+    "Opportunity",
+  ];
+  const dbStore = options.dbStore;
+  const limit = options.limit ?? 10;
+
+  // 1. Perform Lexical Fuzzy Search
+  const lexicalResults = await globalFuzzySearch(query, options);
+
+  // 2. Perform Semantic Search
+  const { getActiveOrgId } = await import("@crm/db");
+  const orgId = getActiveOrgId();
+
+  const provider = getSearchEmbeddingProvider();
+  const queryVector = await provider.embed(query);
+
+  const allEmbeddings = await dbStore.embeddings.findMany();
+  const filtered = allEmbeddings.filter(
+    (e: any) => e.orgId === orgId && targetTypes.includes(e.entityType as any),
+  );
+
+  const { cosineSimilarity } = await import("./semantic.js");
+  const semanticHits = filtered
+    .map((e: any) => ({
+      entityId: e.entityId,
+      entityType: e.entityType as
+        | "Lead"
+        | "Account"
+        | "Contact"
+        | "Opportunity",
+      score: cosineSimilarity(queryVector as number[], e.embedding),
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  // 3. Map ranks for Reciprocal Rank Fusion (RRF)
+  const rankMap = new Map<
+    string,
+    {
+      record: Record<string, unknown>;
+      recordType: string;
+      lexicalRank?: number;
+      semanticRank?: number;
+    }
+  >();
+
+  // Add lexical ranks
+  lexicalResults.forEach((res, index) => {
+    const key = `${res.recordType}::${res.record.id}`;
+    rankMap.set(key, {
+      record: res.record,
+      recordType: res.recordType,
+      lexicalRank: index + 1,
+    });
+  });
+
+  // Add semantic ranks
+  for (let index = 0; index < semanticHits.length; index++) {
+    const hit = semanticHits[index];
+    const key = `${hit.entityType}::${hit.entityId}`;
+    let existing = rankMap.get(key);
+    if (!existing) {
+      let record: any = null;
+      if (hit.entityType === "Account") {
+        record = await dbStore.accounts.findOne(hit.entityId);
+      } else if (hit.entityType === "Contact") {
+        record = await dbStore.contacts.findOne(hit.entityId);
+      } else if (hit.entityType === "Lead") {
+        record = await dbStore.leads.findOne(hit.entityId);
+      } else if (hit.entityType === "Opportunity") {
+        record = await dbStore.opportunities.findOne(hit.entityId);
+      }
+      if (record) {
+        existing = {
+          record: record as Record<string, unknown>,
+          recordType: hit.entityType,
+          semanticRank: index + 1,
+        };
+        rankMap.set(key, existing);
+      }
+    } else {
+      existing.semanticRank = index + 1;
+    }
+  }
+
+  // 4. Compute RRF Scores
+  const k = 60;
+  const fusedResults: HybridSearchResult[] = [];
+  for (const [_, val] of rankMap.entries()) {
+    const lexicalRank = val.lexicalRank;
+    const semanticRank = val.semanticRank;
+
+    const rrfScore =
+      (lexicalRank ? 1.0 / (k + lexicalRank) : 0.0) +
+      (semanticRank ? 1.0 / (k + semanticRank) : 0.0);
+
+    fusedResults.push({
+      record: val.record,
+      recordType: val.recordType as any,
+      score: rrfScore,
+      rrfScore,
+    });
+  }
+
+  // Sort and limit
+  fusedResults.sort((a, b) => b.rrfScore - a.rrfScore);
+  return fusedResults.slice(0, limit);
+}
+
+export * from "./semantic.js";

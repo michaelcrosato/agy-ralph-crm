@@ -5,7 +5,7 @@ import {
   validateSurveyResponse,
 } from "@crm/core";
 import { dbStore, pgDb } from "@crm/db";
-import { globalFuzzySearch } from "@crm/search";
+import { globalFuzzySearch, globalHybridSearch } from "@crm/search";
 import { processOutboxItems } from "@crm/webhooks";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
@@ -205,6 +205,37 @@ searchApp.get("/fuzzy", tenantAuth, async (c) => {
   const results = await globalFuzzySearch(q, {
     types,
     threshold,
+    dbStore,
+  });
+
+  return c.json({ success: true, data: results });
+});
+
+searchApp.get("/hybrid", tenantAuth, async (c) => {
+  const q = c.req.query("q") || "";
+  const typesParam = c.req.query("types");
+  const thresholdParam = c.req.query("threshold");
+  const limitParam = c.req.query("limit");
+
+  const types = typesParam
+    ? (typesParam.split(",") as (
+        | "Lead"
+        | "Account"
+        | "Contact"
+        | "Opportunity"
+      )[])
+    : undefined;
+
+  const threshold = thresholdParam
+    ? Number.parseFloat(thresholdParam)
+    : undefined;
+
+  const limit = limitParam ? Number.parseInt(limitParam, 10) : undefined;
+
+  const results = await globalHybridSearch(q, {
+    types,
+    threshold,
+    limit,
     dbStore,
   });
 
