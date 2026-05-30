@@ -21,7 +21,7 @@ if (-not $AgyPath -or -not (Test-Path $AgyPath)) {
 }
 
 $Prompt = @'
-Read the highest-priority pending ticket in tickets/TICKET0NN.md,
+Read the highest-priority pending ticket in the tickets/ directory,
 follow the workflow in AGENTS.md, implement the ticket scope atomically,
 run the ticket verification commands, update ticket status and notes,
 and then stop so the caller can evaluate handoff state.
