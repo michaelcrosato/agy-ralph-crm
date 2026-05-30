@@ -22,6 +22,13 @@ describe.runIf(isDockerAvailable())(
           `INSERT INTO "organizations" ("id", "name", "status") VALUES ('${orgA}', 'Tenant RLS A', 'active'), ('${orgB}', 'Tenant RLS B', 'active') ON CONFLICT DO NOTHING`,
         ),
       );
+
+      // Insert a default user to satisfy owner foreign key constraints
+      await pgDb.execute(
+        sql.raw(
+          `INSERT INTO "users" ("id", "email", "password_hash", "status") VALUES ('user-a', 'default-user@example.com', 'hash', 'active') ON CONFLICT DO NOTHING`,
+        ),
+      );
     }, 60000);
 
     it("Cross-tenant SELECT returns 0 rows", async () => {
@@ -29,8 +36,6 @@ describe.runIf(isDockerAvailable())(
       let leadId = "";
       await withTenant(orgA, pgDb, async () => {
         const lead = await dbStore.leads.insert({
-          firstName: "RLS First",
-          lastName: "RLS Last",
           email: "rls@example.com",
           company: "RLS Corp",
         });
@@ -44,7 +49,7 @@ describe.runIf(isDockerAvailable())(
         const leads = await dbStore.leads.findMany();
         expect(leads.length).toBe(0);
 
-        const singleLead = await dbStore.leads.findById(leadId);
+        const singleLead = await dbStore.leads.findOne(leadId);
         expect(singleLead).toBeNull();
       });
     });
@@ -54,8 +59,6 @@ describe.runIf(isDockerAvailable())(
       let leadId = "";
       await withTenant(orgA, pgDb, async () => {
         const lead = await dbStore.leads.insert({
-          firstName: "RLS First",
-          lastName: "RLS Last",
           email: "rls@example.com",
           company: "RLS Corp",
         });
@@ -65,16 +68,16 @@ describe.runIf(isDockerAvailable())(
       // 2. Attempt to update the lead under Tenant B -> should return null/affect 0 rows
       await withTenant(orgB, pgDb, async () => {
         const updated = await dbStore.leads.update(leadId, {
-          firstName: "Hacked Name",
+          company: "Hacked Company",
         });
         expect(updated).toBeNull();
       });
 
-      // 3. Verify name remains unchanged under Tenant A
+      // 3. Verify company remains unchanged under Tenant A
       await withTenant(orgA, pgDb, async () => {
-        const lead = await dbStore.leads.findById(leadId);
+        const lead = await dbStore.leads.findOne(leadId);
         expect(lead).not.toBeNull();
-        expect(lead?.firstName).toBe("RLS First");
+        expect(lead?.company).toBe("RLS Corp");
       });
     });
 
@@ -83,8 +86,6 @@ describe.runIf(isDockerAvailable())(
       let leadId = "";
       await withTenant(orgA, pgDb, async () => {
         const lead = await dbStore.leads.insert({
-          firstName: "RLS First",
-          lastName: "RLS Last",
           email: "rls@example.com",
           company: "RLS Corp",
         });
@@ -99,7 +100,7 @@ describe.runIf(isDockerAvailable())(
 
       // 3. Verify lead still exists under Tenant A
       await withTenant(orgA, pgDb, async () => {
-        const lead = await dbStore.leads.findById(leadId);
+        const lead = await dbStore.leads.findOne(leadId);
         expect(lead).not.toBeNull();
       });
     });

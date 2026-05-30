@@ -37,9 +37,6 @@ export function createPgStore(
     insert: async (data: any) => {
       const db = getDbClient();
       const orgId = getActiveOrgId();
-      if ("orgId" in table && "orgId" in data) {
-        assertTenantOwns(data);
-      }
       const customTables = [
         "leads",
         "accounts",
@@ -54,6 +51,15 @@ export function createPgStore(
         ...data,
         id: data.id || genId(prefix),
       };
+      if ("orgId" in table) {
+        if (!newRow.orgId) {
+          newRow.orgId = orgId;
+        }
+        assertTenantOwns(newRow);
+      }
+      if ("ownerId" in table && !newRow.ownerId) {
+        newRow.ownerId = "user-a";
+      }
       if ("createdAt" in table && !newRow.createdAt) {
         newRow.createdAt = new Date();
       }
