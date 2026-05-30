@@ -337,3 +337,5 @@ export async function globalFuzzySearch(
   results.sort((a, b) => b.score - a.score);
   return results;
 }
+
+export * from "./semantic";
