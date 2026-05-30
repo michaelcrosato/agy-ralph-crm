@@ -114,6 +114,13 @@ if ! node scripts/agent/check-migrations.mjs; then
   exit 1
 fi
 
+# Audit logs integrity validation check
+echo "Step: Audit Logs Cryptographic Integrity Check"
+if ! node scripts/agent/verify-audit-integrity.mjs; then
+  echo "[ERROR] Audit logs integrity validation failed."
+  exit 1
+fi
+
 if [ "$ADVISORY_EXIT" -ne 0 ]; then
   echo "[ERROR] high or critical advisories present; address before continuing."
   exit "$ADVISORY_EXIT"

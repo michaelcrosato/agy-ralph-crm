@@ -5,6 +5,7 @@ import { validateCustomFields } from "../_jsonb";
 import { assertTenantOwns } from "../_rls";
 import { getActiveOrgId } from "../_tenant";
 import * as schema from "../schema";
+import { computeAuditHash, GENESIS_HASH, stableStringify } from "./audit-hash";
 
 export function createPgStore(
   _tableName: string,
@@ -63,6 +64,42 @@ export function createPgStore(
       if ("createdAt" in table && !newRow.createdAt) {
         newRow.createdAt = new Date();
       }
+
+      if (_tableName === "auditLogs") {
+        const [lastLog] = await db
+          .select({
+            seq: schema.auditLogs.seq,
+            hash: schema.auditLogs.hash,
+          })
+          .from(schema.auditLogs)
+          .where(eq(schema.auditLogs.orgId, orgId))
+          .orderBy(
+            sql`${schema.auditLogs.createdAt} desc, ${schema.auditLogs.id} desc`,
+          )
+          .limit(1);
+
+        const prevHash = lastLog?.hash || GENESIS_HASH;
+        const seq = lastLog ? (lastLog.seq || 0) + 1 : 0;
+        const createdAt =
+          newRow.createdAt instanceof Date
+            ? newRow.createdAt
+            : new Date(newRow.createdAt);
+
+        const recordToHash = {
+          orgId,
+          recordId: newRow.recordId,
+          recordType: newRow.recordType,
+          action: newRow.action,
+          userId: newRow.userId,
+          changes: newRow.changes,
+          createdAt: createdAt.toISOString(),
+        };
+
+        newRow.seq = seq;
+        newRow.prevHash = prevHash;
+        newRow.hash = computeAuditHash(recordToHash, seq, prevHash);
+      }
+
       await db.insert(table).values(newRow);
       return newRow;
     },

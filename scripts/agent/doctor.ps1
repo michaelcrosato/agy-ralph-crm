@@ -122,6 +122,14 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
+# Audit logs integrity validation check
+Write-Host "Step: Audit Logs Cryptographic Integrity Check" -ForegroundColor Cyan
+node scripts/agent/verify-audit-integrity.mjs
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] Audit logs integrity validation failed." -ForegroundColor Red
+    exit 1
+}
+
 if ($advisoryExit -ne 0) {
     Write-Host "[ERROR] high or critical advisories present; address before continuing." -ForegroundColor Red
     exit $advisoryExit

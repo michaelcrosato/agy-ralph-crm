@@ -108,6 +108,9 @@ export interface DBAuditLog {
   action: string;
   userId: string;
   changes: Record<string, { before: unknown; after: unknown }> | null;
+  seq?: number | null;
+  prevHash?: string | null;
+  hash?: string | null;
   createdAt: Date;
 }
 

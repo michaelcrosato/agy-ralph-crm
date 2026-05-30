@@ -207,6 +207,9 @@ export const auditLogs = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     changes: jsonb("changes"),
+    seq: integer("seq"),
+    prevHash: text("prev_hash"),
+    hash: text("hash"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [
