@@ -20,8 +20,8 @@
 - [x] **010** — [Decompose apps/api/src/index.ts (331 routes / 13,060 lines)](./specs/010_decompose_apps_api.md) · `ca748ae` — index.ts at 143 lines (target <200); 24 sub-app mounts across routes/*.ts; spec 041 batches 1–15 done; unblocks 011, 017, 018, 023
 - [x] **011** — [Decompose packages/core/src/index.ts (100+ exports / 9,505 lines)](./specs/011_decompose_packages_core.md) · `f24fcae` — 16 domain/ subdirs; index.ts at 17 lines (target <100); follow-up to split sequences/index.ts (4,303 lines, above 800 target)
 - [x] **012** — [Decompose packages/db/src/index.ts (6,312 lines, 70+ stores)](./specs/012_decompose_packages_db.md) · `513e7d2` (partial: helpers) + `7a1e781` (full: 100+ stores via spec 040) — index.ts at 132 lines
-- [ ] **013** — [Wire real Postgres + Drizzle + testcontainers](./specs/013_real_postgres_drizzle.md) · deps: 012
-- [ ] **014** — [Postgres RLS policies via set_config('app.current_tenant_id')](./specs/014_rls_policies_set_local.md) · deps: 013
+- [x] **013** — [Wire real Postgres + Drizzle + testcontainers](./specs/013_real_postgres_drizzle.md) · `c03ae3e` — wired real PG client, generated schema migrations, and parameterized 5 integration suites against testcontainers
+- [x] **014** — [Postgres RLS policies via set_config('app.current_tenant_id')](./specs/014_rls_policies_set_local.md) · `a7f5c59` — generated RLS enablement and tenant isolation policies migration for all 105 tenant-scoped tables, and wrote 3 property-based RLS tests
 - [ ] **015** — [Composite (tenant_id, …) indexes on hot tables](./specs/015_composite_indexes.md) · deps: 013
 - [x] **016** — [OpenTelemetry traces + metrics + log correlation](./specs/016_otel_instrumentation.md) · `8ae56cd`
 - [ ] **017** — [@hono/zod-openapi for type-safe routes + auto OpenAPI](./specs/017_zod_openapi_hono.md) · deps: 010
