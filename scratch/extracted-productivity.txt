@@ -1,0 +1,182 @@
+productivityApp.get("/sync/settings", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const settings = await dbStore.emailCalendarSyncSettings.findByUser(
+    tenant.userId,
+  );
+  return c.json({ success: true, data: settings });
+});
+
+productivityApp.post("/sync/settings", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { provider, isActive, syncEmails, syncCalendar } = body;
+
+  if (!provider) {
+    return c.json({ error: "Missing 'provider'" }, 400);
+  }
+
+  const existing = await dbStore.emailCalendarSyncSettings.findByUser(
+    tenant.userId,
+  );
+  if (existing) {
+    const updated = await dbStore.emailCalendarSyncSettings.update(
+      existing.id,
+      {
+        provider,
+        isActive:
+          isActive !== undefined ? Boolean(isActive) : existing.isActive,
+        syncEmails:
+          syncEmails !== undefined ? Boolean(syncEmails) : existing.syncEmails,
+        syncCalendar:
+          syncCalendar !== undefined
+            ? Boolean(syncCalendar)
+            : existing.syncCalendar,
+      },
+    );
+    return c.json({ success: true, data: updated });
+  }
+
+  const inserted = await dbStore.emailCalendarSyncSettings.insert({
+    orgId: tenant.orgId,
+    userId: tenant.userId,
+    provider,
+    isActive: isActive !== undefined ? Boolean(isActive) : true,
+    syncEmails: syncEmails !== undefined ? Boolean(syncEmails) : true,
+    syncCalendar: syncCalendar !== undefined ? Boolean(syncCalendar) : true,
+    lastSyncedAt: null,
+  });
+
+  return c.json({ success: true, data: inserted });
+});
+
+productivityApp.post("/sync/trigger", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const mockEmails = body.emails || [];
+  const mockEvents = body.events || [];
+
+  const settings = await dbStore.emailCalendarSyncSettings.findByUser(
+    tenant.userId,
+  );
+  if (!settings?.isActive) {
+    return c.json({ error: "No active sync settings found for user" }, 400);
+  }
+
+  const startedAt = new Date();
+
+  // Retrieve leads and contacts under RLS context
+  const leads = await dbStore.leads.findMany();
+  const contacts = await dbStore.contacts.findMany();
+
+  // Retrieve existing activities and extract their externalIds from custom metadata
+  const activities = await dbStore.activities.findMany();
+  const existingExternalIds = activities
+    .map((a) => (a.custom as Record<string, unknown> | null)?.externalId)
+    .filter((id): id is string => typeof id === "string");
+
+  // Call pure sync calculator
+  const syncResult = syncExternalItems({
+    settings: {
+      syncEmails: settings.syncEmails,
+      syncCalendar: settings.syncCalendar,
+    },
+    externalEmails: mockEmails,
+    externalCalendarEvents: mockEvents,
+    existingLeads: leads.map((l) => ({ id: l.id, email: l.email })),
+    existingContacts: contacts.map((co) => ({ id: co.id, email: co.email })),
+    existingActivityExternalIds: existingExternalIds,
+  });
+
+  let emailsSyncedCount = 0;
+  let eventsSyncedCount = 0;
+
+  // Insert synced emails as activities and create activity links
+  for (const syncedEmail of syncResult.syncedEmails) {
+    const act = await dbStore.activities.insert({
+      orgId: tenant.orgId,
+      creatorId: tenant.userId,
+      type: "email",
+      subject: syncedEmail.subject,
+      body: syncedEmail.body,
+      dueDate: null,
+      createdAt: new Date(syncedEmail.receivedAt),
+      custom: { externalId: syncedEmail.externalId },
+    });
+
+    await dbStore.activityLinks.insert({
+      orgId: tenant.orgId,
+      activityId: act.id,
+      targetType: syncedEmail.targetType,
+      targetId: syncedEmail.targetId,
+    });
+    emailsSyncedCount++;
+  }
+
+  // Insert synced calendar events as activities (meetings / tasks) and create links
+  for (const syncedEvent of syncResult.syncedEvents) {
+    const act = await dbStore.activities.insert({
+      orgId: tenant.orgId,
+      creatorId: tenant.userId,
+      type: "task",
+      subject: `Meeting: ${syncedEvent.title}`,
+      body: syncedEvent.description,
+      dueDate: new Date(syncedEvent.eventDate),
+      createdAt: new Date(),
+      custom: { externalId: syncedEvent.externalId },
+    });
+
+    await dbStore.activityLinks.insert({
+      orgId: tenant.orgId,
+      activityId: act.id,
+      targetType: syncedEvent.targetType,
+      targetId: syncedEvent.targetId,
+    });
+    eventsSyncedCount++;
+  }
+
+  const completedAt = new Date();
+
+  // Log sync run in history
+  const runLog = await dbStore.emailCalendarSyncRuns.insert({
+    orgId: tenant.orgId,
+    settingsId: settings.id,
+    status: "success",
+    emailsSyncedCount,
+    eventsSyncedCount,
+    errorMessage: null,
+    startedAt,
+    completedAt,
+  });
+
+  // Update lastSyncedAt on settings
+  await dbStore.emailCalendarSyncSettings.update(settings.id, {
+    lastSyncedAt: completedAt,
+  });
+
+  // Log audit logs
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: runLog.id,
+    recordType: "email_calendar_sync_runs",
+    action: "sync",
+    userId: tenant.userId,
+    changes: {
+      emailsSyncedCount: { before: null, after: emailsSyncedCount },
+      eventsSyncedCount: { before: null, after: eventsSyncedCount },
+    },
+  });
+
+  // Trigger webhooks
+  await triggerOutboundWebhooks(tenant.orgId, "productivity.sync_completed", {
+    runId: runLog.id,
+    emailsSyncedCount,
+    eventsSyncedCount,
+  });
+
+  return c.json({ success: true, data: runLog });
+});
+
+productivityApp.get("/sync/runs", tenantAuth, async (c) => {
+  const runs = await dbStore.emailCalendarSyncRuns.findMany();
+  return c.json({ success: true, data: runs });
+});

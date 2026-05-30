@@ -1,0 +1,152 @@
+leadsApp.post("/:id/assign", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found" }, 404);
+  }
+
+  const rules = await dbStore.leadAssignmentRules.findMany();
+  const activeRule = rules.find((r) => r.isActive === 1);
+  if (!activeRule) {
+    return c.json({
+      success: false,
+      message: "No active assignment rule found.",
+    });
+  }
+
+  const allEntries = await dbStore.leadAssignmentRuleEntries.findMany();
+  const activeEntries = allEntries
+    .filter((e) => e.ruleId === activeRule.id)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  if (activeEntries.length === 0) {
+    return c.json({
+      success: false,
+      message: "Active assignment rule has no entries.",
+    });
+  }
+
+  const evalLead = {
+    ...lead,
+    custom: lead.custom || null,
+  };
+  const matchResult = evaluateLeadAssignment(evalLead, activeEntries);
+
+  if (!matchResult) {
+    return c.json({
+      success: false,
+      message: "No matching routing entry found for this lead.",
+    });
+  }
+
+  const previousOwnerId = lead.ownerId;
+  const updatedLead = await dbStore.leads.update(id, {
+    ownerId: matchResult.newOwnerId,
+  });
+
+  const matchedEntry = activeEntries.find(
+    (e) => e.id === matchResult.matchedEntryId,
+  );
+  if (matchedEntry && matchedEntry.routingMethod === "round_robin") {
+    await dbStore.leadAssignmentRuleEntries.update(matchedEntry.id, {
+      lastAssignedIndex: matchResult.newLastAssignedIndex,
+    });
+  }
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "leads",
+    action: "assign",
+    userId: tenant.userId,
+    changes: {
+      ownerId: { before: previousOwnerId, after: matchResult.newOwnerId },
+    },
+  });
+
+  return c.json({
+    success: true,
+    data: updatedLead,
+    matchInfo: {
+      ruleId: activeRule.id,
+      entryId: matchResult.matchedEntryId,
+      newOwnerId: matchResult.newOwnerId,
+    },
+  });
+});
+
+leadsApp.get("/:id/score", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found." }, 404);
+  }
+  const rules = await dbStore.leadScoringRules.findMany();
+  const score = calculateLeadScore(
+    lead as unknown as Record<string, unknown>,
+    rules.map((r) => ({
+      id: r.id,
+      isActive: r.isActive,
+      scoreValue: r.scoreValue,
+      criteria: r.criteria,
+    })),
+  );
+  return c.json({ leadId: id, score });
+});
+
+leadsApp.post("/:id/score/recalculate", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found." }, 404);
+  }
+  const rules = await dbStore.leadScoringRules.findMany();
+  const score = calculateLeadScore(
+    lead as unknown as Record<string, unknown>,
+    rules.map((r) => ({
+      id: r.id,
+      isActive: r.isActive,
+      scoreValue: r.scoreValue,
+      criteria: r.criteria,
+    })),
+  );
+
+  const custom = lead.custom || {};
+  const updatedCustom = { ...custom, score };
+
+  const updatedLead = await dbStore.leads.update(id, {
+    custom: updatedCustom,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "leads",
+    action: "recalculate_score",
+    userId: tenant.userId,
+    changes: {
+      score: { before: custom.score, after: score },
+    },
+  });
+
+  await triggerOutboundWebhooks(tenant.orgId, "lead.score_updated", {
+    leadId: id,
+    score,
+  });
+
+  // Run auto-conversion check
+  const autoConvertResult = await checkAndRunLeadAutoConversion(
+    id,
+    tenant.orgId,
+    tenant.userId,
+  );
+
+  return c.json({
+    success: true,
+    data: updatedLead,
+    autoConverted: autoConvertResult || null,
+  });
+});

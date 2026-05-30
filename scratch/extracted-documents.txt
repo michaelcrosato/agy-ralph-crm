@@ -1,0 +1,97 @@
+documentsApp.post("/templates", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, content } = body;
+
+  if (!name || !content) {
+    return c.json({ error: "Missing required document template fields" }, 400);
+  }
+
+  const template = await dbStore.documentTemplates.insert({
+    orgId: tenant.orgId,
+    name,
+    content,
+  });
+
+  return c.json({ success: true, data: template });
+});
+
+documentsApp.get("/templates", tenantAuth, async (c) => {
+  const templates = await dbStore.documentTemplates.findMany();
+  return c.json({ success: true, data: templates });
+});
+
+documentsApp.post("/merge", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { templateId, recordType, recordId } = body;
+
+  if (!templateId || !recordType || !recordId) {
+    return c.json({ error: "Missing required merge parameters" }, 400);
+  }
+
+  const template = await dbStore.documentTemplates.findOne(templateId);
+  if (!template) {
+    return c.json({ error: "Document template not found" }, 404);
+  }
+
+  let record: Record<string, unknown> | null = null;
+  if (recordType === "Lead") {
+    const lead = await dbStore.leads.findOne(recordId);
+    if (lead) {
+      const emailParts = lead.email
+        ? lead.email.split("@")[0].split(".")
+        : ["Unknown"];
+      const firstName = emailParts[0] || "Unknown";
+      const lastName = emailParts[1] || "Contact";
+      record = {
+        ...(lead as unknown as Record<string, unknown>),
+        firstName,
+        lastName,
+      };
+    }
+  } else if (recordType === "Account") {
+    record = (await dbStore.accounts.findOne(recordId)) as unknown as Record<
+      string,
+      unknown
+    >;
+  } else if (recordType === "Contact") {
+    record = (await dbStore.contacts.findOne(recordId)) as unknown as Record<
+      string,
+      unknown
+    >;
+  } else if (recordType === "Opportunity") {
+    record = (await dbStore.opportunities.findOne(
+      recordId,
+    )) as unknown as Record<string, unknown>;
+  } else if (recordType === "Ticket") {
+    record = (await dbStore.tickets.findOne(recordId)) as unknown as Record<
+      string,
+      unknown
+    >;
+  }
+
+  if (!record) {
+    return c.json(
+      { error: `Target record ${recordType} with ID ${recordId} not found` },
+      404,
+    );
+  }
+
+  const compiledContent = compileTemplate(template.content, record);
+
+  const merged = await dbStore.mergedDocuments.insert({
+    orgId: tenant.orgId,
+    templateId,
+    recordType,
+    recordId,
+    compiledContent,
+  });
+
+  return c.json({ success: true, data: merged });
+});
+
+documentsApp.get("/merged", tenantAuth, async (c) => {
+  const merged = await dbStore.mergedDocuments.findMany();
+  return c.json({ success: true, data: merged });
+});

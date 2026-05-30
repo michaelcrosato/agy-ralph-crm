@@ -1,0 +1,89 @@
+territoriesApp.post("/", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, isActive, routingMethod, criteria } = body;
+
+  if (!name || !criteria) {
+    return c.json({ error: "Missing required territory parameters" }, 400);
+  }
+
+  const t = await dbStore.territories.insert({
+    orgId: tenant.orgId,
+    name,
+    isActive: isActive !== undefined ? Number(isActive) : 0,
+    routingMethod: routingMethod || "direct",
+    lastAssignedIndex: -1,
+    criteria,
+  });
+
+  return c.json({ success: true, data: t });
+});
+
+territoriesApp.put("/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const existing = await dbStore.territories.findOne(id);
+  if (!existing) {
+    return c.json({ error: "Territory not found" }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const { name, isActive, routingMethod, criteria } = body;
+
+  const updates: Parameters<typeof dbStore.territories.update>[1] = {};
+  if (name !== undefined) updates.name = name;
+  if (isActive !== undefined) updates.isActive = Number(isActive);
+  if (routingMethod !== undefined) updates.routingMethod = routingMethod;
+  if (criteria !== undefined) {
+    updates.criteria = criteria as unknown as typeof updates.criteria;
+  }
+
+  const updated = await dbStore.territories.update(id, updates);
+  return c.json({ success: true, data: updated });
+});
+
+territoriesApp.get("/", tenantAuth, async (c) => {
+  const data = await dbStore.territories.findMany();
+  return c.json({ success: true, data });
+});
+
+territoriesApp.post("/:id/members", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { userId, role } = body;
+
+  if (!userId) {
+    return c.json({ error: "Missing userId" }, 400);
+  }
+
+  const territory = await dbStore.territories.findOne(id);
+  if (!territory) {
+    return c.json({ error: "Territory not found" }, 404);
+  }
+
+  const member = await dbStore.territoryMembers.insert({
+    orgId: tenant.orgId,
+    territoryId: id,
+    userId,
+    role: role || "Primary",
+  });
+
+  return c.json({ success: true, data: member });
+});
+
+territoriesApp.delete("/:id/members/:userId", tenantAuth, async (c) => {
+  const territoryId = c.req.param("id");
+  const userId = c.req.param("userId");
+
+  const members = await dbStore.territoryMembers.findMany();
+  const matched = members.find(
+    (m) => m.territoryId === territoryId && m.userId === userId,
+  );
+
+  if (!matched) {
+    return c.json({ error: "Territory member not found" }, 404);
+  }
+
+  const deleted = await dbStore.territoryMembers.delete(matched.id);
+  return c.json({ success: true, deleted });
+});

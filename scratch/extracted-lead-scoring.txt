@@ -1,0 +1,37 @@
+leadScoringRulesApp.get("/", tenantAuth, async (c) => {
+  const rules = await dbStore.leadScoringRules.findMany();
+  return c.json({ data: rules });
+});
+
+leadScoringRulesApp.post("/", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  if (
+    !body.name ||
+    !Array.isArray(body.criteria) ||
+    body.scoreValue === undefined
+  ) {
+    return c.json(
+      { error: "Missing name, criteria, or scoreValue in request body." },
+      400,
+    );
+  }
+  const newRule = await dbStore.leadScoringRules.insert({
+    orgId: tenant.orgId,
+    name: body.name,
+    criteria: body.criteria,
+    scoreValue: Number(body.scoreValue),
+    isActive: body.isActive !== undefined ? Number(body.isActive) : 1,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: newRule.id,
+    recordType: "lead_scoring_rules",
+    action: "create",
+    userId: tenant.userId,
+    changes: { rule: { before: null, after: newRule } },
+  });
+
+  return c.json({ success: true, data: newRule }, 201);
+});

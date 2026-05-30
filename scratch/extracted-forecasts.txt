@@ -1,0 +1,91 @@
+forecastsApp.get("/adjustments", tenantAuth, async (c) => {
+  const adjustments = await dbStore.forecastAdjustments.findMany();
+  return c.json({ success: true, data: adjustments });
+});
+
+forecastsApp.post("/adjustments", tenantAuth, async (c) => {
+  const body = await c.req.json();
+  const tenant = c.get("tenant");
+  const newAdj = await dbStore.forecastAdjustments.insert({
+    orgId: tenant.orgId,
+    userId: body.userId,
+    adjustedByUserId: tenant.userId,
+    period: body.period,
+    amount: body.amount,
+    adjustmentType: body.adjustmentType,
+    comments: body.comments || null,
+  });
+  return c.json({ success: true, data: newAdj });
+});
+
+forecastsApp.get("/adjusted-summary", tenantAuth, async (c) => {
+  let period = c.req.query("period");
+  if (!period) {
+    period = new Date().toISOString().substring(0, 7);
+  }
+
+  const opportunities = await dbStore.opportunities.findMany();
+  const quotas = await dbStore.quotas.findMany();
+  const dbProbs = await dbStore.stageProbabilities.findMany();
+
+  const customProbabilities: Record<string, number> = {};
+  for (const p of dbProbs) {
+    customProbabilities[p.stage] = p.probability;
+  }
+
+  const oppInputs = opportunities.map((opp) => ({
+    id: opp.id,
+    stage: opp.stage,
+    amount: opp.amount,
+    closeDate: opp.closeDate,
+  }));
+
+  const filteredOpps = oppInputs.filter((opp) => {
+    if (!opp.closeDate) return false;
+    try {
+      const d = new Date(opp.closeDate);
+      return (
+        !Number.isNaN(d.getTime()) && d.toISOString().substring(0, 7) === period
+      );
+    } catch (_e) {
+      return false;
+    }
+  });
+
+  let closedWonAmount = 0;
+  for (const opp of filteredOpps) {
+    if (opp.stage === "Closed Won") {
+      closedWonAmount += Number.parseFloat(opp.amount || "0") || 0;
+    }
+  }
+
+  let totalQuota = 0;
+  const filteredQuotas = quotas.filter((q) => q.period === period);
+  for (const q of filteredQuotas) {
+    totalQuota += Number.parseFloat(q.targetAmount) || 0;
+  }
+
+  const summary = compileForecastSummary({
+    opportunities: filteredOpps,
+    targetQuota: totalQuota,
+    customProbabilities,
+  });
+
+  const adjustments = await dbStore.forecastAdjustments.findMany();
+  const periodAdjustments = adjustments.filter((adj) => adj.period === period);
+
+  const result = calculateAdjustedForecast({
+    period,
+    baseQuota: totalQuota,
+    baseWeightedAmount: summary.totalWeightedAmount,
+    closedWonAmount,
+    adjustments: periodAdjustments.map((adj) => ({
+      userId: adj.userId,
+      period: adj.period,
+      amount: adj.amount,
+      adjustmentType: adj.adjustmentType,
+    })),
+  });
+
+  return c.json({ success: true, data: result });
+});

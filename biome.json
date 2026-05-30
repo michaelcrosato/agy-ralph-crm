@@ -6,7 +6,9 @@
       "!**/dist",
       "!**/node_modules",
       "!**/.next",
-      "!**/.turbo"
+      "!**/.turbo",
+      "!scratch",
+      "!test-results"
     ]
   },
   "assist": { "actions": { "source": { "organizeImports": "on" } } },

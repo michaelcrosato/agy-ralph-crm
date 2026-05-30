@@ -1,0 +1,23 @@
+quotasApp.post("/", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { userId, period, targetAmount } = body;
+
+  if (!userId || !period || targetAmount === undefined) {
+    return c.json({ error: "Missing required quota parameters" }, 400);
+  }
+
+  const newQuota = await dbStore.quotas.insert({
+    orgId: tenant.orgId,
+    userId,
+    period,
+    targetAmount: String(targetAmount),
+  });
+
+  return c.json({ success: true, data: newQuota });
+});
+
+quotasApp.get("/", tenantAuth, async (c) => {
+  const quotas = await dbStore.quotas.findMany();
+  return c.json({ success: true, data: quotas });
+});

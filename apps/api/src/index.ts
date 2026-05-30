@@ -9,7 +9,8 @@ initOtel({
 
 const log = createLogger({ name: "api.bootstrap" });
 
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
+import { apiReference } from "@scalar/hono-api-reference";
 import { cors } from "hono/cors";
 import type { Env } from "./middleware/tenantAuth";
 import { accountsApp } from "./routes/accounts";
@@ -74,8 +75,25 @@ export {
 export { triggerOutboundWebhooks } from "./lib/webhooks";
 export { tenantAuth } from "./middleware/tenantAuth";
 
-const app = new Hono<Env>();
+const app = new OpenAPIHono<Env>();
 app.use("*", cors());
+
+app.doc("/openapi.json", {
+  openapi: "3.1.0",
+  info: {
+    title: "CRM API",
+    version: "0.1.0",
+  },
+});
+
+app.get(
+  "/docs",
+  apiReference({
+    spec: {
+      url: "/openapi.json",
+    },
+  }),
+);
 
 app.route("/health", healthApp);
 app.route("/api/auth", authApp);

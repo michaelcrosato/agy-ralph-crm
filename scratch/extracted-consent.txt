@@ -1,0 +1,113 @@
+consentApp.get("/", tenantAuth, async (c) => {
+  const _tenant = c.get("tenant");
+  const recordType = c.req.query("recordType") as
+    | "lead"
+    | "contact"
+    | undefined;
+  const recordId = c.req.query("recordId");
+
+  if (!recordType || !["lead", "contact"].includes(recordType)) {
+    return c.json(
+      {
+        error: "Invalid or missing 'recordType' (must be 'lead' or 'contact')",
+      },
+      400,
+    );
+  }
+  if (!recordId) {
+    return c.json({ error: "Missing 'recordId' parameter" }, 400);
+  }
+
+  // Verify record exists in active tenant context
+  if (recordType === "lead") {
+    const lead = await dbStore.leads.findOne(recordId);
+    if (!lead) return c.json({ error: "Lead not found" }, 404);
+  } else {
+    const contact = await dbStore.contacts.findOne(recordId);
+    if (!contact) return c.json({ error: "Contact not found" }, 404);
+  }
+
+  const results = await dbStore.contactConsentPreferences.findMany(
+    recordType,
+    recordId,
+  );
+  return c.json({ success: true, data: results });
+});
+
+consentApp.post("/", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+
+  const recordType = body.recordType;
+  const recordId = body.recordId;
+  const channel = body.channel;
+  const status = body.status;
+  const source = body.source;
+
+  if (!recordType || !["lead", "contact"].includes(recordType)) {
+    return c.json(
+      { error: "Invalid 'recordType' (must be 'lead' or 'contact')" },
+      400,
+    );
+  }
+  if (!recordId) {
+    return c.json({ error: "Missing 'recordId'" }, 400);
+  }
+  if (!channel || !["email", "sms", "phone"].includes(channel)) {
+    return c.json(
+      { error: "Invalid 'channel' (must be 'email', 'sms', or 'phone')" },
+      400,
+    );
+  }
+  if (!status || !["opt_in", "opt_out", "pending"].includes(status)) {
+    return c.json(
+      { error: "Invalid 'status' (must be 'opt_in', 'opt_out', or 'pending')" },
+      400,
+    );
+  }
+  if (!source || typeof source !== "string" || source.trim() === "") {
+    return c.json({ error: "Missing or invalid 'source'" }, 400);
+  }
+
+  // Verify record exists in active tenant context
+  if (recordType === "lead") {
+    const lead = await dbStore.leads.findOne(recordId);
+    if (!lead) return c.json({ error: "Lead not found" }, 404);
+  } else {
+    const contact = await dbStore.contacts.findOne(recordId);
+    if (!contact) return c.json({ error: "Contact not found" }, 404);
+  }
+
+  const upserted = await dbStore.contactConsentPreferences.upsert({
+    orgId: tenant.orgId,
+    recordType,
+    recordId,
+    channel,
+    status,
+    source,
+    updatedById: tenant.userId,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: upserted.id,
+    recordType: "contact_consent_preferences",
+    action: "upsert",
+    userId: tenant.userId,
+    changes: { consent: { before: null, after: upserted } },
+  });
+
+  await triggerOutboundWebhooks(
+    tenant.orgId,
+    "contact_consent_preference.updated",
+    {
+      consentId: upserted.id,
+      recordType,
+      recordId,
+      channel,
+      status,
+    },
+  );
+
+  return c.json({ success: true, data: upserted });
+});

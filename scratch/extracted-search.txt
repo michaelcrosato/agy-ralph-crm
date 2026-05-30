@@ -1,0 +1,53 @@
+searchApp.get("/", tenantAuth, async (c) => {
+  const q = c.req.query("q") || "";
+  const typesParam = c.req.query("types");
+  const thresholdParam = c.req.query("threshold");
+
+  const types = typesParam
+    ? (typesParam.split(",") as (
+        | "Lead"
+        | "Account"
+        | "Contact"
+        | "Opportunity"
+      )[])
+    : undefined;
+
+  const threshold = thresholdParam
+    ? Number.parseFloat(thresholdParam)
+    : undefined;
+
+  const results = await globalFuzzySearch(q, {
+    types,
+    threshold,
+    dbStore,
+  });
+
+  return c.json({ success: true, data: results });
+});
+
+searchApp.get("/fuzzy", tenantAuth, async (c) => {
+  const q = c.req.query("q") || "";
+  const typesParam = c.req.query("types");
+  const thresholdParam = c.req.query("threshold");
+
+  const types = typesParam
+    ? (typesParam.split(",") as (
+        | "Lead"
+        | "Account"
+        | "Contact"
+        | "Opportunity"
+      )[])
+    : undefined;
+
+  const threshold = thresholdParam
+    ? Number.parseFloat(thresholdParam)
+    : undefined;
+
+  const results = await globalFuzzySearch(q, {
+    types,
+    threshold,
+    dbStore,
+  });
+
+  return c.json({ success: true, data: results });
+});

@@ -9,26 +9,28 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "hono": "^4.0.0",
-    "@hono/node-server": "^1.19.14",
+    "@crm/auth": "workspace:*",
     "@crm/core": "workspace:*",
     "@crm/db": "workspace:*",
-    "@crm/auth": "workspace:*",
-    "@crm/metadata": "workspace:*",
-    "@crm/workflow": "workspace:*",
-    "@crm/module-service-lite": "workspace:*",
-    "@crm/reporting": "workspace:*",
-    "@crm/forecasting": "workspace:*",
-    "@crm/webhooks": "workspace:*",
     "@crm/documents": "workspace:*",
+    "@crm/forecasting": "workspace:*",
+    "@crm/metadata": "workspace:*",
+    "@crm/module-service-lite": "workspace:*",
+    "@crm/observability": "workspace:*",
+    "@crm/reporting": "workspace:*",
     "@crm/search": "workspace:*",
-    "@crm/observability": "workspace:*"
+    "@crm/webhooks": "workspace:*",
+    "@crm/workflow": "workspace:*",
+    "@hono/node-server": "^1.19.14",
+    "@hono/zod-openapi": "^1.4.0",
+    "@scalar/hono-api-reference": "^0.10.19",
+    "hono": "^4.0.0"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "tsx": "^4.0.0",
     "@biomejs/biome": "^2.4.0",
-    "vitest": "^3.2.4",
-    "@types/node": "^22.0.0"
+    "@types/node": "^22.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.4"
   }
 }

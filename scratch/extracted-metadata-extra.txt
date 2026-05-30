@@ -1,0 +1,89 @@
+metadataApp.get("/email-templates", tenantAuth, async (c) => {
+  const templates = await dbStore.emailTemplates.findMany();
+  return c.json({ success: true, data: templates });
+});
+
+metadataApp.post("/email-templates", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, subject, body: tBody } = body;
+
+  if (!name || !subject || !tBody) {
+    return c.json(
+      { error: "Missing required fields: name, subject, body" },
+      400,
+    );
+  }
+
+  const template = await dbStore.emailTemplates.insert({
+    orgId: tenant.orgId,
+    name,
+    subject,
+    body: tBody,
+  });
+
+  return c.json({ success: true, data: template });
+});
+
+metadataApp.delete("/email-templates/:id", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const template = await dbStore.emailTemplates.findOne(id);
+  if (!template) {
+    return c.json({ error: "Email template not found or unauthorized." }, 404);
+  }
+  const success = await dbStore.emailTemplates.delete(id);
+  if (!success) {
+    return c.json({ error: "Email template not found or unauthorized." }, 404);
+  }
+  return c.json({ success: true });
+});
+
+metadataApp.post("/email-templates/:id/compile", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const { leadId, contactId, accountId, opportunityId } = body;
+
+  const template = await dbStore.emailTemplates.findOne(id);
+  if (!template) {
+    return c.json({ error: "Email template not found or unauthorized." }, 404);
+  }
+
+  const context: {
+    lead?: Record<string, unknown> | null;
+    account?: Record<string, unknown> | null;
+    contact?: Record<string, unknown> | null;
+    opportunity?: Record<string, unknown> | null;
+  } = {};
+
+  if (leadId) {
+    context.lead = (await dbStore.leads.findOne(leadId)) as Record<
+      string,
+      unknown
+    > | null;
+  }
+  if (contactId) {
+    context.contact = (await dbStore.contacts.findOne(contactId)) as Record<
+      string,
+      unknown
+    > | null;
+  }
+  if (accountId) {
+    context.account = (await dbStore.accounts.findOne(accountId)) as Record<
+      string,
+      unknown
+    > | null;
+  }
+  if (opportunityId) {
+    context.opportunity = (await dbStore.opportunities.findOne(
+      opportunityId,
+    )) as Record<string, unknown> | null;
+  }
+
+  const compiled = compileEmailTemplate(template, context);
+
+  return c.json({
+    success: true,
+    compiledSubject: compiled.subject,
+    compiledBody: compiled.body,
+  });
+});

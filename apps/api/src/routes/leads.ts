@@ -9,7 +9,7 @@ import {
 import { dbStore, store } from "@crm/db";
 import { validateCustomFields } from "@crm/metadata";
 import { executeWorkflows } from "@crm/workflow";
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import { checkAndRunLeadAutoConversion } from "../lib/leadAutoConversion";
 import {
   enforceCustomValidationRules,
@@ -19,9 +19,13 @@ import { triggerOutboundWebhooks } from "../lib/webhooks";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
 /** Lead CRUD + SLA + duplicates + merge + convert. Mounted at /api/leads. */
-export const leadsApp = new Hono<Env>();
-export const leadAssignmentRulesApp = new Hono<Env>();
-export const leadScoringRulesApp = new Hono<Env>();
+export const leadsApp = new OpenAPIHono<Env>();
+export const leadAssignmentRulesApp = new OpenAPIHono<Env>();
+export const leadScoringRulesApp = new OpenAPIHono<Env>();
+
+leadsApp.use(tenantAuth);
+leadAssignmentRulesApp.use(tenantAuth);
+leadScoringRulesApp.use(tenantAuth);
 
 leadsApp.post("/", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
@@ -117,9 +121,39 @@ leadsApp.post("/", tenantAuth, async (c) => {
   });
 });
 
-leadsApp.get("/", tenantAuth, async (c) => {
+const LeadSchema = z.object({
+  id: z.string(),
+  orgId: z.string(),
+  ownerId: z.string(),
+  status: z.string(),
+  email: z.string().nullable(),
+  company: z.string().nullable(),
+  convertedAccountId: z.string().nullable().optional(),
+  convertedContactId: z.string().nullable().optional(),
+  custom: z.any().nullable().optional(),
+});
+
+const listLeadsRoute = createRoute({
+  method: "get",
+  path: "/",
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.array(LeadSchema),
+          }),
+        },
+      },
+      description: "List all leads",
+    },
+  },
+});
+
+leadsApp.openapi(listLeadsRoute, async (c) => {
   const leads = await dbStore.leads.findMany();
-  return c.json({ success: true, data: leads });
+  return c.json({ success: true, data: leads }, 200);
 });
 
 leadsApp.get("/auto-conversion-rules", tenantAuth, async (c) => {
@@ -313,13 +347,52 @@ leadsApp.post("/:id/respond", tenantAuth, async (c) => {
   return c.json({ success: true, data: updatedTracker });
 });
 
-leadsApp.get("/:id", tenantAuth, async (c) => {
+const getLeadRoute = createRoute({
+  method: "get",
+  path: "/{id}",
+  request: {
+    params: z.object({
+      id: z.string().openapi({
+        param: {
+          name: "id",
+          in: "path",
+        },
+        example: "123e4567-e89b-12d3-a456-426614174000",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: LeadSchema,
+          }),
+        },
+      },
+      description: "Retrieve a lead by ID",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+      description: "Lead not found",
+    },
+  },
+});
+
+leadsApp.openapi(getLeadRoute, async (c) => {
   const id = c.req.param("id");
   const lead = await dbStore.leads.findOne(id);
   if (!lead) {
     return c.json({ error: "Lead not found" }, 404);
   }
-  return c.json({ success: true, data: lead });
+  return c.json({ success: true, data: lead }, 200);
 });
 
 leadsApp.patch("/:id", tenantAuth, async (c) => {

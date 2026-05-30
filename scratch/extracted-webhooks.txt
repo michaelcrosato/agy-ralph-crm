@@ -1,0 +1,47 @@
+webhooksApp.post("/", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { targetUrl, secret } = body;
+
+  if (!targetUrl) {
+    return c.json(
+      { error: "Missing required webhook targetUrl parameter" },
+      400,
+    );
+  }
+
+  const webhook = await dbStore.webhooks.insert({
+    orgId: tenant.orgId,
+    targetUrl,
+    secret: secret || null,
+    status: "active",
+  });
+
+  return c.json({ success: true, data: webhook });
+});
+
+webhooksApp.get("/", tenantAuth, async (c) => {
+  const webhooks = await dbStore.webhooks.findMany();
+  return c.json({ success: true, data: webhooks });
+});
+
+webhooksApp.get("/deliveries", tenantAuth, async (c) => {
+  const deliveries = await dbStore.webhookDeliveries.findMany();
+  return c.json({ success: true, data: deliveries });
+});
+
+webhooksApp.get("/outbox", tenantAuth, async (c) => {
+  const outbox = await dbStore.webhookOutbox.findMany();
+  return c.json({ success: true, data: outbox });
+});
+
+webhooksApp.get("/dlq", tenantAuth, async (c) => {
+  const dlq = await dbStore.webhookDlq.findMany();
+  return c.json({ success: true, data: dlq });
+});
+
+webhooksApp.post("/process-outbox", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const result = await processOutboxItems(tenant.orgId, dbStore);
+  return c.json({ success: true, ...result });
+});
