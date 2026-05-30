@@ -2,7 +2,7 @@
   "name": "crm-core-monorepo",
   "private": true,
   "engines": {
-    "node": "22.0.0"
+    "node": ">=22.22.0 <23"
   },
   "packageManager": "pnpm@11.1.2",
   "scripts": {

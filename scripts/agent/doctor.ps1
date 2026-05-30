@@ -9,8 +9,12 @@ Write-Host "=========================================" -ForegroundColor Green
 if (Get-Command node -ErrorAction SilentlyContinue) {
     $NodeVer = node -v
     Write-Host "Node version: $NodeVer" -ForegroundColor Cyan
-    if ($NodeVer -notmatch "^v22") {
-        Write-Host "[WARN] Target Node baseline is v22.0.0. Current is $NodeVer." -ForegroundColor Yellow
+    if ($NodeVer -match '^v(\d+)\.(\d+)') {
+        $major = [int]$Matches[1]
+        $minor = [int]$Matches[2]
+        if ($major -ne 22 -or $minor -lt 22) {
+            Write-Host "[WARN] Target Node baseline is v22.22.0+ (Jan 2026 CVE floor). Current is $NodeVer." -ForegroundColor Yellow
+        }
     }
 } else {
     Write-Host "[ERROR] Node.js is not found." -ForegroundColor Red

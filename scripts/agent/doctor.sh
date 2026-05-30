@@ -7,13 +7,14 @@ echo "========================================="
 echo " AGENT DOCTOR: System Diagnostics"
 echo "========================================="
 
-# Node version check
+# Node version check — target is 22.x with floor at 22.22.0 (Jan 2026 CVE patch level).
 if command -v node &> /dev/null; then
   NODE_VER=$(node -v)
   echo "Node version: $NODE_VER"
-  # Optional warning if not Node 22
-  if [[ ! "$NODE_VER" =~ ^v22 ]]; then
-    echo "[WARN] Target Node baseline is v22.0.0. Current is $NODE_VER."
+  NODE_MAJOR=$(echo "$NODE_VER" | sed -E 's/^v([0-9]+).*/\1/')
+  NODE_MINOR=$(echo "$NODE_VER" | sed -E 's/^v[0-9]+\.([0-9]+).*/\1/')
+  if [ "$NODE_MAJOR" -ne 22 ] || [ "$NODE_MINOR" -lt 22 ]; then
+    echo "[WARN] Target Node baseline is v22.22.0+ (Jan 2026 CVE floor). Current is $NODE_VER."
   fi
 else
   echo "[ERROR] Node.js is not found."
