@@ -131,6 +131,10 @@
 - [x] **063** — [Split `routes/leads.ts` (962 → ≤400 lines)](./specs/063_split_leads_routes.md)
 - [x] **064** — [Reciprocal Rank Fusion (RRF) Hybrid Search (Lexical + Semantic)](./specs/064_hybrid_rrf_search.md) · `f9a12a4`
 
+## Phase 4 — Wave 4 Advanced Engineering & Observability (Cycle 10+)
+
+- [ ] **065** — [RRF Search Cross-Encoder Reranking Engine](./specs/065_rrf_cross_encoder_reranker.md)
+
 
 
 

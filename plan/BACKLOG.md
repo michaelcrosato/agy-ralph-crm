@@ -4,28 +4,28 @@ This backlog tracks adjacent feature ideas, technical debt recommendations, and 
 
 ---
 
-## 1. Feature Extensions & Advanced Primitives
+## 1. Phase 4 — Wave 4 Advanced Features (Replenished)
 
-- **BG-001: Automated Memory Leak Telemetry (COMPLETED)**
-  - *Description*: Capture event loop utilization and heap metrics during sequence execution, streaming alerts to `@crm/observability` if allocations leak.
-  - *Benefit*: Prevent background execution exhaustion under high-scale concurrent loads.
+- **BG-004: RRF Search Cross-Encoder Reranking Engine**
+  - *Description*: Implement a high-performance cross-encoder semantic reranker (using a local transformer model or remote cohort provider) to refine the top $N$ hits returned by Reciprocal Rank Fusion (RRF).
+  - *Benefit*: Maximizes precision for deep semantic queries.
 
-- **BG-002: Dynamic MCP Custom Object Routers (COMPLETED)**
-  - *Description*: Expose dynamically registered custom objects automatically as MCP tools (e.g. `crm_create_project`) without restarting the API gateway.
-  - *Benefit*: Align completely with Twenty CRM's native metadata-first MCP architecture.
+- **BG-005: Merkle Tree Cryptographic Integrity Audit Pipeline**
+  - *Description*: Create a robust CLI utility and cron workflow that validates the SHA-256 tamper-evident hash chain of the `audit_logs` table to guarantee that no logs have been silently modified or deleted.
+  - *Benefit*: Delivers absolute regulatory WORM compliance and tamper evidence.
 
-- **BG-003: Webhook Outbox Batching Optimization (COMPLETED)**
-  - *Description*: Consolidate individual outbox triggers into streaming bulk payloads with transactional retry mechanics.
-  - *Benefit*: Drastically lower transactional database connection holding time.
+- **BG-006: Full-Stack OpenAPI SDK Generation & Next.js Dashboard Integration**
+  - *Description*: Automate TypeScript client SDK generation from the `@hono/zod-openapi` schema definitions and refactor the Next.js `apps/web` pages to consume the client end-to-end.
+  - *Benefit*: Solidifies compile-time type safety across the monorepo boundary.
 
 ---
 
-## 2. Technical Debt & Safety Gates
+## 2. Phase 4 — Wave 4 Technical Debt & Observability
 
-- **TD-001: Automatic Migration Conflict Prevention CI Gate (COMPLETED)**
-  - *Description*: Add a validation task to verify that no overlapping schema migrations are created by concurrent branches prior to PR merge.
-  - *Benefit*: Safeguard the PostgreSQL physical database deployment path.
+- **TD-003: Continuous Playwright E2E Integration in CI**
+  - *Description*: Establish a headless Playwright runtime service inside the GitHub Actions pipeline to run full browser-level flow checks against the CRM.
+  - *Benefit*: Safeguards the user interface from regression.
 
-- **TD-002: Dynamic Field Picklist Validation Optimization (COMPLETED)**
-  - *Description*: Cache custom Picklist dependency metadata definitions in-memory to prevent database latency overhead on Lead creation pathways.
-  - *Benefit*: Drastically lower write response latencies.
+- **TD-004: OpenTelemetry Collector Service & Grafana Performance Dashboard**
+  - *Description*: Configure an OTEL Collector, Prometheus, and Jaeger stack in a local `docker-compose.yaml` to aggregate live telemetry (traces, metrics, logs) from Hono.
+  - *Benefit*: Establishes enterprise-grade production observability.

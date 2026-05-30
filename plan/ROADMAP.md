@@ -107,6 +107,9 @@ Goal: modularize monoliths, wire real Postgres + RLS, add CI + observability, up
 ### Phase 2 — Major Features (3+ weeks)
 Goal: ship the differentiators (first-class MCP, no-code custom objects, workflow conditions/foreach, pgvector search). After Phase 2 the repo is competitive with Twenty 2.0.
 
+### Phase 4 — Wave 4 Advanced Engineering & Observability (Cycle 10+)
+Goal: Elevate the stack with high-precision semantic reranking, continuous headless visual E2E testing in CI, cryptographic Merkle tree audit log tamper validation, and full-stack auto-generated OpenAPI TypeScript SDK layers.
+
 ---
 
 ## 4. MASTER PRIORITIZATION TABLE
@@ -148,6 +151,7 @@ Score = (Impact × Fit) ÷ (Risk × (6 - Feasibility)). Higher = ship sooner. 1�
 | [036](./specs/036_pgvector_semantic_search.md) | pgvector + embeddings on Accounts/Contacts for semantic search | 2 | 4 | 2 | 4 | 4 | **1.0** | 013 |
 | [037](./specs/037_streaming_csv_import.md) | Streaming CSV import/export (Node streams, 10M-row safe) | 2 | 4 | 3 | 3 | 4 | **1.8** | 013 |
 | [038](./specs/038_audit_log_append_only.md) | Audit log → append-only Postgres table + WORM exports | 2 | 4 | 4 | 2 | 4 | **4.0** | 014 |
+| [065](./specs/065_rrf_cross_encoder_reranker.md) | RRF Search Cross-Encoder Reranking Engine | 4 | 5 | 4 | 2 | 5 | **6.3** | 064 |
 
 ---
 
