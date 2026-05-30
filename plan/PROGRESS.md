@@ -18,8 +18,8 @@
 ## Phase 1 — Core Upgrades (1–2 weeks)
 
 - [x] **010** — [Decompose apps/api/src/index.ts (331 routes / 13,060 lines)](./specs/010_decompose_apps_api.md) · `ca748ae` — index.ts at 143 lines (target <200); 24 sub-app mounts across routes/*.ts; spec 041 batches 1–15 done; unblocks 011, 017, 018, 023
-- [ ] **011** — [Decompose packages/core/src/index.ts (100+ exports / 9,505 lines)](./specs/011_decompose_packages_core.md) · deps: 010
-- [x] **012 (partial)** — [Decompose packages/db/src/index.ts (6,312 lines, 70+ stores)](./specs/012_decompose_packages_db.md) · `513e7d2` — helpers extracted; aggregate stores deferred to spec 040
+- [x] **011** — [Decompose packages/core/src/index.ts (100+ exports / 9,505 lines)](./specs/011_decompose_packages_core.md) · `f24fcae` — 16 domain/ subdirs; index.ts at 17 lines (target <100); follow-up to split sequences/index.ts (4,303 lines, above 800 target)
+- [x] **012** — [Decompose packages/db/src/index.ts (6,312 lines, 70+ stores)](./specs/012_decompose_packages_db.md) · `513e7d2` (partial: helpers) + `7a1e781` (full: 100+ stores via spec 040) — index.ts at 132 lines
 - [ ] **013** — [Wire real Postgres + Drizzle + testcontainers](./specs/013_real_postgres_drizzle.md) · deps: 012
 - [ ] **014** — [Postgres RLS policies via set_config('app.current_tenant_id')](./specs/014_rls_policies_set_local.md) · deps: 013
 - [ ] **015** — [Composite (tenant_id, …) indexes on hot tables](./specs/015_composite_indexes.md) · deps: 013
@@ -40,8 +40,8 @@
 - [ ] **031** — [Public defineObject() SDK for no-code custom objects](./specs/031_no_code_custom_objects.md) · deps: 011, 014
 - [ ] **032** — [IF conditions + FOREACH loops in workflow engine](./specs/032_workflow_conditions_foreach.md) · deps: 011
 - [ ] **033** — [Finish TICKET004 — tRPC dashboard analytics](./specs/033_dashboard_analytics_api.md) · deps: 011, 017
-- [ ] **034** — [Finish TICKET005 — Lead SLA breach email worker](./specs/034_lead_sla_email_notifications.md) · deps: 011
-- [ ] **035** — [Finish TICKET006 — picklist dependency validation](./specs/035_picklist_dependency_validation.md) · deps: 011
+- [x] **034** — [Finish TICKET005 — Lead SLA breach email worker](./specs/034_lead_sla_email_notifications.md) · `7a1e781` — landed via the consolidated DB + SLA + picklist commit
+- [x] **035** — [Finish TICKET006 — picklist dependency validation](./specs/035_picklist_dependency_validation.md) · `7a1e781` — landed via the same consolidated commit
 - [ ] **036** — [pgvector + embeddings on Accounts/Contacts](./specs/036_pgvector_semantic_search.md) · deps: 013
 - [ ] **037** — [Streaming CSV import/export (10M-row safe)](./specs/037_streaming_csv_import.md) · deps: 013
 - [ ] **038** — [Audit log → append-only Postgres + WORM export](./specs/038_audit_log_append_only.md) · deps: 014
@@ -80,5 +80,5 @@
 ## Discovered Follow-ups
 
 - **039** — [Fix 22 floating-promise sites surfaced by Biome 2.4](./specs/039_followup_floating_promises.md) (opened from spec 002)
-- **040** — [Split `packages/db/src/index.ts` aggregate stores](./specs/040_followup_db_aggregate_stores.md) (opened from spec 012)
-- **041** — [Batched route extraction for apps/api/src/index.ts (13 batches)](./specs/041_followup_apps_api_route_batches.md) (opened from spec 010 milestone-2)
+- [x] **040** — [Split `packages/db/src/index.ts` aggregate stores](./specs/040_followup_db_aggregate_stores.md) · `7a1e781` — 100+ per-aggregate stores under packages/db/src/stores/; index.ts at 132 lines
+- [x] **041** — [Batched route extraction for apps/api/src/index.ts (15 batches)](./specs/041_followup_apps_api_route_batches.md) · commits db606b3..ca748ae — index.ts at 143 lines
