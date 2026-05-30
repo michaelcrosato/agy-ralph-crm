@@ -114,6 +114,14 @@ if ((Get-Command pnpm -ErrorAction SilentlyContinue) -and (Get-Command node -Err
     }
 }
 
+# Drizzle migration validation check
+Write-Host "Step: Drizzle Migrations Check" -ForegroundColor Cyan
+node scripts/agent/check-migrations.mjs
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ERROR] Drizzle migrations validation failed." -ForegroundColor Red
+    exit 1
+}
+
 if ($advisoryExit -ne 0) {
     Write-Host "[ERROR] high or critical advisories present; address before continuing." -ForegroundColor Red
     exit $advisoryExit

@@ -107,6 +107,13 @@ if command -v pnpm &> /dev/null && command -v node &> /dev/null; then
   fi
 fi
 
+# Drizzle migration validation check
+echo "Step: Drizzle Migrations Check"
+if ! node scripts/agent/check-migrations.mjs; then
+  echo "[ERROR] Drizzle migrations validation failed."
+  exit 1
+fi
+
 if [ "$ADVISORY_EXIT" -ne 0 ]; then
   echo "[ERROR] high or critical advisories present; address before continuing."
   exit "$ADVISORY_EXIT"
