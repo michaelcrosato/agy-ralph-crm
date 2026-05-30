@@ -1,11 +1,13 @@
 import {
   type AnyPgColumn,
   boolean,
+  index,
   integer,
   jsonb,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -46,116 +48,163 @@ export const memberships = pgTable("memberships", {
     .references(() => roles.id, { onDelete: "cascade" }),
 });
 
-export const accounts = pgTable("accounts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  ownerId: uuid("owner_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  domain: text("domain"),
-  custom: jsonb("custom"),
-  parentAccountId: uuid("parent_account_id").references(
-    (): AnyPgColumn => accounts.id,
-    { onDelete: "set null" },
-  ),
-});
+export const accounts = pgTable(
+  "accounts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    domain: text("domain"),
+    custom: jsonb("custom"),
+    parentAccountId: uuid("parent_account_id").references(
+      (): AnyPgColumn => accounts.id,
+      { onDelete: "set null" },
+    ),
+  },
+  (t) => [
+    index("idx_accounts_org_owner").on(t.orgId, t.ownerId),
+    index("idx_accounts_org_name").on(t.orgId, t.name),
+    index("idx_accounts_parent").on(t.parentAccountId),
+  ],
+);
 
-export const contacts = pgTable("contacts", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  ownerId: uuid("owner_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  accountId: uuid("account_id").references(() => accounts.id, {
-    onDelete: "set null",
-  }),
-  firstName: text("first_name"),
-  lastName: text("last_name"),
-  email: text("email"),
-  custom: jsonb("custom"),
-  reportsToId: uuid("reports_to_id").references(
-    (): AnyPgColumn => contacts.id,
-    { onDelete: "set null" },
-  ),
-});
+export const contacts = pgTable(
+  "contacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").references(() => accounts.id, {
+      onDelete: "set null",
+    }),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
+    email: text("email"),
+    custom: jsonb("custom"),
+    reportsToId: uuid("reports_to_id").references(
+      (): AnyPgColumn => contacts.id,
+      { onDelete: "set null" },
+    ),
+  },
+  (t) => [
+    index("idx_contacts_org_owner").on(t.orgId, t.ownerId),
+    index("idx_contacts_org_email").on(t.orgId, t.email),
+    index("idx_contacts_account").on(t.accountId),
+  ],
+);
 
-export const leads = pgTable("leads", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  ownerId: uuid("owner_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  status: text("status").notNull().default("New"),
-  email: text("email"),
-  company: text("company"),
-  convertedAccountId: uuid("converted_account_id"),
-  convertedContactId: uuid("converted_contact_id"),
-  custom: jsonb("custom"),
-});
+export const leads = pgTable(
+  "leads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("New"),
+    email: text("email"),
+    company: text("company"),
+    convertedAccountId: uuid("converted_account_id"),
+    convertedContactId: uuid("converted_contact_id"),
+    custom: jsonb("custom"),
+  },
+  (t) => [
+    index("idx_leads_org_owner").on(t.orgId, t.ownerId),
+    index("idx_leads_org_status").on(t.orgId, t.status),
+    index("idx_leads_org_email").on(t.orgId, t.email),
+  ],
+);
 
-export const campaigns = pgTable("campaigns", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  name: text("name").notNull(),
-  status: text("status").notNull().default("Planned"), // "Planned" | "Active" | "Completed" | "Aborted"
-  type: text("type").notNull().default("Other"), // "Email" | "Webinar" | "Conference" | "Direct Mail" | "Other"
-  isActive: integer("is_active").notNull().default(1), // 0 = inactive, 1 = active
-  startDate: timestamp("start_date"),
-  endDate: timestamp("end_date"),
-  budgetedCost: text("budgeted_cost").notNull().default("0.00"),
-  actualCost: text("actual_cost").notNull().default("0.00"),
-  expectedRevenue: text("expected_revenue").notNull().default("0.00"),
-  utmSource: text("utm_source"),
-  utmMedium: text("utm_medium"),
-  utmCampaign: text("utm_campaign"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const campaigns = pgTable(
+  "campaigns",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    status: text("status").notNull().default("Planned"), // "Planned" | "Active" | "Completed" | "Aborted"
+    type: text("type").notNull().default("Other"), // "Email" | "Webinar" | "Conference" | "Direct Mail" | "Other"
+    isActive: integer("is_active").notNull().default(1), // 0 = inactive, 1 = active
+    startDate: timestamp("start_date"),
+    endDate: timestamp("end_date"),
+    budgetedCost: text("budgeted_cost").notNull().default("0.00"),
+    actualCost: text("actual_cost").notNull().default("0.00"),
+    expectedRevenue: text("expected_revenue").notNull().default("0.00"),
+    utmSource: text("utm_source"),
+    utmMedium: text("utm_medium"),
+    utmCampaign: text("utm_campaign"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_campaigns_org_status").on(t.orgId, t.status),
+    index("idx_campaigns_org_active").on(t.orgId, t.isActive),
+  ],
+);
 
-export const opportunities = pgTable("opportunities", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  ownerId: uuid("owner_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  accountId: uuid("account_id").references(() => accounts.id, {
-    onDelete: "cascade",
-  }),
-  campaignId: uuid("campaign_id").references(() => campaigns.id, {
-    onDelete: "set null",
-  }),
-  stage: text("stage").notNull().default("Prospecting"),
-  amount: text("amount"), // Using text or numeric standard for dynamic representation
-  closeDate: timestamp("close_date"),
-  custom: jsonb("custom"),
-  currencyCode: text("currency_code").notNull().default("USD"),
-  amountCorporate: text("amount_corporate"),
-});
+export const opportunities = pgTable(
+  "opportunities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    ownerId: uuid("owner_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id").references(() => accounts.id, {
+      onDelete: "cascade",
+    }),
+    campaignId: uuid("campaign_id").references(() => campaigns.id, {
+      onDelete: "set null",
+    }),
+    stage: text("stage").notNull().default("Prospecting"),
+    amount: text("amount"), // Using text or numeric standard for dynamic representation
+    closeDate: timestamp("close_date"),
+    custom: jsonb("custom"),
+    currencyCode: text("currency_code").notNull().default("USD"),
+    amountCorporate: text("amount_corporate"),
+  },
+  (t) => [
+    index("idx_opportunities_org_owner").on(t.orgId, t.ownerId),
+    index("idx_opportunities_org_stage").on(t.orgId, t.stage),
+    index("idx_opportunities_org_close_date").on(t.orgId, t.closeDate),
+    index("idx_opportunities_account").on(t.accountId),
+  ],
+);
 
-export const auditLogs = pgTable("audit_logs", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  orgId: uuid("org_id")
-    .notNull()
-    .references(() => organizations.id, { onDelete: "cascade" }),
-  recordId: uuid("record_id").notNull(),
-  recordType: text("record_type").notNull(),
-  action: text("action").notNull(),
-  userId: uuid("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  changes: jsonb("changes"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    recordId: uuid("record_id").notNull(),
+    recordType: text("record_type").notNull(),
+    action: text("action").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    changes: jsonb("changes"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_audit_logs_org_created").on(t.orgId, t.createdAt),
+    index("idx_audit_logs_record").on(t.recordType, t.recordId),
+  ],
+);
 
 export const fieldDefinitions = pgTable("field_definitions", {
   id: uuid("id").primaryKey().defaultRandom(),
