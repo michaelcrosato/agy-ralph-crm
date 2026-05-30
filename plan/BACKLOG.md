@@ -27,6 +27,6 @@ This backlog tracks adjacent feature ideas, technical debt recommendations, and 
   - *Benefit*: Hardens tenant Org-isolation with standard functional authorization gates.
 
 
-- **TD-004: OpenTelemetry Collector Service & Grafana Performance Dashboard**
+- [x] **TD-004: OpenTelemetry Collector Service & Grafana Performance Dashboard** (Spec 069)
   - *Description*: Configure an OTEL Collector, Prometheus, and Jaeger stack in a local `docker-compose.yaml` to aggregate live telemetry (traces, metrics, logs) from Hono.
   - *Benefit*: Establishes enterprise-grade production observability.

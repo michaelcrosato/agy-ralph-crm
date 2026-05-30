@@ -344,5 +344,30 @@
 - Executed targeted suite successfully: `npx vitest run packages/testing/src/rbac.test.ts` (6/6 green).
 - Verified linter, formatter, typecheck, and tests: `pnpm verify` and `pnpm test` passed flawlessly.
 
+## [2026-05-30] Cycle 14 — OpenTelemetry Collector & Grafana Observability Dashboard (Spec 069)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 154 passed test files, 536 passed tests, 5 passed E2E tests.
+
+### 2. ARCHITECTURAL FINDINGS
+- A production-grade multi-tenant monorepo requires robust metrics collection and distributed request tracing.
+- Standardizing local observability tools using Docker Compose services (OTel Collector, Prometheus, Jaeger, Grafana) provides an immediate, zero-install performance analysis cockpit for developers.
+- Scrapes and dashboard configurations can be auto-provisioned to eliminate manually adding datasources or importing dashboards inside Grafana, streamlining operations.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **OpenTelemetry & Grafana Integration (Spec 069)**:
+  - Created `docker-compose.yaml` in workspace root orchestrating `otel-collector`, `prometheus`, `jaeger`, and `grafana`.
+  - Configured `otel-collector-config.yaml` to route HTTP OTLP traces and metrics toJaeger (`jaeger:4317`) and Prometheus (`0.0.0.0:8889` port scrape).
+  - Setup scrape target in `prometheus.yml`.
+  - Auto-provisioned datasources (`Prometheus` / `Jaeger`) in Grafana via `grafana/provisioning/datasources/datasources.yaml`.
+  - Auto-provisioned dashboards mapping in `grafana/provisioning/dashboards/dashboards.yaml` and created a beautiful, robust preloaded dashboard `grafana/dashboards/crm-dashboard.json` showcasing request rates, latency, heap metrics, and external buffers.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `dbc72c0`.
+- Verified yaml structure and linting: `pnpm verify` passed with exit code 0.
+
+
 
 
