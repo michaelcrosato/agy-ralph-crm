@@ -59,12 +59,13 @@ Agents must execute tasks recursively by strictly repeating this workflow:
 9. **Synthesis**: Concisely summarize found, changed, ran commands, and the single best next ticket.
 
 ### 5.3 Full Command Reference
-- **Bootstrap Workspace**: `pnpm install`
-- **Verify Clean Code & Format**: `pnpm verify`
-- **Run Unit/Integration Tests**: `pnpm test`
-- **Build Workspace**: `pnpm build`
+- **Bootstrap Workspace**: `pnpm install` or `bash scripts/agent/bootstrap.sh` (or `powershell -File scripts/agent/bootstrap.ps1` on Windows)
+- **Verify Clean Code & Format**: `pnpm verify` or `bash scripts/agent/check.sh` (or `powershell -File scripts/agent/check.ps1` on Windows)
+- **Run Unit/Integration Tests**: `pnpm test` or `bash scripts/agent/test.sh` (or `powershell -File scripts/agent/test.ps1` on Windows)
+- **Build Workspace**: `pnpm build` or `bash scripts/agent/typecheck.sh` (or `powershell -File scripts/agent/typecheck.ps1` on Windows)
 - **Targeted Test Execution**: `npx vitest run <test-file-path>`
-- **Biome Format & Lint Fix**: `npx biome check --write .`
+- **Biome Format & Lint Fix**: `npx biome check --write .` or `bash scripts/agent/format.sh` (or `powershell -File scripts/agent/format.ps1` on Windows)
+- **Diagnostics**: `bash scripts/agent/doctor.sh` (or `powershell -File scripts/agent/doctor.ps1` on Windows)
 
 ### 5.4 Coding Conventions
 - **TypeScript**: Pinned to Node 22 baseline. Strict type checks. Ensure clean module boundaries.
@@ -81,4 +82,4 @@ Agents must execute tasks recursively by strictly repeating this workflow:
 - **Use Ripgrep strategically**: Target searches specifically using `grep_search` rather than reading large files line-by-line.
 - **Skip Noise**: Always respect the rules outlined in `.aiignore`.
 
-*Last Updated: May 29, 2026*
+*Last Updated: May 30, 2026*

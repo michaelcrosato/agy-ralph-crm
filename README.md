@@ -51,6 +51,9 @@ For detailed architectural master plans, roadmaps, and central execution loops:
 - **Repository Structure Map**: [docs/ai/REPO_MAP.md](file:///C:/dev/agy-ralph-crm/docs/ai/REPO_MAP.md)
 
 ### Open Tickets
-- [TICKET001: Workspace Bootstrap](file:///C:/dev/agy-ralph-crm/tickets/TICKET001.md)
-- [TICKET002: Agent Automated Scripts](file:///C:/dev/agy-ralph-crm/tickets/TICKET002.md)
-- [TICKET003: Call Actions Feature & Bugfix](file:///C:/dev/agy-ralph-crm/tickets/TICKET003.md)
+- [TICKET001: Workspace Bootstrap (Completed)](file:///C:/dev/agy-ralph-crm/tickets/TICKET001.md)
+- [TICKET002: Agent Automated Scripts (Completed)](file:///C:/dev/agy-ralph-crm/tickets/TICKET002.md)
+- [TICKET003: Call Actions Feature & Bugfix (Completed)](file:///C:/dev/agy-ralph-crm/tickets/TICKET003.md)
+- [TICKET004: Interactive tRPC Dashboard Analytics API](file:///C:/dev/agy-ralph-crm/tickets/TICKET004.md)
+- [TICKET005: Lead SLA Breaches Email Notification Service](file:///C:/dev/agy-ralph-crm/tickets/TICKET005.md)
+- [TICKET006: Dynamic Picklist Dependency Validation](file:///C:/dev/agy-ralph-crm/tickets/TICKET006.md)
