@@ -1,7 +1,4 @@
-import {
-  evaluateLeadAssignment,
-  evaluateTicketAssignment,
-} from "@crm/core";
+import { evaluateLeadAssignment, evaluateTicketAssignment } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { validateCustomFields } from "@crm/metadata";
 import { Hono } from "hono";
