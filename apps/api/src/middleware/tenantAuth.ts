@@ -1,5 +1,5 @@
 import { type TenantContext, verifySessionToken } from "@crm/auth";
-import { mockDb, withTenant } from "@crm/db";
+import { mockDb, pgDb, withTenant } from "@crm/db";
 import { createMiddleware } from "hono/factory";
 
 export type Env = {
@@ -32,7 +32,8 @@ export const tenantAuth = createMiddleware<Env>(async (c, next) => {
     return c.json({ error: "Unauthorized: Token verification failed" }, 401);
   }
 
-  return await withTenant(tenantContext.orgId, mockDb, async () => {
+  const db = process.env.DB_DRIVER === "pg" ? pgDb : mockDb;
+  return await withTenant(tenantContext.orgId, db, async () => {
     return await next();
   });
 });

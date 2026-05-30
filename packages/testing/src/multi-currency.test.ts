@@ -1,10 +1,33 @@
 import { createSessionToken } from "@crm/auth";
 import { convertCurrency, rollupOpportunityAmountsInBase } from "@crm/core";
-import { dbStore, mockDb, withTenant } from "@crm/db";
+import { dbStore, mockDb, pgDb, withTenant } from "@crm/db";
+import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
+import { getTestPgContainer } from "./pg-container";
 
-describe("Multi-Currency & Exchange Rates Engine Tests", () => {
+const backends = [
+  {
+    name: "mock",
+    setup: async () => {
+      process.env.DB_DRIVER = "mock";
+    },
+  },
+  {
+    name: "postgres",
+    setup: async () => {
+      const { connectionString } = await getTestPgContainer();
+      process.env.DB_DRIVER = "pg";
+      process.env.DB_URL = connectionString;
+    },
+  },
+];
+
+describe.each(
+  backends,
+)("Multi-Currency & Exchange Rates Engine Tests on $name backend", ({
+  setup,
+}) => {
   let tokenTenantA: string;
   let tokenTenantB: string;
 
@@ -12,7 +35,22 @@ describe("Multi-Currency & Exchange Rates Engine Tests", () => {
   const orgB = "org-tenant-b";
 
   beforeEach(async () => {
-    dbStore.clear();
+    await setup();
+    await dbStore.clear();
+
+    // Insert organizations and users to satisfy PostgreSQL foreign key constraints
+    if (process.env.DB_DRIVER === "pg") {
+      await pgDb.execute(
+        sql.raw(
+          `INSERT INTO "organizations" ("id", "name", "status") VALUES ('${orgA}', 'Tenant A', 'active'), ('${orgB}', 'Tenant B', 'active') ON CONFLICT DO NOTHING`,
+        ),
+      );
+      await pgDb.execute(
+        sql.raw(
+          `INSERT INTO "users" ("id", "email", "password_hash", "status") VALUES ('user-a', 'user-a@example.com', 'hash', 'active'), ('user-b', 'user-b@example.com', 'hash', 'active') ON CONFLICT DO NOTHING`,
+        ),
+      );
+    }
 
     tokenTenantA = await createSessionToken({
       userId: "user-a",
@@ -27,7 +65,7 @@ describe("Multi-Currency & Exchange Rates Engine Tests", () => {
       roleId: "role-b",
       permissionsMask: 7,
     });
-  });
+  }, 60000);
 
   describe("Core Business Logic", () => {
     it("should accurately convert currency amounts using exchange rates", () => {
@@ -164,7 +202,8 @@ describe("Multi-Currency & Exchange Rates Engine Tests", () => {
 
       // 2. Create an Account for Tenant A
       let accountId = "";
-      await withTenant(orgA, mockDb, async () => {
+      const activeDb = process.env.DB_DRIVER === "pg" ? pgDb : mockDb;
+      await withTenant(orgA, activeDb, async () => {
         const acc = await dbStore.accounts.insert({
           orgId: orgA,
           ownerId: "user-a",

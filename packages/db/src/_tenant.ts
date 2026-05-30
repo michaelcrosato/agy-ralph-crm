@@ -31,7 +31,13 @@ export async function withTenant<T>(
 ): Promise<T> {
   return await tenantStorage.run({ orgId }, async () => {
     return await db.transaction(async (tx) => {
-      await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+      if (db === mockDb) {
+        await tx.execute(sql`SET LOCAL app.current_org_id = ${orgId}`);
+      } else {
+        await tx.execute(
+          sql`SELECT set_config('app.current_org_id', ${orgId}, true)`,
+        );
+      }
       return await run(tx);
     });
   });

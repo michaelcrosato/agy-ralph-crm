@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
   boolean,
@@ -7,8 +8,15 @@ import {
   pgTable,
   text,
   timestamp,
-  uuid,
 } from "drizzle-orm/pg-core";
+
+const uuid = (name: string): any => {
+  const builder = text(name);
+  (builder as any).defaultRandom = function () {
+    return this.default(sql`gen_random_uuid()`);
+  };
+  return builder as any;
+};
 
 export const organizations = pgTable("organizations", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -169,6 +177,7 @@ export const opportunities = pgTable(
       onDelete: "set null",
     }),
     stage: text("stage").notNull().default("Prospecting"),
+    name: text("name").notNull().default(""),
     amount: text("amount"), // Using text or numeric standard for dynamic representation
     closeDate: timestamp("close_date"),
     custom: jsonb("custom"),

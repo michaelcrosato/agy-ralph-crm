@@ -1,10 +1,33 @@
 import { createSessionToken } from "@crm/auth";
 import { evaluateTicketAssignment } from "@crm/core";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, pgDb, withTenant } from "@crm/db";
+import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
+import { getTestPgContainer } from "./pg-container";
 
-describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
+const backends = [
+  {
+    name: "mock",
+    setup: async () => {
+      process.env.DB_DRIVER = "mock";
+    },
+  },
+  {
+    name: "postgres",
+    setup: async () => {
+      const { connectionString } = await getTestPgContainer();
+      process.env.DB_DRIVER = "pg";
+      process.env.DB_URL = connectionString;
+    },
+  },
+];
+
+describe.each(
+  backends,
+)("Support Ticket Routing & Assignment Rules Engine Tests on $name backend", ({
+  setup,
+}) => {
   let tokenTenantA: string;
   let tokenTenantB: string;
 
@@ -12,7 +35,27 @@ describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
   const orgB = "org-tenant-b";
 
   beforeEach(async () => {
-    dbStore.clear();
+    await setup();
+    await dbStore.clear();
+
+    // Insert organizations and users to satisfy PostgreSQL foreign key constraints
+    if (process.env.DB_DRIVER === "pg") {
+      await pgDb.execute(
+        sql.raw(
+          `INSERT INTO "organizations" ("id", "name", "status") VALUES ('${orgA}', 'Tenant A', 'active'), ('${orgB}', 'Tenant B', 'active') ON CONFLICT DO NOTHING`,
+        ),
+      );
+      await pgDb.execute(
+        sql.raw(`INSERT INTO "users" ("id", "email", "password_hash", "status") VALUES 
+          ('user-a', 'user-a@example.com', 'hash', 'active'), 
+          ('user-b', 'user-b@example.com', 'hash', 'active'),
+          ('agent-alpha', 'agent-alpha@example.com', 'hash', 'active'),
+          ('agent-beta', 'agent-beta@example.com', 'hash', 'active'),
+          ('agent-gamma', 'agent-gamma@example.com', 'hash', 'active'),
+          ('agent-manual', 'agent-manual@example.com', 'hash', 'active')
+          ON CONFLICT DO NOTHING`),
+      );
+    }
 
     tokenTenantA = await createSessionToken({
       userId: "user-a",
@@ -27,7 +70,7 @@ describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
       roleId: "role-b",
       permissionsMask: 7,
     });
-  });
+  }, 60000);
 
   describe("Core Pure Logic Unit Tests", () => {
     it("should evaluate ticket assignment conditions correctly", () => {
@@ -128,7 +171,8 @@ describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
       const ruleBody2 = await ruleRes2.json();
       expect(ruleBody2.data.isActive).toBe(1);
 
-      const oldRule = await withTenant(orgA, mockDb, async () => {
+      const activeDb = process.env.DB_DRIVER === "pg" ? pgDb : mockDb;
+      const oldRule = await withTenant(orgA, activeDb, async () => {
         return await dbStore.ticketAssignmentRules.findOne(ruleId);
       });
       expect(oldRule?.isActive).toBe(0);
@@ -179,7 +223,7 @@ describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
       let ticketId1 = "";
       let ticketId2 = "";
 
-      await withTenant(orgA, mockDb, async () => {
+      await withTenant(orgA, activeDb, async () => {
         const contact = await dbStore.contacts.insert({
           orgId: orgA,
           ownerId: "user-a",
@@ -237,7 +281,11 @@ describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
       expect(routeBody2.data.assignedToId).toBe("agent-beta");
 
       // Verify audit logs
-      const auditLogs = store.auditLogs.filter((log) => log.orgId === orgA);
+      // biome-ignore lint/suspicious/noExplicitAny: test verify
+      let auditLogs: any[] = [];
+      await withTenant(orgA, activeDb, async () => {
+        auditLogs = await dbStore.auditLogs.findMany();
+      });
       expect(
         auditLogs.some(
           (log) =>
@@ -252,9 +300,10 @@ describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
     it("should enforce active tenant RLS isolation", async () => {
       let ruleIdA = "";
       let ticketIdA = "";
+      const activeDb = process.env.DB_DRIVER === "pg" ? pgDb : mockDb;
 
       // Seed A's rule and ticket
-      await withTenant(orgA, mockDb, async () => {
+      await withTenant(orgA, activeDb, async () => {
         const rule = await dbStore.ticketAssignmentRules.insert({
           orgId: orgA,
           name: "Tenant A Rule",
@@ -314,8 +363,9 @@ describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
 
     it("should support manual assignment override", async () => {
       let ticketIdA = "";
+      const activeDb = process.env.DB_DRIVER === "pg" ? pgDb : mockDb;
 
-      await withTenant(orgA, mockDb, async () => {
+      await withTenant(orgA, activeDb, async () => {
         const contact = await dbStore.contacts.insert({
           orgId: orgA,
           ownerId: "user-a",
@@ -353,7 +403,11 @@ describe("Support Ticket Routing & Assignment Rules Engine Tests", () => {
       expect(assignBody.data.assignedToId).toBe("agent-manual");
 
       // Verify audit trail for manual assignment override
-      const auditLogs = store.auditLogs.filter((log) => log.orgId === orgA);
+      // biome-ignore lint/suspicious/noExplicitAny: test verify
+      let auditLogs: any[] = [];
+      await withTenant(orgA, activeDb, async () => {
+        auditLogs = await dbStore.auditLogs.findMany();
+      });
       expect(
         auditLogs.some(
           (log) =>

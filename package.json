@@ -28,5 +28,11 @@
     "turbo": "^2.0.0",
     "@biomejs/biome": "^2.4.0",
     "@playwright/test": "^1.49.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "cpu-features",
+      "ssh2"
+    ]
   }
 }

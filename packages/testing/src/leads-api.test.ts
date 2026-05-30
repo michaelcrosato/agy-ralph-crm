@@ -1,9 +1,32 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, store } from "@crm/db";
+import { dbStore, mockDb, pgDb, withTenant } from "@crm/db";
+import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
+import { getTestPgContainer } from "./pg-container";
 
-describe("Lead REST API and Multi-Tenant RLS Store Tests", () => {
+const backends = [
+  {
+    name: "mock",
+    setup: async () => {
+      process.env.DB_DRIVER = "mock";
+    },
+  },
+  {
+    name: "postgres",
+    setup: async () => {
+      const { connectionString } = await getTestPgContainer();
+      process.env.DB_DRIVER = "pg";
+      process.env.DB_URL = connectionString;
+    },
+  },
+];
+
+describe.each(
+  backends,
+)("Lead REST API and Multi-Tenant RLS Store Tests on $name backend", ({
+  setup,
+}) => {
   let tokenTenantA: string;
   let tokenTenantB: string;
 
@@ -11,8 +34,22 @@ describe("Lead REST API and Multi-Tenant RLS Store Tests", () => {
   const orgB = "org-tenant-b";
 
   beforeEach(async () => {
-    // Clear databases
-    dbStore.clear();
+    await setup();
+    await dbStore.clear();
+
+    // Insert organizations to satisfy PostgreSQL foreign key constraints
+    if (process.env.DB_DRIVER === "pg") {
+      await pgDb.execute(
+        sql.raw(
+          `INSERT INTO "organizations" ("id", "name", "status") VALUES ('${orgA}', 'Tenant A', 'active'), ('${orgB}', 'Tenant B', 'active') ON CONFLICT DO NOTHING`,
+        ),
+      );
+      await pgDb.execute(
+        sql.raw(
+          `INSERT INTO "users" ("id", "email", "password_hash", "status") VALUES ('user-a', 'user-a@example.com', 'hash', 'active'), ('user-b', 'user-b@example.com', 'hash', 'active') ON CONFLICT DO NOTHING`,
+        ),
+      );
+    }
 
     // Generate tokens for isolation testing
     tokenTenantA = await createSessionToken({
@@ -28,7 +65,7 @@ describe("Lead REST API and Multi-Tenant RLS Store Tests", () => {
       roleId: "role-b",
       permissionsMask: 7,
     });
-  });
+  }, 60000);
 
   it("should reject non-authenticated API requests with 401", async () => {
     const res = await app.request("/api/leads", {
@@ -169,11 +206,26 @@ describe("Lead REST API and Multi-Tenant RLS Store Tests", () => {
     expect(retrieveBody.data.convertedContactId).toBe(convertBody.contactId);
 
     // 4. Verify Account, Contact, and Opportunity were persisted correctly under tenant orgA
-    // We check via in-memory store directly inside a tenant block
-    const orgALeads = store.leads.filter((l) => l.orgId === orgA);
-    const orgAAccounts = store.accounts.filter((a) => a.orgId === orgA);
-    const orgAContacts = store.contacts.filter((c) => c.orgId === orgA);
-    const orgAOpps = store.opportunities.filter((o) => o.orgId === orgA);
+    // We check via RLS store directly inside a tenant block
+    // biome-ignore lint/suspicious/noExplicitAny: test verify
+    let orgALeads: any[] = [];
+    // biome-ignore lint/suspicious/noExplicitAny: test verify
+    let orgAAccounts: any[] = [];
+    // biome-ignore lint/suspicious/noExplicitAny: test verify
+    let orgAContacts: any[] = [];
+    // biome-ignore lint/suspicious/noExplicitAny: test verify
+    let orgAOpps: any[] = [];
+
+    await withTenant(
+      orgA,
+      process.env.DB_DRIVER === "pg" ? pgDb : mockDb,
+      async () => {
+        orgALeads = await dbStore.leads.findMany();
+        orgAAccounts = await dbStore.accounts.findMany();
+        orgAContacts = await dbStore.contacts.findMany();
+        orgAOpps = await dbStore.opportunities.findMany();
+      },
+    );
 
     expect(orgALeads.length).toBe(1);
     expect(orgAAccounts.length).toBe(1);
@@ -194,7 +246,15 @@ describe("Lead REST API and Multi-Tenant RLS Store Tests", () => {
     expect(orgAOpps[0].stage).toBe("Qualification");
 
     // 5. Verify Audit Logs were registered
-    const orgAAudits = store.auditLogs.filter((log) => log.orgId === orgA);
+    // biome-ignore lint/suspicious/noExplicitAny: test verify
+    let orgAAudits: any[] = [];
+    await withTenant(
+      orgA,
+      process.env.DB_DRIVER === "pg" ? pgDb : mockDb,
+      async () => {
+        orgAAudits = await dbStore.auditLogs.findMany();
+      },
+    );
     // 1 audit for creation, 1 audit for conversion update
     expect(orgAAudits.length).toBe(2);
     expect(orgAAudits[0].action).toBe("create");

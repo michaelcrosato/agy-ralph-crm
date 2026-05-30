@@ -1,3 +1,4 @@
+import { createDbClient } from "../client";
 import { accountsStore } from "./accounts";
 import { accountTeamsStore } from "./accountTeams";
 import { activitiesStore } from "./activities";
@@ -72,6 +73,7 @@ import { opportunityStageDurationRulesStore } from "./opportunityStageDurationRu
 import { opportunityStageGatesStore } from "./opportunityStageGates";
 import { opportunityStageHistoryStore } from "./opportunityStageHistory";
 import { opportunityTeamsStore } from "./opportunityTeams";
+import { clearPgDb, createPgStore, storeMetadata } from "./pg-factory";
 import { picklistDependenciesStore } from "./picklistDependencies";
 import { pricebookEntriesStore } from "./pricebookEntries";
 import { pricebooksStore } from "./pricebooks";
@@ -108,7 +110,17 @@ import { webhookOutboxStore } from "./webhookOutbox";
 import { webhooksStore } from "./webhooks";
 import { workflowsStore } from "./workflows";
 
-export const stores = {
+let pgDb: any = null;
+function getDb() {
+  if (!pgDb) {
+    const connStr =
+      process.env.DB_URL || "postgres://postgres:postgres@localhost:5432/crm";
+    pgDb = createDbClient(connStr);
+  }
+  return pgDb;
+}
+
+const mockStores = {
   users: usersStore,
   memberships: membershipsStore,
   leads: leadsStore,
@@ -219,3 +231,29 @@ export const stores = {
   emailBounceEvents: emailBounceEventsStore,
   emailReadTimeEvents: emailReadTimeEventsStore,
 };
+
+const pgStores: Record<string, any> = {};
+
+export const stores = new Proxy(mockStores, {
+  get(target, prop: string) {
+    if (prop === "clear") {
+      return async () => {
+        if (process.env.DB_DRIVER === "pg") {
+          await clearPgDb(getDb());
+        }
+      };
+    }
+    if (process.env.DB_DRIVER === "pg") {
+      if (!pgStores[prop]) {
+        const meta = storeMetadata[prop];
+        if (meta) {
+          pgStores[prop] = createPgStore(prop, meta.table, meta.prefix, getDb);
+        } else {
+          pgStores[prop] = target[prop as keyof typeof target];
+        }
+      }
+      return pgStores[prop];
+    }
+    return target[prop as keyof typeof target];
+  },
+}) as typeof mockStores & { clear: () => Promise<void> };

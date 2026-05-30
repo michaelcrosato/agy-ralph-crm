@@ -5,7 +5,9 @@ packages:
 
 allowBuilds:
   "@biomejs/biome": true
+  cpu-features: set this to true or false
   "es5-ext": true
   "esbuild": true
   protobufjs: true
   "sharp": true
+  ssh2: set this to true or false

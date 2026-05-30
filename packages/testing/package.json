@@ -9,23 +9,25 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "vitest": "^3.2.4",
-    "@crm/db": "workspace:*",
+    "@crm/audit": "workspace:*",
     "@crm/auth": "workspace:*",
     "@crm/core": "workspace:*",
-    "@crm/audit": "workspace:*",
+    "@crm/db": "workspace:*",
+    "@crm/documents": "workspace:*",
+    "@crm/forecasting": "workspace:*",
     "@crm/metadata": "workspace:*",
-    "@crm/workflow": "workspace:*",
     "@crm/module-service-lite": "workspace:*",
     "@crm/search": "workspace:*",
-    "@crm/forecasting": "workspace:*",
     "@crm/webhooks": "workspace:*",
-    "@crm/documents": "workspace:*",
+    "@crm/workflow": "workspace:*",
+    "drizzle-orm": "^0.45.2",
     "hono": "^4.0.0",
-    "drizzle-orm": "^0.45.2"
+    "vitest": "^3.2.4"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@biomejs/biome": "^2.4.0"
+    "@biomejs/biome": "^2.4.0",
+    "@testcontainers/postgresql": "^12.0.1",
+    "testcontainers": "^12.0.1",
+    "typescript": "^5.0.0"
   }
 }
