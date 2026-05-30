@@ -26,3 +26,32 @@ Twenty 2.0's workflow engine **lacks IF conditions + FOREACH loops** as of early
 
 ## Rollback
 Disable IF + FOREACH step types in validator (returns 400).
+
+## Implementation Notes (delivered on branch `spec/032-workflow-conditions`)
+
+Built as a self-contained step-program subsystem in `packages/workflow`, additive to
+the existing flat ECA engine (`executeWorkflows`) — no behavior change to the latter:
+
+- `dsl/conditions.ts` — hand-rolled tokenizer + recursive-descent parser/evaluator
+  (no `eval`/`Function`); operators `==`, `!=`, `>`, `<`, `in`, `contains`, `matches`;
+  operands are literals, `[...]` arrays, or dotted context paths.
+- `steps/if.ts`, `steps/foreach.ts` — IF/FOREACH step types + Zod schemas + handlers.
+- `steps/execute.ts` — `executeSteps(steps, context)` tree-walker returning
+  `{ actions, trace, iterations }` (the trace is the in-memory execution-path snapshot).
+- `steps/schema.ts` — recursive `stepSchema` (`z.lazy`) + `parseStepProgram` /
+  `safeParseStepProgram`. `maxIterations` capped at 1000 (Zod schema + runtime guard).
+- 8 tests in `packages/testing/src/workflow-steps.test.ts` (then/else short-circuit,
+  nested IF, foreach binding, max-iteration cap, trace order, every DSL operator, Zod
+  validation). Suite 418/418 green; `@crm/workflow` + `@crm/testing` verify clean.
+
+### [ASSUMPTION]s (smallest-reversible, per mission guardrails)
+- **Architecture:** the repo's `packages/workflow` is a flat ECA rules engine, not the
+  JSONB step-tree the spec assumed. Implemented the step engine *alongside* ECA rather
+  than refactoring the existing engine (non-breaking, reversible).
+- **REST `/api/workflows/:id/steps`: deferred.** A concurrent agent owns `apps/api`
+  (specs 017/018 in flight); adding a route there now would collide ("one writer per
+  file"). The Zod validator (`parseStepProgram`) is exported and ready, so the route is
+  a thin follow-up once 017/018 land. → follow-up.
+- **RLS / `workflow_runs.execution_trace` persistence: N/A** for the pure engine layer;
+  RLS is enforced at the DB/store boundary (spec 014). The trace is returned in-memory;
+  persistence belongs with the route/DB wiring above.

@@ -260,3 +260,17 @@ export async function executeWorkflows(
     fieldsUpdated,
   };
 }
+
+export {
+  type ConditionOperator,
+  ConditionSyntaxError,
+  evaluateCondition,
+  evaluateExpression,
+  resolvePath,
+} from "./dsl/conditions";
+export * from "./steps/execute";
+export * from "./steps/foreach";
+export * from "./steps/if";
+export * from "./steps/schema";
+// --- Step-program engine: IF conditions + FOREACH loops (spec 032) ---
+export * from "./steps/types";
