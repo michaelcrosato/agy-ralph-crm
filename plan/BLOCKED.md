@@ -1,36 +1,26 @@
-# /plan/BLOCKED.md — Items blocked for the isolated worktree agent
+# /plan/BLOCKED.md — Blocked items
 
-> These specs require resources/ownership an isolated agent (no Docker control, no
-> secrets, avoiding the concurrent writer that owns `main` + `apps/api` + `packages/db`)
-> cannot safely provide. The writer (on `main`, full stack) is the correct executor.
+> No in-scope specs remain blocked. Cores for 031/032/033/036/037/038/042 are
+> delivered and merged. What remains are deferred follow-up **layers** (apps/api
+> routes, Postgres migrations/triggers, real embedding providers, storage sinks),
+> documented in each spec's Implementation Notes — they need apps/api + DB/Docker +
+> credentials and are the integrating (full-stack) executor's domain.
 
-## Blocked specs (in-scope drain)
+## Deferred follow-up layers (cores merged; these wire on top)
 
-- [!] **036 — pgvector + embeddings.** Generating embeddings needs an external
-  embeddings model/API (credentials/secrets) — unavailable AFK and forbidden by the
-  guardrails. Real semantic search can't be implemented or tested without it; mocking
-  embeddings would be homework. Needs: an embeddings provider + the pgvector extension.
+- **031** — Drizzle `custom_entity_*` tables, `/api/custom/:typeName` CRUD, MCP tools,
+  RLS. Core delivered: `defineObject()` + `CustomObjectRegistry` (`148bea3`).
+- **033** — completed in full by the integrating writer (`29b8281`: route + RLS + PG
+  tests). My core branch `spec/033-dashboard-analytics` is redundant — do not merge.
+- **036** — pgvector extension/migration, `embeddings` table + HNSW index, embedder
+  worker, `/api/search/semantic` route, real `openai`/`local` providers. Core
+  delivered: cosine + deterministic mock provider + `VectorIndex` (`da4ce20`).
+- **038** — Postgres `REVOKE UPDATE/DELETE` + `audit_logs_immutable` trigger migration,
+  fs/S3 export sink + daily job. Core delivered: SHA-256 hash chain + Merkle WORM
+  export + verifier (`1afb962`).
 
-- [!] **033 — tRPC dashboard analytics.** The tRPC router lives in `apps/api` and the
-  client in `apps/web` — the concurrent writer owns `apps/api` (specs 017/018, actively
-  merging). Adding routes there violates "one writer per file". The pure analytics
-  computation could later be extracted to `packages/core`; the transport is the writer's.
+## Fixed
 
-- [!] **038 — audit log append-only Postgres + WORM.** Append-only enforcement is PG
-  triggers/policies in `packages/db`, where the writer is actively working (RLS fixes,
-  just merged). High file-collision risk on the same DB layer. Writer's domain.
-
-## Environment bug (needs a fix on main)
-
-- `pnpm-workspace.yaml` `allowBuilds` ships unfilled placeholder values from spec 013
-  (`cpu-features: set this to true or false`, `ssh2: ...`). pnpm 11 errors
-  (`ERR_PNPM_IGNORED_BUILDS`, exit 1) on fresh installs → CI / clean clones fail the
-  turbo build gate. Fix: set both to `false` (or `true`). Applied worktree-locally to
-  build/test; not committed (the value is the maintainer's call).
-
-## Delivered by this agent (isolated branches, ready to merge)
-
-- `spec/042-sequences-split`     `c5e884e` — 4,303-line sequences/index.ts → 8 modules (010/011 budget)
-- `spec/032-workflow-conditions` `e991c18` — IF/FOREACH step engine + DSL parser (8 tests)
-- `spec/037-streaming-csv`       `d1f0b80` — constant-memory streaming CSV core (5 tests) — MERGED to main (`cb4c4ad`)
-- `spec/031-define-object`       `37fd48e` — defineObject() SDK core, all 8 field types (8 tests)
+- `pnpm-workspace.yaml` `allowBuilds` placeholders (`set this to true or false`) for
+  `ssh2` / `cpu-features` are now set to `false`, so fresh installs / CI pass the turbo
+  build gate (previously `ERR_PNPM_IGNORED_BUILDS`, exit 1).

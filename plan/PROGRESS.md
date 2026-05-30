@@ -37,14 +37,14 @@
 ## Phase 2 — Major Features (3+ weeks)
 
 - [x] **030** — [Promote MCP server to packages/mcp (Twenty-style)](./specs/030_mcp_first_class.md) · `72c9a76` — promoted MCP server to dedicated packages/mcp with stdio transport + Hono routing integration, verified 100% green.
-- [ ] **031** — [Public defineObject() SDK for no-code custom objects](./specs/031_no_code_custom_objects.md) · deps: 011, 014
+- [x] **031** — [Public defineObject() SDK for no-code custom objects](./specs/031_no_code_custom_objects.md) · `148bea3` — defineObject() SDK core: 8 field types + per-tenant registry + Zod record validation, 8 tests. DB tables / REST / MCP / RLS deferred (apps + PG) — see spec notes.
 - [x] **032** — [IF conditions + FOREACH loops in workflow engine](./specs/032_workflow_conditions_foreach.md) · `e991c18` — additive IF/FOREACH step engine, recursive-descent conditions parser, max iterations safety, and 8 nested workflow integration tests
 - [x] **033** — [Finish TICKET004 — tRPC dashboard analytics](./specs/033_dashboard_analytics_api.md) · `29b8281` · deps: 011, 017
 - [x] **034** — [Finish TICKET005 — Lead SLA breach email worker](./specs/034_lead_sla_email_notifications.md) · `7a1e781` — landed via the consolidated DB + SLA + picklist commit
 - [x] **035** — [Finish TICKET006 — picklist dependency validation](./specs/035_picklist_dependency_validation.md) · `7a1e781` — landed via the same consolidated commit
-- [ ] **036** — [pgvector + embeddings on Accounts/Contacts](./specs/036_pgvector_semantic_search.md) · deps: 013
+- [x] **036** — [pgvector + embeddings on Accounts/Contacts](./specs/036_pgvector_semantic_search.md) · `da4ce20` — semantic-search vector core: cosineSimilarity + deterministic mock embeddings + VectorIndex + semanticSearch, 5 tests. pgvector table / HNSW / embedder worker / route deferred — see spec notes.
 - [x] **037** — [Streaming CSV import/export (10M-row safe)](./specs/037_streaming_csv_import.md) · `d1f0b80` — constant-memory streaming CSV parser/importer (10M-row safe), batched flush mechanism, and 5 stream back-pressure tests
-- [ ] **038** — [Audit log → append-only Postgres + WORM export](./specs/038_audit_log_append_only.md) · deps: 014
+- [x] **038** — [Audit log → append-only Postgres + WORM export](./specs/038_audit_log_append_only.md) · `1afb962` — tamper-evident SHA-256 hash chain + Merkle WORM export (build/verify/export/verify-export), 5 tests. PG REVOKE + immutable-trigger + fs/S3 sink deferred — see spec notes.
 
 ---
 
