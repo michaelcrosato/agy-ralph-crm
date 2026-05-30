@@ -158,4 +158,5 @@ if (process.env.NODE_ENV !== "test") {
     });
 }
 
+export type AppType = typeof app;
 export default app;

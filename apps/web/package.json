@@ -15,7 +15,8 @@
     "react-dom": "^19.0.0",
     "@crm/core": "workspace:*",
     "@crm/auth": "workspace:*",
-    "@crm/ui": "workspace:*"
+    "@crm/ui": "workspace:*",
+    "@crm/api-client": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

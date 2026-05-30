@@ -87,6 +87,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@crm/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@crm/auth':
         specifier: workspace:*
         version: link:../../packages/auth
@@ -152,6 +155,25 @@ importers:
       '@crm/db':
         specifier: workspace:*
         version: link:../../packages/db
+    devDependencies:
+      '@biomejs/biome':
+        specifier: ^2.4.0
+        version: 2.4.16
+      typescript:
+        specifier: ^5.0.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/node@22.19.19)
+
+  packages/api-client:
+    dependencies:
+      api:
+        specifier: workspace:*
+        version: link:../../apps/api
+      hono:
+        specifier: ^4.0.0
+        version: 4.12.23
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.4.0

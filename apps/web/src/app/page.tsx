@@ -1,5 +1,6 @@
 "use client";
 
+import { createApiClient } from "@crm/api-client";
 import { useCallback, useEffect, useState } from "react";
 
 // Types
@@ -209,12 +210,12 @@ export default function Home() {
   // General data loading helper — useCallback so identity is stable across renders.
   const refreshData = useCallback(async (activeToken: string) => {
     try {
-      const headers = { Authorization: `Bearer ${activeToken}` };
+      const client = createApiClient(API_BASE, { getToken: () => activeToken });
 
       const [leadsRes, contactsRes, oppsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/leads`, { headers }),
-        fetch(`${API_BASE}/api/contacts`, { headers }),
-        fetch(`${API_BASE}/api/opportunities`, { headers }),
+        client.api.leads.$get(),
+        client.api.contacts.$get(),
+        client.api.opportunities.$get(),
       ]);
 
       const [leadsData, contactsData, oppsData] = await Promise.all([
