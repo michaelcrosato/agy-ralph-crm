@@ -1,14 +1,12 @@
 import { execSync } from "node:child_process";
-import { computeAuditHash, GENESIS_HASH, verifyAuditChain } from "@crm/audit";
+import { GENESIS_HASH, verifyAuditChain } from "@crm/audit";
 import { dbStore, mockDb, pgDb, withTenant } from "@crm/db";
-import * as schema from "@crm/db/src/schema";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { getTestPgContainer, isDockerAvailable } from "./pg-container";
 
 describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
   const orgA = "org-audit-a";
-  const orgB = "org-audit-b";
 
   describe("In-Memory Mock Store Chaining", () => {
     beforeEach(async () => {
@@ -17,8 +15,8 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
     });
 
     it("automatically chains mock store insertions chronologically per tenant", async () => {
-      let log1: any;
-      let log2: any;
+      let log1: Record<string, any> | undefined;
+      let log2: Record<string, any> | undefined;
 
       await withTenant(orgA, mockDb, async () => {
         log1 = await dbStore.auditLogs.insert({
@@ -64,9 +62,9 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
           l.createdAt instanceof Date
             ? l.createdAt.toISOString()
             : new Date(l.createdAt).toISOString(),
-        seq: l.seq!,
-        prevHash: l.prevHash!,
-        hash: l.hash!,
+        seq: l.seq ?? 0,
+        prevHash: l.prevHash ?? "",
+        hash: l.hash ?? "",
       }));
 
       const verification = verifyAuditChain(mappedLogs);
@@ -107,9 +105,9 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
           l.createdAt instanceof Date
             ? l.createdAt.toISOString()
             : new Date(l.createdAt).toISOString(),
-        seq: l.seq!,
-        prevHash: l.prevHash!,
-        hash: l.hash!,
+        seq: l.seq ?? 0,
+        prevHash: l.prevHash ?? "",
+        hash: l.hash ?? "",
       }));
 
       expect(verifyAuditChain(mappedLogs).valid).toBe(true);
@@ -157,9 +155,9 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
       it("chains PG audit log insertions sequentially per organization", async () => {
         const oA = "org-audit-a1";
         const oB = "org-audit-b1";
-        let log1: any;
-        let log2: any;
-        let log3: any;
+        let log1: Record<string, any> | undefined;
+        let log2: Record<string, any> | undefined;
+        let log3: Record<string, any> | undefined;
 
         await withTenant(oA, pgDb, async () => {
           log1 = await dbStore.auditLogs.insert({
@@ -191,16 +189,16 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
         });
 
         // Tenant A chain validations
-        expect(log1.seq).toBe(0);
-        expect(log1.prevHash).toBe(GENESIS_HASH);
-        expect(log1.hash).toBeDefined();
+        expect(log1?.seq).toBe(0);
+        expect(log1?.prevHash).toBe(GENESIS_HASH);
+        expect(log1?.hash).toBeDefined();
 
-        expect(log2.seq).toBe(1);
-        expect(log2.prevHash).toBe(log1.hash);
+        expect(log2?.seq).toBe(1);
+        expect(log2?.prevHash).toBe(log1?.hash);
 
         // Tenant B chain validations
-        expect(log3.seq).toBe(0); // Starts at 0 independently
-        expect(log3.prevHash).toBe(GENESIS_HASH);
+        expect(log3?.seq).toBe(0); // Starts at 0 independently
+        expect(log3?.prevHash).toBe(GENESIS_HASH);
 
         // Verify using CLI verification script (should pass exit code 0)
         const runVerification = () => {
@@ -219,7 +217,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
 
       it("CLI integrity pipeline rejects altered rows in PostgreSQL", async () => {
         const oA = "org-audit-a2";
-        let log1: any;
+        let log1: Record<string, any> | undefined;
 
         await withTenant(oA, pgDb, async () => {
           log1 = await dbStore.auditLogs.insert({
@@ -256,7 +254,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
         const db = pgDb;
         await db.execute(
           sql.raw(
-            `UPDATE "audit_logs" SET "action" = 'delete' WHERE "id" = '${log1.id}'`,
+            `UPDATE "audit_logs" SET "action" = 'delete' WHERE "id" = '${log1?.id}'`,
           ),
         );
 
@@ -266,7 +264,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
 
       it("CLI integrity pipeline rejects deleted links in PostgreSQL", async () => {
         const oA = "org-audit-a3";
-        let log1: any;
+        let log1: Record<string, any> | undefined;
 
         await withTenant(oA, pgDb, async () => {
           log1 = await dbStore.auditLogs.insert({

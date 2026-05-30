@@ -211,4 +211,7 @@ async function main() {
   }
 }
 
-main();
+main().catch((err) => {
+  console.error("Fatal uncaught error in verification pipeline:", err);
+  process.exit(1);
+});
