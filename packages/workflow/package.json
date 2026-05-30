@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "@crm/db": "workspace:*",
-    "@crm/core": "workspace:*"
+    "@crm/core": "workspace:*",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
