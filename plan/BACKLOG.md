@@ -18,7 +18,7 @@ This backlog tracks adjacent feature ideas, technical debt recommendations, and 
 
 ## 2. Phase 4 — Wave 4 Technical Debt & Observability
 
-- **TD-003: Continuous Playwright E2E Integration in CI**
+- [~] **TD-003: Continuous Playwright E2E Integration in CI** (Spec 067)
   - *Description*: Establish a headless Playwright runtime service inside the GitHub Actions pipeline to run full browser-level flow checks against the CRM.
   - *Benefit*: Safeguards the user interface from regression.
 
