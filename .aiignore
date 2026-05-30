@@ -12,6 +12,7 @@ node_modules/
 .cache/
 .turbo/
 pnpm-lock.yaml
+.vite/
 
 # Build & Compilation Outputs
 dist/
@@ -19,14 +20,20 @@ build/
 .next/
 out/
 *.tsbuildinfo
+coverage/
 
 # Test Outputs & Logs
 test_output.log
 *.log
-coverage/
 .nyc_output/
+.eslintcache
+playwright-report/
+test-results/
 
 # Heavy Metadata / Task Scratchpads
 .ralph/tasks/
 .ralph/memories/
 scratch/
+.plan/
+bench/
+*.snap

@@ -22,11 +22,11 @@ This file defines the absolute boundaries and rules of engagement for all autono
 ## 3. Strict Verification & Command Rules
 
 Every change must successfully execute the verification sequence before pull-request submission:
-1. `pnpm typecheck` (ensure TypeScript compiles without any errors)
-2. `pnpm lint` (via Biome, no lint errors/warnings allowed)
-3. `pnpm test:unit` & `pnpm test:integration` (Vitest suites must pass)
-4. `pnpm test:e2e` (Playwright E2E suite must pass)
-5. `pnpm verify` (Workspace verification task)
+1. `pnpm build` (acts as typecheck; strict TypeScript compilation without errors)
+2. `pnpm run agent:lint` (Biome lint pass, no errors/warnings)
+3. `pnpm test` (unit + integration tests; repository currently runs all Vitest suites through turbo)
+4. `pnpm verify` (Workspace verification task)
+5. `pnpm test:e2e` (Runs Playwright if configured; exits `0` with skip warning when no E2E config exists)
 
 ## 4. Code & Technical Constraints
 
@@ -62,6 +62,7 @@ Agents must execute tasks recursively by strictly repeating this workflow:
 - **Bootstrap Workspace**: `pnpm install` or `bash scripts/agent/bootstrap.sh` (or `powershell -File scripts/agent/bootstrap.ps1` on Windows)
 - **Verify Clean Code & Format**: `pnpm verify` or `bash scripts/agent/check.sh` (or `powershell -File scripts/agent/check.ps1` on Windows)
 - **Run Unit/Integration Tests**: `pnpm test` or `bash scripts/agent/test.sh` (or `powershell -File scripts/agent/test.ps1` on Windows)
+- **E2E Behavior**: `pnpm test:e2e` runs `scripts/agent/test-e2e.sh` and exits cleanly with a skip warning when no Playwright config is available.
 - **Build Workspace**: `pnpm build` or `bash scripts/agent/typecheck.sh` (or `powershell -File scripts/agent/typecheck.ps1` on Windows)
 - **Targeted Test Execution**: `npx vitest run <test-file-path>`
 - **Biome Format & Lint Fix**: `npx biome check --write .` or `bash scripts/agent/format.sh` (or `powershell -File scripts/agent/format.ps1` on Windows)

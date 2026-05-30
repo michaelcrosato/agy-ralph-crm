@@ -48,7 +48,7 @@
 
 ---
 
-## Verification Commands
+## Commands
 ```bash
 npx vitest run packages/testing/src/lead-sla-notifications.test.ts
 pnpm verify

@@ -1,4 +1,7 @@
 $ErrorActionPreference = "Stop"
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+Set-Location $RepoRoot
+
 Write-Host "=========================================" -ForegroundColor Green
 Write-Host " AGENT STATUS: Git Repository Status" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green

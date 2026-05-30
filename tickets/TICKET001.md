@@ -45,7 +45,7 @@
 
 ---
 
-## Verification Commands
+## Commands
 ```bash
 pnpm install
 pnpm build

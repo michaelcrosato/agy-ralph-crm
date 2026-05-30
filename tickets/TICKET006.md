@@ -44,7 +44,7 @@
 
 ---
 
-## Verification Commands
+## Commands
 ```bash
 npx vitest run packages/testing/src/picklist-dependency-validation.test.ts
 pnpm verify

@@ -49,7 +49,7 @@
 
 ---
 
-## Verification Commands
+## Commands
 ```bash
 pnpm run agent:check
 pnpm run agent:status

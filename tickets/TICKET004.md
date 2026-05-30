@@ -46,7 +46,7 @@
 
 ---
 
-## Verification Commands
+## Commands
 ```bash
 npx vitest run packages/testing/src/dashboard-analytics.test.ts
 pnpm verify

@@ -1,9 +1,46 @@
-# Continuous AFK CRM Core Feature Generation Loop & CI Hook
-# This script executes the Antigravity agent in an endless loop to incrementally
-# build, verify, and commit high-value features, wrapped in a strict Phase 7 CI pre-flight check.
+param()
 
-$AgyPath = "C:\Users\Michael Crosato\AppData\Local\agy\bin\agy.exe"
-$Prompt = "/goal Read the next pending task inside 'plan/PROGRESS.md', locate its specification task in 'plan/specs/TASK0NN.md', implement the code according to 'plan/AGENTS.md' guidelines, write thorough RLS and integration tests, verify the workspace compiles and lint checks pass cleanly using pnpm verify, commit the changes to git, merge the task branch into main, push to origin, update 'plan/PROGRESS.md' status, and stop so the script can execute the next step."
+$ErrorActionPreference = "Stop"
+
+$RepoRoot = Split-Path -Parent $PSScriptRoot
+Set-Location $RepoRoot
+
+$AgyPath = (Get-Command agy -ErrorAction SilentlyContinue)?.Source
+if (-not $AgyPath) {
+    $FallbackAgyPath = Join-Path $env:LOCALAPPDATA "agy\bin\agy.exe"
+    if (Test-Path $FallbackAgyPath) {
+        $AgyPath = $FallbackAgyPath
+    }
+}
+
+if (-not $AgyPath -or -not (Test-Path $AgyPath)) {
+    Write-Host "[ERROR] agy executable not found in PATH or LocalAppData." -ForegroundColor Red
+    Write-Host "Install/update the AFK CLI and retry." -ForegroundColor Yellow
+    exit 1
+}
+
+$Prompt = @'
+Read the highest-priority pending ticket in tickets/TICKET0NN.md,
+follow the workflow in AGENTS.md, implement the ticket scope atomically,
+run the ticket verification commands, update ticket status and notes,
+and then stop so the caller can evaluate handoff state.
+'@
+
+function Invoke-WorkspaceCommand {
+    param([string]$Command)
+
+    $originalPrefs = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    if (Get-Command pnpm -ErrorAction SilentlyContinue) {
+        $commandToRun = "pnpm $Command"
+    } else {
+        $commandToRun = "`$env:CI = '1'; npx -y pnpm $Command"
+    }
+    & powershell -NoProfile -Command $commandToRun
+    $exitCode = $LASTEXITCODE
+    $ErrorActionPreference = $originalPrefs
+    return $exitCode
+}
 
 Write-Host "========================================================" -ForegroundColor Green
 Write-Host "Starting CRM Core Automation Loop in AFK Mode..." -ForegroundColor Green
@@ -16,56 +53,29 @@ while ($true) {
     $RunCount++
     $Time = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     Write-Host "`n[$Time] Starting Run #$RunCount..." -ForegroundColor Cyan
-    
-    # ----------------------------------------------------
-    # Phase 7 CI Pre-Flight Health Mappings
-    # ----------------------------------------------------
-    Write-Host "Executing Continuous Integration pre-flight health checks..." -ForegroundColor DarkYellow
-    
-    # 1. Clean Git Status Verification
-    Write-Host "[CI] Verifying repository clean status..." -ForegroundColor Gray
-    $GitStatus = git status --porcelain
-    if ($GitStatus) {
-        Write-Host "[CI Warning] Dirty repository detected! Uncommitted changes exist:" -ForegroundColor Yellow
-        Write-Host $GitStatus -ForegroundColor DarkYellow
-    } else {
-        Write-Host "[CI Check] Repository is clean." -ForegroundColor Green
-    }
-    
-    # 2. Workspace Compilation & Verification
-    Write-Host "[CI] Running workspace verify pipeline (lint/format/compile)..." -ForegroundColor Gray
-    pnpm verify
-    $VerifyExitCode = $LASTEXITCODE
-    if ($VerifyExitCode -ne 0) {
-        Write-Host "[CI Error] pnpm verify failed with exit status $VerifyExitCode. Halting loop to prevent drift!" -ForegroundColor Red
-        $ErrorMsg = "[$Time] Run #${RunCount}: CI pnpm verify failed with status $VerifyExitCode."
-        Add-Content -Path "afk_error.log" -Value $ErrorMsg
+
+    Write-Host "[CI] Running workspace pre-flight health checks..." -ForegroundColor DarkYellow
+    $verifyExit = Invoke-WorkspaceCommand "verify"
+    if ($verifyExit -ne 0) {
+        Write-Host "[CI Error] pnpm verify failed with exit status $verifyExit." -ForegroundColor Red
+        Add-Content -Path "afk_error.log" -Value "[$Time] Run #${RunCount}: CI verify failed with status $verifyExit."
         break
     }
-    Write-Host "[CI Check] Workspace compilation and Biome linting passed." -ForegroundColor Green
-    
-    # 3. Workspace Integration Tests
-    Write-Host "[CI] Running comprehensive test suite..." -ForegroundColor Gray
-    pnpm test
-    $TestExitCode = $LASTEXITCODE
-    if ($TestExitCode -ne 0) {
-        Write-Host "[CI Error] pnpm test failed with exit status $TestExitCode. Halting loop to prevent regression!" -ForegroundColor Red
-        $ErrorMsg = "[$Time] Run #${RunCount}: CI pnpm test failed with status $TestExitCode."
-        Add-Content -Path "afk_error.log" -Value $ErrorMsg
+
+    Write-Host "[CI] Running comprehensive test suite..." -ForegroundColor DarkYellow
+    $testExit = Invoke-WorkspaceCommand "test"
+    if ($testExit -ne 0) {
+        Write-Host "[CI Error] pnpm test failed with exit status $testExit." -ForegroundColor Red
+        Add-Content -Path "afk_error.log" -Value "[$Time] Run #${RunCount}: CI test failed with status $testExit."
         break
     }
-    Write-Host "[CI Check] All integration and unit tests passed." -ForegroundColor Green
-    
+
     Write-Host "CI pre-flight check passed successfully. Initiating agent execution..." -ForegroundColor Green
-    
-    # Execute the Antigravity CLI binary directly with correct flags and a 15-minute timeout
     & $AgyPath --dangerously-skip-permissions --print-timeout 15m --print $Prompt
-    
-    $ExitCode = $LASTEXITCODE
-    if ($ExitCode -ne 0) {
-        Write-Host "Warning: agy exited with non-zero exit code: $ExitCode" -ForegroundColor Red
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "Warning: agy exited with non-zero exit code: $LASTEXITCODE" -ForegroundColor Red
     }
-    
+
     Write-Host "Run #$RunCount completed. Pausing for 5 seconds before next iteration..." -ForegroundColor DarkGray
     Start-Sleep -Seconds 5
 }

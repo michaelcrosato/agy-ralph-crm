@@ -77,8 +77,8 @@ Upon task instantiation, agents must follow this reading order:
 
 ## 6. Definition of Done (DoD)
 A task is marked completed and AFK-ready only when:
-1. Type check compiles successfully without warning (`pnpm typecheck` or `pnpm build`).
-2. Lint check passes cleanly with no warnings or errors via Biome compiler (`pnpm lint`).
+1. Type check compiles successfully without warning (`pnpm build` or `pnpm run agent:typecheck`).
+2. Lint check passes cleanly with no warnings or errors via Biome checker (`pnpm run agent:lint`).
 3. Integration and unit tests pass with a `0` exit status (`pnpm test` or specific vitest runners).
 4. No unresolved tenant data leak or RLS violations exist in test suites.
 5. The associated ticket in `tickets/TICKET0NN.md` is updated to `Status: completed`.

@@ -48,7 +48,7 @@
 
 ---
 
-## Verification Commands
+## Commands
 ```bash
 npx vitest run packages/testing/src/marketing-sequence-call-actions.test.ts
 pnpm verify

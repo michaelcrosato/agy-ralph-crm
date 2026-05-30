@@ -1,5 +1,7 @@
 #!/bin/bash
 set -euo pipefail
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
 
 echo "========================================="
 echo " AGENT DOCTOR: System Diagnostics"
@@ -18,19 +20,29 @@ else
   exit 1
 fi
 
-# Package Manager check
+PM=""
 if [ -f "pnpm-lock.yaml" ]; then
   PM="pnpm"
 elif [ -f "package-lock.json" ]; then
   PM="npm"
-else
-  PM="pnpm"
+elif [ -f "yarn.lock" ]; then
+  PM="yarn"
 fi
 
-if command -v $PM &> /dev/null; then
+if [ -z "$PM" ]; then
+  if command -v pnpm &> /dev/null; then
+    PM="pnpm"
+  elif command -v npm &> /dev/null; then
+    PM="npm"
+  elif command -v yarn &> /dev/null; then
+    PM="yarn"
+  fi
+fi
+
+if [ -n "$PM" ] && command -v "$PM" &> /dev/null; then
   echo "$PM version: $($PM -v)"
 else
-  echo "[WARN] $PM package manager not found globally."
+  echo "[WARN] No supported package manager command found."
 fi
 
 # Biome linter check

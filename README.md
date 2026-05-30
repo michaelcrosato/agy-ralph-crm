@@ -40,20 +40,33 @@ To run all 129 integration and unit tests:
 pnpm test
 ```
 
+### 6b. Optional E2E Checks
+To run Playwright E2E checks if a config is present (or skip with a non-failing warning when absent):
+```bash
+pnpm test:e2e
+```
+
 ---
 
 ## 📂 Repository Topology & Agent Guides
 
 For detailed architectural master plans, roadmaps, and central execution loops:
-- **System Master Plan**: [GOAL.md](file:///C:/dev/agy-ralph-crm/GOAL.md)
-- **Development Path & Milestones**: [ROADMAP.md](file:///C:/dev/agy-ralph-crm/ROADMAP.md)
-- **Autonomous Agent Loop & Rules**: [AGENTS.md](file:///C:/dev/agy-ralph-crm/AGENTS.md)
-- **Repository Structure Map**: [docs/ai/REPO_MAP.md](file:///C:/dev/agy-ralph-crm/docs/ai/REPO_MAP.md)
+- **System Master Plan**: [GOAL.md](/GOAL.md)
+- **Development Path & Milestones**: [ROADMAP.md](/ROADMAP.md)
+- **Autonomous Agent Loop & Rules**: [AGENTS.md](/AGENTS.md)
+- **Repository Structure Map**: [docs/ai/REPO_MAP.md](/docs/ai/REPO_MAP.md)
+
+### 7. AFK Helper Commands
+- `pnpm run agent:bootstrap` - install dependencies
+- `pnpm run agent:status` - print git/state summary
+- `pnpm run agent:check` - format, lint, typecheck, and tests
+- `pnpm run agent:doctor` - environment health diagnostics
+- `./run-afk-loop.ps1` - long-running AFK orchestration loop (PowerShell)
 
 ### Open Tickets
-- [TICKET001: Workspace Bootstrap (Completed)](file:///C:/dev/agy-ralph-crm/tickets/TICKET001.md)
-- [TICKET002: Agent Automated Scripts (Completed)](file:///C:/dev/agy-ralph-crm/tickets/TICKET002.md)
-- [TICKET003: Call Actions Feature & Bugfix (Completed)](file:///C:/dev/agy-ralph-crm/tickets/TICKET003.md)
-- [TICKET004: Interactive tRPC Dashboard Analytics API](file:///C:/dev/agy-ralph-crm/tickets/TICKET004.md)
-- [TICKET005: Lead SLA Breaches Email Notification Service](file:///C:/dev/agy-ralph-crm/tickets/TICKET005.md)
-- [TICKET006: Dynamic Picklist Dependency Validation](file:///C:/dev/agy-ralph-crm/tickets/TICKET006.md)
+- [TICKET001: Workspace Bootstrap (Completed)](/tickets/TICKET001.md)
+- [TICKET002: Agent Automated Scripts (Completed)](/tickets/TICKET002.md)
+- [TICKET003: Call Actions Feature & Bugfix (Completed)](/tickets/TICKET003.md)
+- [TICKET004: Interactive tRPC Dashboard Analytics API](/tickets/TICKET004.md)
+- [TICKET005: Lead SLA Breaches Email Notification Service](/tickets/TICKET005.md)
+- [TICKET006: Dynamic Picklist Dependency Validation](/tickets/TICKET006.md)
