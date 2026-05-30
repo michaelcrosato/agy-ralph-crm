@@ -11,6 +11,8 @@
     "build": "turbo run build",
     "test": "turbo run test",
     "test:e2e": "node scripts/agent/agent-runner.mjs test-e2e",
+    "test:e2e:playwright": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium",
     "dev": "turbo run dev",
     "agent:bootstrap": "node scripts/agent/agent-runner.mjs bootstrap",
     "agent:doctor": "node scripts/agent/agent-runner.mjs doctor",
@@ -24,6 +26,7 @@
   },
   "devDependencies": {
     "turbo": "^2.0.0",
-    "@biomejs/biome": "^2.4.0"
+    "@biomejs/biome": "^2.4.0",
+    "@playwright/test": "^1.49.0"
   }
 }
