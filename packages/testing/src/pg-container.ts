@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { resolve } from "node:path";
 import { createDbClient } from "@crm/db/src/client";
 import {
@@ -5,6 +6,15 @@ import {
   type StartedPostgreSqlContainer,
 } from "@testcontainers/postgresql";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
+
+export function isDockerAvailable(): boolean {
+  try {
+    execSync("docker ps", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 let container: StartedPostgreSqlContainer | null = null;
 let connectionString: string | null = null;

@@ -3,7 +3,7 @@ import { dbStore, mockDb, pgDb, withTenant } from "@crm/db";
 import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
-import { getTestPgContainer } from "./pg-container";
+import { getTestPgContainer, isDockerAvailable } from "./pg-container";
 
 const backends = [
   {
@@ -12,15 +12,18 @@ const backends = [
       process.env.DB_DRIVER = "mock";
     },
   },
-  {
+];
+
+if (isDockerAvailable()) {
+  backends.push({
     name: "postgres",
     setup: async () => {
       const { connectionString } = await getTestPgContainer();
       process.env.DB_DRIVER = "pg";
       process.env.DB_URL = connectionString;
     },
-  },
-];
+  });
+}
 
 describe.each(
   backends,
