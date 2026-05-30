@@ -8,6 +8,6 @@ test.describe("Opportunities panel — smoke", () => {
 
   test("pipeline opportunity chart is present", async ({ page }) => {
     await page.goto("/");
-    await expect(page.getByTitle("Pipeline Opportunity Chart")).toBeAttached();
+    await expect(page.getByLabel("Pipeline Opportunity Chart")).toBeAttached();
   });
 });

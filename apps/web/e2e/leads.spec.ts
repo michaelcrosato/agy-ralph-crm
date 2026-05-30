@@ -9,7 +9,7 @@ test.describe("Leads panel — smoke", () => {
   test("leads status breakdown chart is present", async ({ page }) => {
     await page.goto("/");
     await expect(
-      page.getByTitle("Leads Status Breakdown Chart"),
+      page.getByLabel("Leads Status Breakdown Chart"),
     ).toBeAttached();
   });
 });
