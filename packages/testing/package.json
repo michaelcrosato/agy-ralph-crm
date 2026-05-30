@@ -22,7 +22,7 @@
     "@crm/webhooks": "workspace:*",
     "@crm/documents": "workspace:*",
     "hono": "^4.0.0",
-    "drizzle-orm": "^0.30.0"
+    "drizzle-orm": "^0.45.2"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
