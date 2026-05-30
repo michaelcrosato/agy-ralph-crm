@@ -1,5 +1,5 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -118,7 +118,7 @@ describe("Contracts & Account Renewals API & Integration Tests", () => {
   });
 
   it("should successfully execute contract renewals and generate renewal opportunities", async () => {
-    let accountId = "";
+    let _accountId = "";
     let contractId = "";
 
     // Setup Account & Contract under active tenant org A
@@ -130,7 +130,7 @@ describe("Contracts & Account Renewals API & Integration Tests", () => {
         domain: "stark.com",
         custom: null,
       });
-      accountId = account.id;
+      _accountId = account.id;
 
       const startDate = new Date();
       const endDate = new Date();
@@ -209,7 +209,7 @@ describe("Contracts & Account Renewals API & Integration Tests", () => {
     });
 
     // 2. Setup Tenant B
-    let accountIdB = "";
+    let _accountIdB = "";
     await withTenant(orgB, mockDb, async () => {
       const account = await dbStore.accounts.insert({
         orgId: orgB,
@@ -218,7 +218,7 @@ describe("Contracts & Account Renewals API & Integration Tests", () => {
         domain: "tenant-b.com",
         custom: null,
       });
-      accountIdB = account.id;
+      _accountIdB = account.id;
     });
 
     // Tenant B attempts to read Tenant A's account contracts via route -> Should return 404

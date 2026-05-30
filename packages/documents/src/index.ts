@@ -9,7 +9,7 @@ export function compileTemplate(
   if (!templateText) return "";
 
   // Regex matches any tag enclosed within double curly brackets, e.g., {{Account.name}}
-  return templateText.replace(/\{\{(.*?)\}\}/g, (match, tagContent) => {
+  return templateText.replace(/\{\{(.*?)\}\}/g, (_match, tagContent) => {
     const pathway = tagContent.trim().split(".");
 
     let currentVal: unknown = context;

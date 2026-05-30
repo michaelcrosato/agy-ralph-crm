@@ -1,5 +1,5 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -227,7 +227,7 @@ describe("Opportunity Contact Roles API Tests", () => {
     let contactAId = "";
     let roleAId = "";
 
-    let oppBId = "";
+    let _oppBId = "";
     let contactBId = "";
 
     await withTenant(orgA, mockDb, async () => {
@@ -273,7 +273,7 @@ describe("Opportunity Contact Roles API Tests", () => {
         closeDate: null,
         custom: null,
       });
-      oppBId = opportunity.id;
+      _oppBId = opportunity.id;
 
       const contact = await dbStore.contacts.insert({
         orgId: orgB,

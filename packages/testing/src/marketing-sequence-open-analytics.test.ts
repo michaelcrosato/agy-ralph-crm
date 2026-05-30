@@ -177,21 +177,21 @@ describe("Marketing Sequence Email Open Analytics Tests (Task 0204)", () => {
 
       // Trackers
       // Lead 1 welcome: track-token-1
-      const tracker1 = await dbStore.emailTrackers.insert({
+      const _tracker1 = await dbStore.emailTrackers.insert({
         orgId: orgA,
         activityId: act1.id,
         token: "track-token-1",
       });
 
       // Lead 1 feature: track-token-2
-      const tracker2 = await dbStore.emailTrackers.insert({
+      const _tracker2 = await dbStore.emailTrackers.insert({
         orgId: orgA,
         activityId: act2.id,
         token: "track-token-2",
       });
 
       // Lead 2 welcome: track-token-3
-      const tracker3 = await dbStore.emailTrackers.insert({
+      const _tracker3 = await dbStore.emailTrackers.insert({
         orgId: orgA,
         activityId: act3.id,
         token: "track-token-3",
@@ -264,7 +264,7 @@ describe("Marketing Sequence Email Open Analytics Tests (Task 0204)", () => {
         status: "active",
       });
 
-      const stepB = await dbStore.marketingSequenceSteps.insert({
+      const _stepB = await dbStore.marketingSequenceSteps.insert({
         orgId: orgB,
         sequenceId: seqB.id,
         stepNumber: 1,
@@ -309,7 +309,7 @@ describe("Marketing Sequence Email Open Analytics Tests (Task 0204)", () => {
         targetId: leadB.id,
       });
 
-      const trackerB = await dbStore.emailTrackers.insert({
+      const _trackerB = await dbStore.emailTrackers.insert({
         orgId: orgB,
         activityId: actB.id,
         token: "track-token-b",

@@ -1,6 +1,6 @@
 import { createSessionToken } from "@crm/auth";
 import { executePendingSequenceSteps } from "@crm/core";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -199,7 +199,7 @@ describe("Marketing Sequence Conversion Goals & Attribution Engine API & Logic T
     let seqId = "";
     let leadId = "";
     let templateId = "";
-    let membershipId = "";
+    let _membershipId = "";
 
     await withTenant(orgA, mockDb, async () => {
       const template = await dbStore.emailTemplates.insert({
@@ -271,7 +271,7 @@ describe("Marketing Sequence Conversion Goals & Attribution Engine API & Logic T
         lastExecutedAt: null,
         nextExecutionAt: new Date(Date.now() - 5000),
       });
-      membershipId = membership.id;
+      _membershipId = membership.id;
     });
 
     let runRes = 0;

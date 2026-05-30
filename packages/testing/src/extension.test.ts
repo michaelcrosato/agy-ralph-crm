@@ -1,7 +1,7 @@
 import {
-  type TicketInsert,
   createTicket,
   resolveTicket,
+  type TicketInsert,
 } from "@crm/module-service-lite";
 import { describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";

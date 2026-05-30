@@ -211,7 +211,7 @@ describe("Email & Calendar Synchronization API Tests", () => {
         }),
       });
       expect(contactARes.status).toBe(201);
-      const contactA = (await contactARes.json()).data;
+      const _contactA = (await contactARes.json()).data;
 
       // 5. Trigger sync in Tenant A with mock emails/events
       const triggerARes = await app.request("/api/productivity/sync/trigger", {

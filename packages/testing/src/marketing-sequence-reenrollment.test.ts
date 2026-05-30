@@ -1,11 +1,11 @@
 import { createSessionToken } from "@crm/auth";
-import { enrollInSequence, executePendingSequenceSteps } from "@crm/core";
+import { enrollInSequence } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("Marketing Sequence Automated Re-Enrollment & Frequency Capping Controls Tests (Task 0190)", () => {
-  let tokenTenantA: string;
-  let tokenTenantB: string;
+  let _tokenTenantA: string;
+  let _tokenTenantB: string;
 
   const orgA = "org-tenant-a";
   const orgB = "org-tenant-b";
@@ -13,14 +13,14 @@ describe("Marketing Sequence Automated Re-Enrollment & Frequency Capping Control
   beforeEach(async () => {
     dbStore.clear();
 
-    tokenTenantA = await createSessionToken({
+    _tokenTenantA = await createSessionToken({
       userId: "user-a",
       orgId: orgA,
       roleId: "role-a",
       permissionsMask: 7,
     });
 
-    tokenTenantB = await createSessionToken({
+    _tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",
@@ -29,8 +29,8 @@ describe("Marketing Sequence Automated Re-Enrollment & Frequency Capping Control
   });
 
   it("should prevent multiple active concurrent enrollments for the same recipient in a sequence", async () => {
-    let leadId = "";
-    let sequenceId = "";
+    let _leadId = "";
+    let _sequenceId = "";
 
     await withTenant(orgA, mockDb, async () => {
       // 1. Create a lead
@@ -40,7 +40,7 @@ describe("Marketing Sequence Automated Re-Enrollment & Frequency Capping Control
         email: "lead1@tenant-a.com",
         status: "New",
       });
-      leadId = lead.id;
+      _leadId = lead.id;
 
       // 2. Create a sequence
       const seq = await dbStore.marketingSequences.insert({
@@ -50,7 +50,7 @@ describe("Marketing Sequence Automated Re-Enrollment & Frequency Capping Control
         status: "active",
         allowReenrollment: true,
       });
-      sequenceId = seq.id;
+      _sequenceId = seq.id;
 
       // 3. Create a step
       const template = await dbStore.emailTemplates.insert({

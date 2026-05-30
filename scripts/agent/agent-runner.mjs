@@ -37,7 +37,14 @@ function exec(args) {
 
 if (process.platform === "win32" && existsSync(ps1Path)) {
   if (hasCommand("pwsh")) {
-    exec(["pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ps1Path]);
+    exec([
+      "pwsh",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ps1Path,
+    ]);
   }
   if (hasCommand("powershell")) {
     exec([

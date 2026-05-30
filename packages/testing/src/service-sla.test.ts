@@ -1,5 +1,5 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -66,7 +66,7 @@ describe("Case Service Level Agreements (SLA) & Milestone Management Engine API"
     expect(policyBody.data.priority).toBe("high");
     expect(policyBody.data.responseTimeLimitMinutes).toBe(60);
 
-    const policyId = policyBody.data.id;
+    const _policyId = policyBody.data.id;
 
     // 3. Query SLA Policies for Tenant A
     const listPoliciesResA = await app.request("/api/service/sla-policies", {
@@ -136,9 +136,7 @@ describe("Case Service Level Agreements (SLA) & Milestone Management Engine API"
     expect(m1).toBeDefined();
     expect(m1.status).toBe("pending");
     expect(m1.isMet).toBeNull();
-    expect(new Date(m1.targetTime).getTime()).toBeGreaterThan(
-      new Date().getTime(),
-    );
+    expect(new Date(m1.targetTime).getTime()).toBeGreaterThan(Date.now());
 
     expect(m2).toBeDefined();
     expect(m2.status).toBe("pending");

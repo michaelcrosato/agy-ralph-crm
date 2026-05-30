@@ -107,7 +107,7 @@ describe("Marketing Sequence Personalization Engine Tests (Task 0210)", () => {
 
   it("should expose REST preview endpoint and enforce active tenant RLS isolation boundaries", async () => {
     let leadAId = "";
-    let leadBId = "";
+    let _leadBId = "";
 
     // Setup Lead for Tenant A
     await withTenant(orgA, mockDb, async () => {
@@ -140,7 +140,7 @@ describe("Marketing Sequence Personalization Engine Tests (Task 0210)", () => {
           firstName: "Bob",
         },
       });
-      leadBId = lead.id;
+      _leadBId = lead.id;
     });
 
     // 1. Preview Tenant A's lead using Tenant A's token

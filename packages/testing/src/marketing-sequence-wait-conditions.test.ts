@@ -8,8 +8,8 @@ import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("Marketing Sequence Step Wait Conditions Tests (Task 0191)", () => {
-  let tokenTenantA: string;
-  let tokenTenantB: string;
+  let _tokenTenantA: string;
+  let _tokenTenantB: string;
 
   const orgA = "org-tenant-a";
   const orgB = "org-tenant-b";
@@ -17,14 +17,14 @@ describe("Marketing Sequence Step Wait Conditions Tests (Task 0191)", () => {
   beforeEach(async () => {
     dbStore.clear();
 
-    tokenTenantA = await createSessionToken({
+    _tokenTenantA = await createSessionToken({
       userId: "user-a",
       orgId: orgA,
       roleId: "role-a",
       permissionsMask: 7,
     });
 
-    tokenTenantB = await createSessionToken({
+    _tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",

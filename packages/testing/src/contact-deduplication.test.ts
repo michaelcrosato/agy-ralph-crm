@@ -155,7 +155,7 @@ describe("Contact De-duplication and Merging API Tests", () => {
     let masterId = "";
     let duplicateId = "";
     let ticketId = "";
-    let campaignMemberId = "";
+    let _campaignMemberId = "";
     let roleId = "";
     let activityId = "";
     let childContactId = "";
@@ -211,7 +211,7 @@ describe("Contact De-duplication and Merging API Tests", () => {
         status: "Sent",
         createdAt: new Date(),
       });
-      campaignMemberId = member.id;
+      _campaignMemberId = member.id;
 
       // 5. Opportunity Contact Role
       const role = await dbStore.opportunityContactRoles.insert({

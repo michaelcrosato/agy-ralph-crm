@@ -1,5 +1,5 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -11,9 +11,9 @@ describe("Opportunity Product Schedules API & RLS Integration Tests", () => {
   const orgB = "org-tenant-b";
 
   let opportunityAId: string;
-  let opportunityBId: string;
+  let _opportunityBId: string;
   let lineItemAId: string;
-  let lineItemBId: string;
+  let _lineItemBId: string;
 
   beforeEach(async () => {
     dbStore.clear();
@@ -107,7 +107,7 @@ describe("Opportunity Product Schedules API & RLS Integration Tests", () => {
         closeDate: new Date(),
         custom: null,
       });
-      opportunityBId = opp.id;
+      _opportunityBId = opp.id;
 
       const prod = await dbStore.products.insert({
         orgId: orgB,
@@ -139,7 +139,7 @@ describe("Opportunity Product Schedules API & RLS Integration Tests", () => {
         unitPrice: "50.00",
         totalPrice: "5000.00",
       });
-      lineItemBId = oppProd.id;
+      _lineItemBId = oppProd.id;
     });
   });
 

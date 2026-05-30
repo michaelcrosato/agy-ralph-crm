@@ -1,7 +1,7 @@
 import {
+  executeWorkflows,
   type WorkflowEvent,
   type WorkflowRule,
-  executeWorkflows,
 } from "@crm/workflow";
 import { describe, expect, it } from "vitest";
 

@@ -107,7 +107,7 @@ export function compileForecastSummary(params: {
         if (!Number.isNaN(d.getTime())) {
           period = d.toISOString().substring(0, 7);
         }
-      } catch (err) {
+      } catch (_err) {
         period = "None";
       }
     }

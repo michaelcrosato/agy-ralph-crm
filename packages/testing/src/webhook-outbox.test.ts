@@ -1,9 +1,6 @@
 import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, withTenant } from "@crm/db";
-import {
-  enqueueOutboundWebhooks,
-  simulateWebhookDispatch,
-} from "@crm/webhooks";
+import { enqueueOutboundWebhooks } from "@crm/webhooks";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 

@@ -48,8 +48,8 @@ describe("Marketing Sequence Email Read Time Analytics & Scoring Tests (Task 020
     let seq1Id = "";
     let step1Id = "";
     let step2Id = "";
-    let lead1Id = "";
-    let lead2Id = "";
+    let _lead1Id = "";
+    let _lead2Id = "";
 
     // 1. Setup Tenant A Data
     await withTenant(orgA, mockDb, async () => {
@@ -94,7 +94,7 @@ describe("Marketing Sequence Email Read Time Analytics & Scoring Tests (Task 020
         convertedContactId: null,
         custom: null,
       });
-      lead1Id = lead1.id;
+      _lead1Id = lead1.id;
 
       const lead2 = await dbStore.leads.insert({
         orgId: orgA,
@@ -106,7 +106,7 @@ describe("Marketing Sequence Email Read Time Analytics & Scoring Tests (Task 020
         convertedContactId: null,
         custom: null,
       });
-      lead2Id = lead2.id;
+      _lead2Id = lead2.id;
 
       // Memberships
       await dbStore.marketingSequenceMemberships.insert({

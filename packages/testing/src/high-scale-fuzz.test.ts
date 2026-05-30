@@ -1,11 +1,11 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
 describe("Phase 6: High Scale Seeder and Fuzz Testing Engine API Tests", () => {
   let tokenTenantA: string;
-  let tokenTenantB: string;
+  let _tokenTenantB: string;
 
   const orgA = "org-tenant-a";
   const orgB = "org-tenant-b";
@@ -20,7 +20,7 @@ describe("Phase 6: High Scale Seeder and Fuzz Testing Engine API Tests", () => {
       permissionsMask: 7,
     });
 
-    tokenTenantB = await createSessionToken({
+    _tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",

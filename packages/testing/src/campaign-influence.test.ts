@@ -1,5 +1,5 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -349,7 +349,7 @@ describe("Campaign Influence API & Integration Tests", () => {
     });
 
     // 2. Set up Tenant B
-    let oppIdB = "";
+    let _oppIdB = "";
     await withTenant(orgB, mockDb, async () => {
       const opp = await dbStore.opportunities.insert({
         orgId: orgB,
@@ -360,7 +360,7 @@ describe("Campaign Influence API & Integration Tests", () => {
         closeDate: null,
         custom: null,
       });
-      oppIdB = opp.id;
+      _oppIdB = opp.id;
     });
 
     // Tenant B attempts to read Tenant A's campaign influences

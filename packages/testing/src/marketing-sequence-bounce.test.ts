@@ -1,12 +1,11 @@
 import { createSessionToken } from "@crm/auth";
-import { enrollInSequence } from "@crm/core";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
 describe("Marketing Sequence Bounce & Spam Protection / Handling Tests (Task 0188)", () => {
   let tokenTenantA: string;
-  let tokenTenantB: string;
+  let _tokenTenantB: string;
 
   const orgA = "org-tenant-a";
   const orgB = "org-tenant-b";
@@ -21,7 +20,7 @@ describe("Marketing Sequence Bounce & Spam Protection / Handling Tests (Task 018
       permissionsMask: 7,
     });
 
-    tokenTenantB = await createSessionToken({
+    _tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",
@@ -32,7 +31,7 @@ describe("Marketing Sequence Bounce & Spam Protection / Handling Tests (Task 018
   it("should process bounce webhooks and suppress active/snoozed sequence memberships under RLS tenant isolation", async () => {
     let leadId = "";
     let contactId = "";
-    let sequenceId = "";
+    let _sequenceId = "";
     let activeMembershipId = "";
     let snoozedMembershipId = "";
 
@@ -65,7 +64,7 @@ describe("Marketing Sequence Bounce & Spam Protection / Handling Tests (Task 018
         description: "B2B Marketing sequence",
         status: "active",
       });
-      sequenceId = seq.id;
+      _sequenceId = seq.id;
 
       // Enroll Lead (Active)
       const m1 = await dbStore.marketingSequenceMemberships.insert({

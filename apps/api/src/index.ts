@@ -1,23 +1,20 @@
 import {
-  type TenantContext,
   createSessionToken,
+  type TenantContext,
   verifySessionToken,
 } from "@crm/auth";
 import {
-  type KanbanStageSummary,
-  type StageGateRule,
   applyTicketMacro,
   archiveMarketingSequence,
   calculateAccountDuplicates,
   calculateAdjustedForecast,
   calculateAgentCSATMetrics,
   calculateBounceAnalytics,
-  calculateCPQPrice,
-  calculateCampaignROI,
   calculateCampaignRevenueShare,
+  calculateCampaignROI,
   calculateCampaignStats,
   calculateContactDuplicates,
-  calculateContractRenewalAmount,
+  calculateCPQPrice,
   calculateGlobalCompetitorAnalytics,
   calculateLeadDuplicates,
   calculateLeadScore,
@@ -26,7 +23,6 @@ import {
   calculateNextRunDate,
   calculateOpenAnalytics,
   calculateOpportunityCommission,
-  calculateOpportunityCompetitorStats,
   calculateOpportunitySplits,
   calculateProRatedAmount,
   calculateReadTimeAnalytics,
@@ -63,7 +59,6 @@ import {
   getMarketingSequenceMemberLogs,
   handleEmailDeliveryEvent,
   incrementArticleViewCount,
-  isContractInRenewalWindow,
   mergeAccounts,
   mergeContacts,
   mergeLeads,
@@ -83,9 +78,9 @@ import {
   rollbackStoreMigrations,
   rollupHierarchyPipeline,
   rollupOpportunityAmount,
-  rollupOpportunityAmountsInBase,
   runPendingScheduledReports,
   runStoreMigrations,
+  type StageGateRule,
   setPrimaryOpportunityContactRole,
   syncExternalItems,
   validateAccountTeamMember,
@@ -107,15 +102,8 @@ import {
 } from "@crm/core";
 import {
   type DBCurrency,
-  type DBEmailOpenEvent,
-  type DBForecastAdjustment,
   type DBMarketingSequence,
-  type DBMarketingSequenceFolder,
-  type DBMarketingSequenceScoreTrigger,
-  type DBMarketingSequenceTag,
-  type DBMarketingSequenceTagMapping,
   type DBOpportunityStageGate,
-  type DBStageForecastMapping,
   type DBStageGuidance,
   dbStore,
   genId,
@@ -132,11 +120,7 @@ import { compileFormLayout, validateCustomFields } from "@crm/metadata";
 import { createTicket, resolveTicket } from "@crm/module-service-lite";
 import { runReport } from "@crm/reporting";
 import { globalFuzzySearch } from "@crm/search";
-import {
-  enqueueOutboundWebhooks,
-  processOutboxItems,
-  simulateWebhookDispatch,
-} from "@crm/webhooks";
+import { enqueueOutboundWebhooks, processOutboxItems } from "@crm/webhooks";
 import { executeWorkflows } from "@crm/workflow";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
@@ -248,7 +232,7 @@ export const mcpTools = [
 // Tenant verification middleware enforcing RLS integration
 export const tenantAuth = createMiddleware<Env>(async (c, next) => {
   const authHeader = c.req.header("Authorization");
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  if (!authHeader?.startsWith("Bearer ")) {
     return c.json(
       { error: "Unauthorized: Missing or invalid token format" },
       401,
@@ -260,7 +244,7 @@ export const tenantAuth = createMiddleware<Env>(async (c, next) => {
   try {
     tenantContext = await verifySessionToken(token);
     c.set("tenant", tenantContext);
-  } catch (err) {
+  } catch (_err) {
     return c.json({ error: "Unauthorized: Token verification failed" }, 401);
   }
 
@@ -345,7 +329,7 @@ export async function checkAndRunLeadAutoConversion(
   if (!matches) return null;
 
   // Perform conversion
-  const mappings = await dbStore.leadConversionMappings.findMany();
+  const _mappings = await dbStore.leadConversionMappings.findMany();
   const entities = convertLead({
     lead: {
       id: lead.id,
@@ -381,7 +365,7 @@ export async function checkAndRunLeadAutoConversion(
     custom: entities.contact.custom,
   });
 
-  let opportunityId: string | undefined = undefined;
+  let opportunityId: string | undefined;
   if (entities.opportunity && activeRule.createOpportunity === 1) {
     const opp = await dbStore.opportunities.insert({
       orgId,
@@ -2377,10 +2361,10 @@ app.post("/api/leads/:id/convert", tenantAuth, async (c) => {
     custom: entities.contact.custom,
   });
 
-  let opportunityId: string | undefined = undefined;
+  let opportunityId: string | undefined;
   let workflowExecution:
     | { dispatchedWebhooks: string[]; notificationsCreated: string[] }
-    | undefined = undefined;
+    | undefined;
 
   if (entities.opportunity) {
     const opp = await dbStore.opportunities.insert({
@@ -3650,7 +3634,7 @@ app.patch("/api/opportunities/:id", tenantAuth, async (c) => {
 
   let workflowExecution:
     | { dispatchedWebhooks: string[]; notificationsCreated: string[] }
-    | undefined = undefined;
+    | undefined;
 
   if (stage !== undefined && stage !== existing.stage) {
     await dbStore.opportunityStageHistory.insert({
@@ -4284,7 +4268,7 @@ app.post("/api/forecasting/probabilities", tenantAuth, async (c) => {
     return c.json({ error: "Missing required probability fields" }, 400);
   }
 
-  const val = Number.parseInt(probability);
+  const val = Number.parseInt(probability, 10);
   if (Number.isNaN(val) || val < 0 || val > 100) {
     return c.json(
       { error: "Probability must be an integer between 0 and 100" },
@@ -4336,7 +4320,7 @@ app.get("/api/forecasting/summary", tenantAuth, async (c) => {
           !Number.isNaN(d.getTime()) &&
           d.toISOString().substring(0, 7) === periodParam
         );
-      } catch (e) {
+      } catch (_e) {
         return false;
       }
     });
@@ -4435,7 +4419,7 @@ app.get("/api/forecasting/categories-summary", tenantAuth, async (c) => {
           !Number.isNaN(d.getTime()) &&
           d.toISOString().substring(0, 7) === periodParam
         );
-      } catch (e) {
+      } catch (_e) {
         return false;
       }
     });
@@ -5018,7 +5002,7 @@ app.get("/api/emails/:id", tenantAuth, async (c) => {
   const id = c.req.param("id");
   const activity = await dbStore.activities.findOne(id);
 
-  if (!activity || activity.type !== "email") {
+  if (activity?.type !== "email") {
     return c.json({ error: "Email log not found" }, 404);
   }
 
@@ -6643,7 +6627,7 @@ app.post("/api/opportunities/:id/campaign-influence", tenantAuth, async (c) => {
     );
   }
 
-  const pct = Number.parseInt(influencePercentage);
+  const pct = Number.parseInt(influencePercentage, 10);
   if (Number.isNaN(pct) || pct < 0 || pct > 100) {
     return c.json(
       { error: "influencePercentage must be an integer between 0 and 100" },
@@ -7570,7 +7554,7 @@ app.post(
     }
 
     const body = await c.req.json().catch(() => ({}));
-    const periodsCount = Number.parseInt(body.periodsCount) || 12;
+    const periodsCount = Number.parseInt(body.periodsCount, 10) || 12;
     const startDate = new Date(body.startDate || new Date());
     const scheduleType = body.scheduleType || "revenue";
 
@@ -7638,7 +7622,7 @@ app.post(
 );
 
 app.get("/api/consent", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
+  const _tenant = c.get("tenant");
   const recordType = c.req.query("recordType") as
     | "lead"
     | "contact"
@@ -7812,7 +7796,7 @@ app.post("/api/productivity/sync/trigger", tenantAuth, async (c) => {
   const settings = await dbStore.emailCalendarSyncSettings.findByUser(
     tenant.userId,
   );
-  if (!settings || !settings.isActive) {
+  if (!settings?.isActive) {
     return c.json({ error: "No active sync settings found for user" }, 400);
   }
 
@@ -9109,7 +9093,7 @@ app.get("/api/service/tickets/:id/feedback", tenantAuth, async (c) => {
 });
 
 app.get("/api/service/agents/:id/metrics", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
+  const _tenant = c.get("tenant");
   const agentId = c.req.param("id");
 
   const allTickets = await dbStore.tickets.findMany();
@@ -9674,7 +9658,7 @@ app.get("/api/forecasts/adjusted-summary", tenantAuth, async (c) => {
       return (
         !Number.isNaN(d.getTime()) && d.toISOString().substring(0, 7) === period
       );
-    } catch (e) {
+    } catch (_e) {
       return false;
     }
   });
@@ -10450,7 +10434,7 @@ app.post("/api/sequences", tenantAuth, async (c) => {
 
 app.patch("/api/sequences/:id", tenantAuth, async (c) => {
   const sequenceId = c.req.param("id");
-  const tenant = c.get("tenant");
+  const _tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
   const {
     name,
@@ -11909,7 +11893,7 @@ app.post("/api/sequences/email-event", tenantAuth, async (c) => {
 });
 
 app.get("/api/sequences/settings/variables", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
+  const _tenant = c.get("tenant");
   const variables = await dbStore.marketingSequenceGlobalVariables.findMany();
   return c.json({ success: true, data: variables });
 });
@@ -11968,7 +11952,7 @@ app.delete("/api/sequences/settings/variables/:id", tenantAuth, async (c) => {
 });
 
 app.get("/api/sequences/settings/caps", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
+  const _tenant = c.get("tenant");
   const caps = await dbStore.marketingSequenceCaps.findMany();
   if (caps.length === 0) {
     return c.json({
@@ -12610,7 +12594,7 @@ app.post("/api/sequences/folders", tenantAuth, async (c) => {
 
 app.patch("/api/sequences/folders/:id", tenantAuth, async (c) => {
   const id = c.req.param("id");
-  const tenant = c.get("tenant");
+  const _tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
   const { name, parentFolderId } = body;
 

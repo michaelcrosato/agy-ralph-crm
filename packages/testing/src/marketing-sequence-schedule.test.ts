@@ -1,6 +1,6 @@
 import { createSessionToken } from "@crm/auth";
 import { enrollInSequence, executePendingSequenceSteps } from "@crm/core";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -111,7 +111,7 @@ describe("Marketing Sequence Sending Schedule & Deferral Engine Tests (Task 0187
   });
 
   it("should defer step executions when current time falls outside allowed schedule", async () => {
-    let sequenceId = "";
+    let _sequenceId = "";
     let membershipId = "";
 
     await withTenant(orgA, mockDb, async () => {
@@ -124,7 +124,7 @@ describe("Marketing Sequence Sending Schedule & Deferral Engine Tests (Task 0187
         sendingWindowEnd: "17:00",
         sendingDays: [1, 2, 3, 4, 5],
       });
-      sequenceId = seq.id;
+      _sequenceId = seq.id;
 
       const tpl = await dbStore.emailTemplates.insert({
         orgId: orgA,

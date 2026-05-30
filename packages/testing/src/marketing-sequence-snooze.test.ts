@@ -1,6 +1,6 @@
 import { createSessionToken } from "@crm/auth";
 import { enrollInSequence, executePendingSequenceSteps } from "@crm/core";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -171,7 +171,7 @@ describe("Marketing Sequence Snooze & Resume Engine API & Logic Tests (Task 0186
 
   it("should skip snoozed memberships during background execution and auto-resume expired snoozes", async () => {
     let membershipId = "";
-    let leadId = "";
+    let _leadId = "";
 
     await withTenant(orgA, mockDb, async () => {
       // Setup sequence, template, step, and lead
@@ -204,7 +204,7 @@ describe("Marketing Sequence Snooze & Resume Engine API & Logic Tests (Task 0186
         email: "auto@snooze.com",
         company: "AutoSnooze Co",
       });
-      leadId = lead.id;
+      _leadId = lead.id;
 
       // Enroll lead
       const membership = await enrollInSequence(

@@ -1,5 +1,5 @@
 import { createSessionToken } from "@crm/auth";
-import { type KanbanStageSummary, compileKanbanPipeline } from "@crm/core";
+import { compileKanbanPipeline, type KanbanStageSummary } from "@crm/core";
 import { dbStore, mockDb, store, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";

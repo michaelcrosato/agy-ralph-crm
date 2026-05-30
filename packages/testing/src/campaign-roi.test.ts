@@ -1,5 +1,5 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -32,8 +32,8 @@ describe("Campaign ROI & Performance Analytics API Tests", () => {
   it("should calculate correct ROI metrics for a campaign under active tenant RLS isolation", async () => {
     // 1. Setup Tenant A campaign, members, opportunities, and campaign influences
     let campaignId = "";
-    let opp1Id = "";
-    let opp2Id = "";
+    let _opp1Id = "";
+    let _opp2Id = "";
 
     await withTenant(orgA, mockDb, async () => {
       const camp = await dbStore.campaigns.insert({
@@ -94,7 +94,7 @@ describe("Campaign ROI & Performance Analytics API Tests", () => {
         closeDate: new Date(),
         custom: null,
       });
-      opp1Id = opp1.id;
+      _opp1Id = opp1.id;
 
       const opp2 = await dbStore.opportunities.insert({
         orgId: orgA,
@@ -106,7 +106,7 @@ describe("Campaign ROI & Performance Analytics API Tests", () => {
         closeDate: new Date(),
         custom: null,
       });
-      opp2Id = opp2.id;
+      _opp2Id = opp2.id;
 
       const opp3 = await dbStore.opportunities.insert({
         orgId: orgA,

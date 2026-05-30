@@ -1,13 +1,13 @@
 import { createSessionToken } from "@crm/auth";
 import { dbStore, mockDb, withTenant } from "@crm/db";
 import {
-  TrigramIndex,
   computeLevenshteinDistance,
   computeLevenshteinSimilarity,
   computeTrigramSimilarity,
   fuzzySearchRecords,
   generateTrigrams,
   globalFuzzySearch,
+  TrigramIndex,
 } from "@crm/search";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
@@ -71,7 +71,7 @@ describe("Trigram Fuzzy Search Core Engine Tests", () => {
 
 describe("Global Multi-Field Trigram Search Integration & RLS Tests", () => {
   let tokenTenantA: string;
-  let tokenTenantB: string;
+  let _tokenTenantB: string;
 
   const orgA = "org-tenant-a";
   const orgB = "org-tenant-b";
@@ -86,7 +86,7 @@ describe("Global Multi-Field Trigram Search Integration & RLS Tests", () => {
       permissionsMask: 7,
     });
 
-    tokenTenantB = await createSessionToken({
+    _tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",

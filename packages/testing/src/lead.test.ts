@@ -4,9 +4,9 @@ import {
   formatTimeline,
 } from "@crm/audit";
 import {
+  convertLead,
   type LeadConversionInput,
   type LeadRecord,
-  convertLead,
 } from "@crm/core";
 import { describe, expect, it } from "vitest";
 

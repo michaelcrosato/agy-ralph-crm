@@ -164,7 +164,7 @@ describe("Recurring Invoicing & Subscription Billing API Tests", () => {
       expect(fullInvoiceBody.data.length).toBe(1);
       expect(fullInvoiceBody.data[0].amount).toBe("200"); // 100.00 * 2 = 200
 
-      const invoiceId = fullInvoiceBody.data[0].id;
+      const _invoiceId = fullInvoiceBody.data[0].id;
 
       // 3. Generate pro-rated invoices for Tenant A (using force: true to bypass duplicate check)
       const generateProRes = await app.request("/api/invoices/generate", {

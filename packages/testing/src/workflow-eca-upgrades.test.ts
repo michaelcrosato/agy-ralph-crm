@@ -1,9 +1,9 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import {
+  executeWorkflows,
   type WorkflowEvent,
   type WorkflowRule,
-  executeWorkflows,
 } from "@crm/workflow";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";

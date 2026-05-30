@@ -46,7 +46,7 @@ describe("Marketing Sequence Recipient Engagement Scoring Engine Tests (Task 020
 
   it("should calculate composite engagement scores accurately, trigger real-time recalculations via public tracking endpoints, and enforce strict active tenant RLS boundaries", async () => {
     let seq1Id = "";
-    let lead1Id = "";
+    let _lead1Id = "";
     let membership1Id = "";
 
     // 1. Setup Tenant A Data
@@ -71,7 +71,7 @@ describe("Marketing Sequence Recipient Engagement Scoring Engine Tests (Task 020
         convertedContactId: null,
         custom: null,
       });
-      lead1Id = lead1.id;
+      _lead1Id = lead1.id;
 
       // Membership
       const membership = await dbStore.marketingSequenceMemberships.insert({

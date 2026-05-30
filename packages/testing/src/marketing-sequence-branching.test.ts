@@ -161,8 +161,8 @@ describe("Marketing Sequence Dynamic Branching Engine API & Logic Tests (Task 01
   it("should dynamically route to trueNextStepNumber if wait window event is met (click > 0)", async () => {
     let seqId = "";
     let stepId1 = "";
-    let stepId2 = "";
-    const stepId3 = "";
+    let _stepId2 = "";
+    const _stepId3 = "";
     let leadId = "";
     let membershipId = "";
     const now = new Date("2026-05-29T10:00:00Z");
@@ -181,7 +181,7 @@ describe("Marketing Sequence Dynamic Branching Engine API & Logic Tests (Task 01
         subject: "Subject 2",
         body: "Body 2",
       });
-      const template3 = await dbStore.emailTemplates.insert({
+      const _template3 = await dbStore.emailTemplates.insert({
         orgId: orgA,
         name: "Follow-up Cold",
         subject: "Subject 3",
@@ -214,7 +214,7 @@ describe("Marketing Sequence Dynamic Branching Engine API & Logic Tests (Task 01
         delayDays: 0,
         templateId: template2.id,
       });
-      stepId2 = step2.id;
+      _stepId2 = step2.id;
 
       // 4. Create branch rule for Step 1
       await dbStore.marketingSequenceStepBranches.insert({
@@ -308,7 +308,7 @@ describe("Marketing Sequence Dynamic Branching Engine API & Logic Tests (Task 01
         subject: "Subject 1",
         body: "Body 1",
       });
-      const template2 = await dbStore.emailTemplates.insert({
+      const _template2 = await dbStore.emailTemplates.insert({
         orgId: orgA,
         name: "Follow-up Clicked",
         subject: "Subject 2",

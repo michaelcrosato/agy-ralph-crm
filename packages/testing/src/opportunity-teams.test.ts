@@ -1,6 +1,6 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { dbStore, mockDb, withTenant } from "@crm/db";
+import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
 describe("Opportunity Teams & Collaborative Roles API & RLS Integration Tests", () => {
@@ -11,7 +11,7 @@ describe("Opportunity Teams & Collaborative Roles API & RLS Integration Tests", 
   const orgB = "org-tenant-b";
 
   let opportunityAId: string;
-  let opportunityBId: string;
+  let _opportunityBId: string;
 
   beforeEach(async () => {
     dbStore.clear();
@@ -70,7 +70,7 @@ describe("Opportunity Teams & Collaborative Roles API & RLS Integration Tests", 
         closeDate: new Date(),
         custom: null,
       });
-      opportunityBId = opp.id;
+      _opportunityBId = opp.id;
     });
   });
 

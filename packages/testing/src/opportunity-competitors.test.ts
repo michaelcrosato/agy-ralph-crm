@@ -1,6 +1,6 @@
 import { createSessionToken } from "@crm/auth";
 import { calculateOpportunityCompetitorStats } from "@crm/core";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -72,7 +72,7 @@ describe("Opportunity Competitors API & Logic Tests", () => {
       });
 
       // 2. Setup mock opportunity for Tenant B
-      let oppBId = "";
+      let _oppBId = "";
       await withTenant(orgB, mockDb, async () => {
         const opp = await dbStore.opportunities.insert({
           orgId: orgB,
@@ -84,7 +84,7 @@ describe("Opportunity Competitors API & Logic Tests", () => {
           closeDate: new Date(),
           custom: null,
         });
-        oppBId = opp.id;
+        _oppBId = opp.id;
       });
 
       // 3. POST - Add a competitor as Tenant A

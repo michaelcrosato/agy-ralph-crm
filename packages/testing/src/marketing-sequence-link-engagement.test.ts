@@ -187,7 +187,7 @@ describe("Marketing Sequence Link Engagement Analytics Tests (Task 0203)", () =>
         status: "active",
       });
 
-      const stepB = await dbStore.marketingSequenceSteps.insert({
+      const _stepB = await dbStore.marketingSequenceSteps.insert({
         orgId: orgB,
         sequenceId: seqB.id,
         stepNumber: 1,

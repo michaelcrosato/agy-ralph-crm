@@ -1,6 +1,6 @@
 import { createSessionToken } from "@crm/auth";
 import { calculateCPQPrice } from "@crm/core";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
+import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
@@ -94,7 +94,7 @@ describe("CPQ PDF Generator API Tests", () => {
   describe("CPQ REST API Integration", () => {
     it("should support opportunity quote generation, automatic pricebook lookup, HTML rendering, and strict RLS tenant isolation", async () => {
       let oppIdA = "";
-      let oppIdB = "";
+      let _oppIdB = "";
 
       // 1. Setup entities for Tenant A under isolation context
       await withTenant(orgA, mockDb, async () => {
@@ -173,7 +173,7 @@ describe("CPQ PDF Generator API Tests", () => {
           closeDate: null,
           custom: null,
         });
-        oppIdB = oppB.id;
+        _oppIdB = oppB.id;
       });
 
       // 3. POST Generate Quote under Tenant A

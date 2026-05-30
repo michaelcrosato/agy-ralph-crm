@@ -223,7 +223,7 @@ describe("Campaign Email Blast Bulk API & RLS Isolation Tests", () => {
   it("should enforce strict tenant RLS isolation on campaign email blast execution", async () => {
     let campaignIdA = "";
     let templateIdA = "";
-    let campaignIdB = "";
+    let _campaignIdB = "";
 
     // 1. Setup Campaign & Template for Tenant A
     await withTenant(orgA, mockDb, async () => {
@@ -274,7 +274,7 @@ describe("Campaign Email Blast Bulk API & RLS Isolation Tests", () => {
         type: "Email",
         isActive: 1,
       });
-      campaignIdB = campaign.id;
+      _campaignIdB = campaign.id;
     });
 
     // 3. Tenant B trying to blast Tenant A's campaign -> should return 404 (due to RLS separation)

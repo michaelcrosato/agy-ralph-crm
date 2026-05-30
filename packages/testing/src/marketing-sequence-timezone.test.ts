@@ -4,8 +4,8 @@ import { dbStore, mockDb, withTenant } from "@crm/db";
 import { beforeEach, describe, expect, it } from "vitest";
 
 describe("Marketing Sequence Recipient Time-Zone Smart Delivery Engine Tests (Task 0189)", () => {
-  let tokenTenantA: string;
-  let tokenTenantB: string;
+  let _tokenTenantA: string;
+  let _tokenTenantB: string;
 
   const orgA = "org-tenant-a";
   const orgB = "org-tenant-b";
@@ -13,14 +13,14 @@ describe("Marketing Sequence Recipient Time-Zone Smart Delivery Engine Tests (Ta
   beforeEach(async () => {
     dbStore.clear();
 
-    tokenTenantA = await createSessionToken({
+    _tokenTenantA = await createSessionToken({
       userId: "user-a",
       orgId: orgA,
       roleId: "role-a",
       permissionsMask: 7,
     });
 
-    tokenTenantB = await createSessionToken({
+    _tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",
@@ -29,10 +29,10 @@ describe("Marketing Sequence Recipient Time-Zone Smart Delivery Engine Tests (Ta
   });
 
   it("should process timezone-aware scheduling and defer sequence steps correctly", async () => {
-    let leadTokyoId = "";
-    let leadNewYorkId = "";
-    let sequenceId = "";
-    let stepId = "";
+    let _leadTokyoId = "";
+    let _leadNewYorkId = "";
+    let _sequenceId = "";
+    let _stepId = "";
     let membershipTokyoId = "";
     let membershipNewYorkId = "";
 
@@ -46,7 +46,7 @@ describe("Marketing Sequence Recipient Time-Zone Smart Delivery Engine Tests (Ta
         status: "New",
         custom: { timezone: "Asia/Tokyo" },
       });
-      leadTokyoId = leadTokyo.id;
+      _leadTokyoId = leadTokyo.id;
 
       // Create lead in New York timezone (EST/EDT, UTC-4/UTC-5)
       const leadNewYork = await dbStore.leads.insert({
@@ -56,7 +56,7 @@ describe("Marketing Sequence Recipient Time-Zone Smart Delivery Engine Tests (Ta
         status: "New",
         custom: { timezone: "America/New_York" },
       });
-      leadNewYorkId = leadNewYork.id;
+      _leadNewYorkId = leadNewYork.id;
 
       // Create email template
       const template = await dbStore.emailTemplates.insert({
@@ -76,7 +76,7 @@ describe("Marketing Sequence Recipient Time-Zone Smart Delivery Engine Tests (Ta
         sendingWindowStart: "09:00",
         sendingWindowEnd: "17:00",
       });
-      sequenceId = seq.id;
+      _sequenceId = seq.id;
 
       // Create step 1
       const step = await dbStore.marketingSequenceSteps.insert({
@@ -86,7 +86,7 @@ describe("Marketing Sequence Recipient Time-Zone Smart Delivery Engine Tests (Ta
         delayDays: 0,
         templateId: template.id,
       });
-      stepId = step.id;
+      _stepId = step.id;
 
       // Enroll Tokyo Lead (should execute)
       const m1 = await dbStore.marketingSequenceMemberships.insert({

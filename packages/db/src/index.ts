@@ -1,6 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { sql } from "drizzle-orm";
-import { integer, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { genId } from "./_ids";
 
 export { genId } from "./_ids";
@@ -16,7 +15,7 @@ export interface MockDatabase {
 
 // In-memory or dummy DB connection for testing and local verification
 export const mockDb: MockDatabase = {
-  execute: async (query) => {
+  execute: async (_query) => {
     return { rows: [] };
   },
   transaction: async (run) => {

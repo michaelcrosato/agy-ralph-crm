@@ -1,6 +1,6 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { dbStore, mockDb, withTenant } from "@crm/db";
+import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
 describe("Lead SLA & Response Aging Tracking API & Integration Tests", () => {
@@ -124,7 +124,7 @@ describe("Lead SLA & Response Aging Tracking API & Integration Tests", () => {
 
   it("should support marking a lead as responded and calculating response status correctly", async () => {
     let leadId = "";
-    let trackerId = "";
+    let _trackerId = "";
 
     // 1. Setup SLA target & lead with tracker
     await withTenant(orgA, mockDb, async () => {
@@ -156,7 +156,7 @@ describe("Lead SLA & Response Aging Tracking API & Integration Tests", () => {
         respondedAt: null,
         responseTimeMinutes: null,
       });
-      trackerId = tracker.id;
+      _trackerId = tracker.id;
 
       // Manually backdate the tracker creation for mock test
       tracker.createdAt = tenMinsAgo;

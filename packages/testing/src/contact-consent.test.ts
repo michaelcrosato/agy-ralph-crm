@@ -163,7 +163,7 @@ describe("Contact Consent & GDPR Compliance API Tests", () => {
         }),
       });
       expect(leadBRes.status).toBe(200);
-      const leadB = (await leadBRes.json()).data;
+      const _leadB = (await leadBRes.json()).data;
 
       // 3. Tenant A sets email consent to opt_in for Lead A
       const setConsentARes = await app.request("/api/consent", {

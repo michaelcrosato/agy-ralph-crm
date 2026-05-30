@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // Types
 interface Lead {
@@ -206,6 +206,44 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
 
+  // General data loading helper — useCallback so identity is stable across renders.
+  const refreshData = useCallback(async (activeToken: string) => {
+    try {
+      const headers = { Authorization: `Bearer ${activeToken}` };
+
+      const [leadsRes, contactsRes, oppsRes] = await Promise.all([
+        fetch(`${API_BASE}/api/leads`, { headers }),
+        fetch(`${API_BASE}/api/contacts`, { headers }),
+        fetch(`${API_BASE}/api/opportunities`, { headers }),
+      ]);
+
+      const [leadsData, contactsData, oppsData] = await Promise.all([
+        leadsRes.json(),
+        contactsRes.json(),
+        oppsRes.json(),
+      ]);
+
+      setLeads(leadsData.data || []);
+      setContacts(contactsData.data || []);
+      setOpportunities(oppsData.data || []);
+
+      // Grab some recent audit logs as activities
+      setRecentActivities([
+        {
+          id: "act-1",
+          action: "Query Workspace",
+          recordType: "Database",
+          createdAt: new Date().toISOString(),
+          changes: { origin: { after: "Live Server" } },
+        },
+      ]);
+    } catch (e) {
+      console.error("Failed to refresh live server data", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Fetch token for current tenant
   useEffect(() => {
     async function initAuthAndFetch() {
@@ -266,45 +304,7 @@ export default function Home() {
     }
 
     initAuthAndFetch();
-  }, [tenant]);
-
-  // General data loading helper
-  async function refreshData(activeToken: string) {
-    try {
-      const headers = { Authorization: `Bearer ${activeToken}` };
-
-      const [leadsRes, contactsRes, oppsRes] = await Promise.all([
-        fetch(`${API_BASE}/api/leads`, { headers }),
-        fetch(`${API_BASE}/api/contacts`, { headers }),
-        fetch(`${API_BASE}/api/opportunities`, { headers }),
-      ]);
-
-      const [leadsData, contactsData, oppsData] = await Promise.all([
-        leadsRes.json(),
-        contactsRes.json(),
-        oppsRes.json(),
-      ]);
-
-      setLeads(leadsData.data || []);
-      setContacts(contactsData.data || []);
-      setOpportunities(oppsData.data || []);
-
-      // Grab some recent audit logs as activities
-      setRecentActivities([
-        {
-          id: "act-1",
-          action: "Query Workspace",
-          recordType: "Database",
-          createdAt: new Date().toISOString(),
-          changes: { origin: { after: "Live Server" } },
-        },
-      ]);
-    } catch (e) {
-      console.error("Failed to refresh live server data", e);
-    } finally {
-      setLoading(false);
-    }
-  }
+  }, [tenant, refreshData]);
 
   // Handle lead conversion
   async function handleConvertLead() {
@@ -374,7 +374,7 @@ export default function Home() {
 
       setConvertingLead(null);
       setConversionStageName("");
-    } catch (e) {
+    } catch (_e) {
       alert("Error converting lead. Please check Hono is active.");
     } finally {
       setConverting(false);
@@ -417,7 +417,7 @@ export default function Home() {
             );
             setShowSearchResults(true);
           }
-        } catch (e) {
+        } catch (_e) {
           setShowSearchResults(false);
         }
       } else {

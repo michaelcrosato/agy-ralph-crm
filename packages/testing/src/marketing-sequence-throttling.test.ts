@@ -107,7 +107,7 @@ describe("Marketing Sequence Domain Throttling & Recipient Frequency Capping Tes
       let leadId1 = "";
       let leadId2 = "";
       let seqId = "";
-      let stepId = "";
+      let _stepId = "";
       let templateId = "";
 
       // 1. Setup metadata, sequence, step, and two leads with the same domain (e.g. corp.com)
@@ -135,7 +135,7 @@ describe("Marketing Sequence Domain Throttling & Recipient Frequency Capping Tes
           delayDays: 0,
           templateId,
         });
-        stepId = step.id;
+        _stepId = step.id;
 
         // Set Domain Limit to 1 for Tenant A
         await dbStore.marketingSequenceCaps.insert({
@@ -245,8 +245,8 @@ describe("Marketing Sequence Domain Throttling & Recipient Frequency Capping Tes
     it("should enforce recipient frequency capping limits by deferring execution and logging audit trails", async () => {
       let contactId = "";
       let seqId = "";
-      let stepId1 = "";
-      let stepId2 = "";
+      let _stepId1 = "";
+      let _stepId2 = "";
       let templateId1 = "";
       let templateId2 = "";
 
@@ -276,7 +276,7 @@ describe("Marketing Sequence Domain Throttling & Recipient Frequency Capping Tes
         });
         seqId = seq.id;
 
-        stepId1 = (
+        _stepId1 = (
           await dbStore.marketingSequenceSteps.insert({
             orgId: orgA,
             sequenceId: seqId,
@@ -286,7 +286,7 @@ describe("Marketing Sequence Domain Throttling & Recipient Frequency Capping Tes
           })
         ).id;
 
-        stepId2 = (
+        _stepId2 = (
           await dbStore.marketingSequenceSteps.insert({
             orgId: orgA,
             sequenceId: seqId,

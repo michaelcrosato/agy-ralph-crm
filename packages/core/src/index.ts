@@ -421,7 +421,7 @@ export function evaluateLeadAssignment(
   for (const entry of sortedEntries) {
     let match = true;
     for (const cond of entry.criteria) {
-      let leadValue: unknown = undefined;
+      let leadValue: unknown;
       if (cond.field.startsWith("custom.")) {
         const customField = cond.field.substring("custom.".length);
         leadValue = (lead.custom as Record<string, unknown> | null)?.[
@@ -530,7 +530,7 @@ export function evaluateTerritoryRouting(
   for (const territory of activeTerritories) {
     let match = true;
     for (const cond of territory.criteria) {
-      let val: unknown = undefined;
+      let val: unknown;
       if (cond.field.startsWith("custom.")) {
         const customField = cond.field.substring("custom.".length);
         val = (account.custom as Record<string, unknown> | null)?.[customField];
@@ -1239,7 +1239,7 @@ export function calculateLeadScore(
   for (const rule of activeRules) {
     let match = true;
     for (const cond of rule.criteria) {
-      let val: unknown = undefined;
+      let val: unknown;
       if (cond.field.startsWith("custom.")) {
         const customField = cond.field.substring("custom.".length);
         val = (lead.custom as Record<string, unknown> | null)?.[customField];
@@ -1610,7 +1610,7 @@ export function convertLeadWithMappings(
   for (const mapping of mappings) {
     const { sourceLeadField, targetObjectType, targetField } = mapping;
 
-    let value: unknown = undefined;
+    let value: unknown;
     if (sourceLeadField.startsWith("custom.")) {
       const fieldKey = sourceLeadField.substring("custom.".length);
       value = (lead.custom as Record<string, unknown> | null)?.[fieldKey];
@@ -1699,7 +1699,7 @@ export function validateOpportunityStageGate(
   );
 
   for (const rule of activeRules) {
-    let rawVal: unknown = undefined;
+    let rawVal: unknown;
     if (rule.field.startsWith("custom.")) {
       const fieldKey = rule.field.substring("custom.".length);
       rawVal = (opportunity.custom as Record<string, unknown> | null)?.[
@@ -1772,7 +1772,7 @@ export function validateStageGuidanceKeyFields(
   const missingFields: string[] = [];
 
   for (const field of keyFields) {
-    let value: unknown = undefined;
+    let value: unknown;
 
     if (field.startsWith("custom.")) {
       const fieldKey = field.substring("custom.".length);
@@ -2616,7 +2616,7 @@ export function evaluateTicketAssignment(
   for (const entry of sortedEntries) {
     let match = true;
     for (const cond of entry.criteria) {
-      let ticketValue: unknown = undefined;
+      let ticketValue: unknown;
       if (cond.field.startsWith("custom.")) {
         const customField = cond.field.substring("custom.".length);
         ticketValue = (ticket.custom as Record<string, unknown> | null)?.[
@@ -2713,7 +2713,7 @@ export interface TicketEscalationResult {
 }
 
 export function evaluateTicketEscalation(
-  ticket: { priority?: string | null; assignedToId: string | null },
+  _ticket: { priority?: string | null; assignedToId: string | null },
   milestones: TicketMilestoneInput[],
   rules: TicketEscalationRuleInput[],
   currentTime: Date = new Date(),
@@ -3328,7 +3328,7 @@ export async function runPendingScheduledReports(
       } | null>;
     };
   },
-  store: Record<string, unknown[]>,
+  _store: Record<string, unknown[]>,
   orgId: string,
   triggerWebhook?: (
     orgId: string,
@@ -3739,7 +3739,7 @@ export function validatePicklistDependencies(
     const dependentValStr = String(dependentVal);
 
     const allowedOptions = dep.dependencyMap[parentValStr];
-    if (!allowedOptions || !allowedOptions.includes(dependentValStr)) {
+    if (!allowedOptions?.includes(dependentValStr)) {
       return {
         success: false,
         error: `Value '${dependentValStr}' is not allowed for dependent field '${dep.dependentField}' when parent field '${dep.parentField}' is '${parentValStr}'. Allowed values are: ${allowedOptions ? allowedOptions.join(", ") : "none"}.`,
@@ -3903,21 +3903,21 @@ export function personalizeEmailTemplate(
       /\{%\s*if\s+([A-Za-z0-9._]+)\s*%\}([\s\S]*?)\{%\s*else\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g;
     processed = processed.replace(
       ifElseRegex,
-      (match, condPath, trueVal, falseVal) => {
+      (_match, condPath, trueVal, falseVal) => {
         return evalCondition(condPath) ? trueVal : falseVal;
       },
     );
 
     const ifRegex =
       /\{%\s*if\s+([A-Za-z0-9._]+)\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g;
-    processed = processed.replace(ifRegex, (match, condPath, trueVal) => {
+    processed = processed.replace(ifRegex, (_match, condPath, trueVal) => {
       return evalCondition(condPath) ? trueVal : "";
     });
 
     // 2. Resolve placeholders {{path.to.field | filter1 | filter2}}
     processed = processed.replace(
       /\{\{\s*([A-Za-z0-9._]+)(?:\s*\|\s*([^}]+))?\s*\}\}/g,
-      (match, pathStr: string, filtersStr: string | undefined) => {
+      (_match, pathStr: string, filtersStr: string | undefined) => {
         let resolved = resolvePathValue(pathStr);
 
         if (filtersStr) {
@@ -4001,14 +4001,14 @@ function getPartsInTimezone(date: Date, tz: string) {
       map[p.type] = p.value;
     }
     return {
-      year: Number.parseInt(map.year),
-      month: Number.parseInt(map.month),
-      day: Number.parseInt(map.day),
-      hour: Number.parseInt(map.hour),
-      minute: Number.parseInt(map.minute),
+      year: Number.parseInt(map.year, 10),
+      month: Number.parseInt(map.month, 10),
+      day: Number.parseInt(map.day, 10),
+      hour: Number.parseInt(map.hour, 10),
+      minute: Number.parseInt(map.minute, 10),
       weekday: map.weekday, // "Mon", "Tue", etc.
     };
-  } catch (e) {
+  } catch (_e) {
     // Fallback to UTC
     const utcDate = new Date(date.getTime());
     const weekdayMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -4069,7 +4069,7 @@ export function getNextValidSendingTime(
       }
     }
 
-    const localForShift = getPartsInTimezone(target, tz);
+    const _localForShift = getPartsInTimezone(target, tz);
     const nextTarget = new Date(target.getTime() + 24 * 60 * 60 * 1000);
     const nextLocal = getPartsInTimezone(nextTarget, tz);
     const startMinutes = windowStart ? parseTimeToMinutes(windowStart) : 0;
@@ -4119,7 +4119,7 @@ export function calculateNextStepExecutionTime(
     currentTime.getTime() + delayDays * 24 * 60 * 60 * 1000,
   );
 
-  if (!waitCondition || waitCondition.waitType !== "day_of_week") {
+  if (waitCondition?.waitType !== "day_of_week") {
     return target;
   }
 
@@ -4128,11 +4128,11 @@ export function calculateNextStepExecutionTime(
     return target;
   }
 
-  let found = false;
+  let _found = false;
   for (let i = 0; i < 7; i++) {
     const day = target.getDay();
     if (daysOfWeek.includes(day)) {
-      found = true;
+      _found = true;
       break;
     }
     target = new Date(target.getTime() + 24 * 60 * 60 * 1000);
@@ -6172,7 +6172,7 @@ export function evaluateSegmentCriteria(
   criteria: { field: string; operator: string; value: string }[],
 ): boolean {
   for (const cond of criteria) {
-    let val: unknown = undefined;
+    let val: unknown;
     if (cond.field.startsWith("custom.")) {
       const customField = cond.field.substring("custom.".length);
       val = (record.custom as Record<string, unknown> | null)?.[customField];
@@ -6213,7 +6213,7 @@ export function evaluateSegmentCriteria(
 export async function resolveSegmentMembers(
   // biome-ignore lint/suspicious/noExplicitAny: dbStore dynamic reference
   db: any,
-  tenantOrgId: string,
+  _tenantOrgId: string,
   segmentId: string,
   // biome-ignore lint/suspicious/noExplicitAny: dynamic return
 ): Promise<any[]> {
@@ -7823,7 +7823,7 @@ export function calculateOpenAnalytics(
   for (const step of seqSteps) {
     stepSentCount.set(step.id, 0);
   }
-  for (const [actId, stepInfo] of activityToStep.entries()) {
+  for (const [_actId, stepInfo] of activityToStep.entries()) {
     stepSentCount.set(stepInfo.id, (stepSentCount.get(stepInfo.id) || 0) + 1);
   }
 
@@ -8007,7 +8007,7 @@ export function calculateReplyAnalytics(
   for (const step of seqSteps) {
     stepSentCount.set(step.id, 0);
   }
-  for (const [actId, stepInfo] of activityToStep.entries()) {
+  for (const [_actId, stepInfo] of activityToStep.entries()) {
     stepSentCount.set(stepInfo.id, (stepSentCount.get(stepInfo.id) || 0) + 1);
   }
 
@@ -8223,7 +8223,7 @@ export function calculateBounceAnalytics(
   for (const step of seqSteps) {
     stepSentCount.set(step.id, 0);
   }
-  for (const [actId, stepInfo] of activityToStep.entries()) {
+  for (const [_actId, stepInfo] of activityToStep.entries()) {
     stepSentCount.set(stepInfo.id, (stepSentCount.get(stepInfo.id) || 0) + 1);
   }
 
@@ -8629,7 +8629,7 @@ export async function processSequenceMembershipScoreTriggers(
 ): Promise<{ triggeredCount: number; executedActions: string[] }> {
   const membership =
     await db.marketingSequenceMemberships.findOne(membershipId);
-  if (!membership || membership.status !== "active") {
+  if (membership?.status !== "active") {
     return { triggeredCount: 0, executedActions: [] };
   }
 

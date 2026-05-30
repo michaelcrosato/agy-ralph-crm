@@ -1,6 +1,6 @@
 import { createSessionToken } from "@crm/auth";
-import { dbStore, mockDb, store, withTenant } from "@crm/db";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { dbStore, mockDb, withTenant } from "@crm/db";
+import { beforeEach, describe, expect, it } from "vitest";
 import app from "../../../apps/api/src/index";
 
 describe("Account Teams & Collaborative Roles API & RLS Integration Tests", () => {
@@ -11,7 +11,7 @@ describe("Account Teams & Collaborative Roles API & RLS Integration Tests", () =
   const orgB = "org-tenant-b";
 
   let accountAId: string;
-  let accountBId: string;
+  let _accountBId: string;
 
   beforeEach(async () => {
     dbStore.clear();
@@ -50,7 +50,7 @@ describe("Account Teams & Collaborative Roles API & RLS Integration Tests", () =
         domain: "buymore.com",
         custom: null,
       });
-      accountBId = acc.id;
+      _accountBId = acc.id;
     });
   });
 

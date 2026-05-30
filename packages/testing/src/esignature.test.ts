@@ -147,7 +147,7 @@ describe("E-Signature Requests and Document Signing API", () => {
   });
 
   it("should enforce strict state transition logic through simulation", async () => {
-    let oppIdA = "";
+    let _oppIdA = "";
     let requestId = "";
 
     await withTenant(orgA, mockDb, async () => {
@@ -161,7 +161,7 @@ describe("E-Signature Requests and Document Signing API", () => {
         closeDate: null,
         custom: null,
       });
-      oppIdA = opp.id;
+      _oppIdA = opp.id;
 
       const req = await dbStore.esignatureRequests.insert({
         orgId: orgA,

@@ -124,7 +124,7 @@ export async function processOutboxItems(
 
   for (const entry of eligibleItems) {
     const webhook = webhooks.find((w) => w.id === entry.webhookId);
-    if (!webhook || webhook.status !== "active") {
+    if (webhook?.status !== "active") {
       // Clean up orphaned or inactive webhook outbox items
       await dbStoreInstance.webhookOutbox.delete(entry.id).catch(() => {});
       continue;

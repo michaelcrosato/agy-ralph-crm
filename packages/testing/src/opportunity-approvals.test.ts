@@ -334,7 +334,7 @@ describe("Multi-Stage Opportunity Approval Processes (Approval Trees)", () => {
   it("should strictly enforce multi-tenant RLS isolation rules", async () => {
     // 1. Create Tenant A opportunity and approval submission
     let oppIdA = "";
-    let approvalIdA = "";
+    let _approvalIdA = "";
     let stepIdA = "";
 
     await withTenant(orgA, mockDb, async () => {
@@ -361,7 +361,7 @@ describe("Multi-Stage Opportunity Approval Processes (Approval Trees)", () => {
       },
     );
     const submitBody = await submitRes.json();
-    approvalIdA = submitBody.data.id;
+    _approvalIdA = submitBody.data.id;
     stepIdA = submitBody.data.steps[0].id;
 
     // 2. Tenant B requests history of Tenant A opportunity -> 404 (isolated)

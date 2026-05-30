@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type MockSeedConfig, generateSeedData } from "./index";
+import { generateSeedData, type MockSeedConfig } from "./index";
 
 describe("Phase 6: High Scale Seeder & Performance Optimization Tests", () => {
   it("should successfully generate bulk mock nodes scaling up to config targets", () => {

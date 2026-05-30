@@ -6,7 +6,7 @@ import app from "../../../apps/api/src/index";
 
 describe("Marketing Sequence Email Threading Tests (Task 0196)", () => {
   let tokenTenantA: string;
-  let tokenTenantB: string;
+  let _tokenTenantB: string;
 
   const orgA = "org-tenant-a";
   const orgB = "org-tenant-b";
@@ -21,7 +21,7 @@ describe("Marketing Sequence Email Threading Tests (Task 0196)", () => {
       permissionsMask: 7,
     });
 
-    tokenTenantB = await createSessionToken({
+    _tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",

@@ -1,7 +1,7 @@
 import {
+  compileFormLayout,
   type FieldDefinition,
   type LayoutConfig,
-  compileFormLayout,
   validateCustomFields,
 } from "@crm/metadata";
 import { describe, expect, it } from "vitest";

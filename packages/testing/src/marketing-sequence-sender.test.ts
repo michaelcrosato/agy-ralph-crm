@@ -161,7 +161,7 @@ describe("Marketing Sequence Dynamic Sender Assignment Tests (Task 0195)", () =>
 
   it("should execute step sending with dynamic creatorId assignment based on senderType", async () => {
     let leadId = "";
-    let contactId = "";
+    let _contactId = "";
     let templateId = "";
     let seqSystemId = "";
     let seqOwnerId = "";
@@ -191,7 +191,7 @@ describe("Marketing Sequence Dynamic Sender Assignment Tests (Task 0195)", () =>
         email: "jane@test.com",
         custom: null,
       });
-      contactId = contact.id;
+      _contactId = contact.id;
 
       // Create template
       const template = await dbStore.emailTemplates.insert({
@@ -254,7 +254,7 @@ describe("Marketing Sequence Dynamic Sender Assignment Tests (Task 0195)", () =>
     });
 
     // 1. Run dynamic system sender execution
-    let membershipSysId = "";
+    let _membershipSysId = "";
     await withTenant(orgA, mockDb, async () => {
       const m = await dbStore.marketingSequenceMemberships.insert({
         orgId: orgA,
@@ -265,7 +265,7 @@ describe("Marketing Sequence Dynamic Sender Assignment Tests (Task 0195)", () =>
         currentStepNumber: 0,
         nextExecutionAt: new Date(),
       });
-      membershipSysId = m.id;
+      _membershipSysId = m.id;
     });
 
     const triggerExecRes = await app.request("/api/sequences/execute", {
