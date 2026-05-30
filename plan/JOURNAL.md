@@ -119,5 +119,31 @@
 - Validated whole workspace type safety and formatting: `pnpm verify` (100% green).
 - Executed whole workspace test suite: `pnpm test` (all 146 files, 483 tests passed cleanly).
 
+## [2026-05-30] Cycle 5 — Automated Memory Leak Telemetry & Monitoring
+
+### 1. REPO BASELINE
+- **Branch**: `main`, fully clean working tree.
+- **Verification Command**: `pnpm verify` and `pnpm test`
+- **Test Baseline**: 146 passed test files, 483 passed tests.
+
+### 2. ARCHITECTURAL FINDINGS
+- Under high-frequency sequence processing loops, long-running processes are highly susceptible to silent memory leaks and event loop blockages.
+- Integrating a low-overhead sampling utility using Node's native `perf_hooks` (e.g. `monitorEventLoopDelay`) and `process.memoryUsage` allows precise diagnostic insight.
+- Tracking rolling `heapUsed` history (up to 5 samples) enables deterministic mathematical detection of monotonic heap growth (continuous increasing allocations above warning thresholds) to identify leaks.
+- Incorporating memory check hooks inside sequence processing loops (`executePendingSequenceSteps`) ensures continuous monitoring under active production work.
+
+### 3. ACTION PLAN & IMPLEMENTATION (Spec 048)
+- **Telemetry Utility**: Implemented `MemoryTelemetry` in `packages/observability/src/memory.ts` tracking event loop mean/max lag and heap history. Configured warning/critical thresholds and structured Pino warning outputs. Exposed `start()`, `stop()`, and `check()` methods.
+- **Monorepo Exports**: Added `MemoryTelemetry` to exports in `packages/observability/src/index.ts`. Added dependencies to `@crm/core` and `@crm/testing` to safely enable workspace imports.
+- **Sequence Integration**: Embedded dynamic `MemoryTelemetry.check()` wraps inside `executePendingSequenceSteps` loop iteration cycles to monitor active memory utilization during step processing.
+- **Integration Tests**: Added `packages/testing/src/memory-telemetry.test.ts` featuring rolling history assertions, event loop lag, non-monotonic health, and simulated leakage alert triggers.
+
+### 4. VERIFICATION LOG
+- Rebuilt packages and executed targeted tests: `npx vitest run packages/testing/src/memory-telemetry.test.ts` (4/4 tests passed 100% green).
+- Formatted and resolved lint rules using Biome (100% compliant).
+- Verified the complete workspace compiler and linter rules: `pnpm verify` (completed successfully with exit status 0).
+- Executed the full workspace test suite: `pnpm test` (all 147 files, 487 tests passed 100% green and regression-free).
+
+
 
 

@@ -21,6 +21,7 @@
     "@crm/search": "workspace:*",
     "@crm/webhooks": "workspace:*",
     "@crm/workflow": "workspace:*",
+    "@crm/observability": "workspace:*",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.0.0",
     "@hono/zod-openapi": "^1.4.0",

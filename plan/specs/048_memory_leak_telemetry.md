@@ -1,6 +1,6 @@
 # 048 — BG-001: Automated Memory Leak Telemetry
 
-**Phase:** 2 (Replenish) · **Priority:** Medium · **Status:** `[ ] Todo` · **Depends on:** 016, 022
+**Phase:** 2 (Replenish) · **Priority:** Medium · **Status:** `[x] Completed` · **Depends on:** 016, 022
 
 ## Description & Expected Impact
 

@@ -234,6 +234,9 @@ importers:
       '@crm/db':
         specifier: workspace:*
         version: link:../db
+      '@crm/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@crm/search':
         specifier: workspace:*
         version: link:../search
@@ -486,6 +489,9 @@ importers:
       '@crm/module-service-lite':
         specifier: workspace:*
         version: link:../../modules/service-lite
+      '@crm/observability':
+        specifier: workspace:*
+        version: link:../observability
       '@crm/search':
         specifier: workspace:*
         version: link:../search

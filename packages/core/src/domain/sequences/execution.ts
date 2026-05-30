@@ -565,6 +565,14 @@ export async function executePendingSequenceSteps(
     }
 
     processedCount++;
+
+    // Track memory telemetry during sequence processing cycles
+    try {
+      const { MemoryTelemetry } = await import("@crm/observability");
+      MemoryTelemetry.check();
+    } catch {
+      // Safe fallback
+    }
   }
 
   return processedCount;
