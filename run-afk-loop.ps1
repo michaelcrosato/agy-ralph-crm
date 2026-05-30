@@ -5,7 +5,8 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $RepoRoot
 
-$AgyPath = (Get-Command agy -ErrorAction SilentlyContinue)?.Source
+$AgyCommand = Get-Command agy -ErrorAction SilentlyContinue
+$AgyPath = if ($null -ne $AgyCommand) { $AgyCommand.Source } else { $null }
 if (-not $AgyPath) {
     $FallbackAgyPath = Join-Path $env:LOCALAPPDATA "agy\bin\agy.exe"
     if (Test-Path $FallbackAgyPath) {
