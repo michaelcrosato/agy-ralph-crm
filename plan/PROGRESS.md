@@ -22,7 +22,7 @@
 - [x] **012** — [Decompose packages/db/src/index.ts (6,312 lines, 70+ stores)](./specs/012_decompose_packages_db.md) · `513e7d2` (partial: helpers) + `7a1e781` (full: 100+ stores via spec 040) — index.ts at 132 lines
 - [x] **013** — [Wire real Postgres + Drizzle + testcontainers](./specs/013_real_postgres_drizzle.md) · `c03ae3e` — wired real PG client, generated schema migrations, and parameterized 5 integration suites against testcontainers
 - [x] **014** — [Postgres RLS policies via set_config('app.current_tenant_id')](./specs/014_rls_policies_set_local.md) · `a7f5c59` — generated RLS enablement and tenant isolation policies migration for all 105 tenant-scoped tables, and wrote 3 property-based RLS tests
-- [ ] **015** — [Composite (tenant_id, …) indexes on hot tables](./specs/015_composite_indexes.md) · deps: 013
+- [x] **015** — [Composite (tenant_id, …) indexes on hot tables](./specs/015_composite_indexes.md) · `3342a0c` — composite and lookup indexes added to hot tables (leads, opportunities, tickets, memberships, webhook outbox), migrations generated/verified green.
 - [x] **016** — [OpenTelemetry traces + metrics + log correlation](./specs/016_otel_instrumentation.md) · `8ae56cd`
 - [x] **017** — [@hono/zod-openapi for type-safe routes + auto OpenAPI](./specs/017_zod_openapi_hono.md) · `41d0f5b` — health and leads routes fully migrated, validation parity confirmed, doc and UI tested green (133 passed/1 skipped)
 - [x] **018** — [Typed Hono RPC client for apps/web](./specs/018_hono_rpc_client.md) · `11dfd49` — new packages/api-client/ package, consumed in 3 server components and main dashboard client page, build green.
@@ -31,7 +31,7 @@
 - [x] **021** — [Playwright config + lead/contact/opportunity smoke E2E](./specs/021_playwright_smoke_e2e.md) · `97c0cb0` (runtime install deferred)
 - [x] **022** — [Replace console.* with pino bridged to OTel](./specs/022_pino_otel_logging.md) · `65d66ce`
 - [x] **023** — [Decouple 129 test files from apps/api/src/index import](./specs/023_test_decouple_from_apps.md) · `2482ca7` — introduced packages/testing/src/_harness.ts and migrated 123 test files to use createTestApp(), build/tests green.
-- [x] **024 (partial)** — [Declare composite + single-column indexes on Drizzle schema](./specs/024_drizzle_indexes_declare.md) · `cf290ea` — 6/21 core tables indexed; remaining tables + migrations defer to spec 013
+- [x] **024** — [Declare composite + single-column indexes on Drizzle schema](./specs/024_drizzle_indexes_declare.md) · `3342a0c` — declared indexes for leads, opportunities, tickets, audit logs, sequence memberships/steps, and partial pending index on webhook outbox.
 - [x] **025** — [Zod-validate JSONB columns at insert/update](./specs/025_jsonb_zod_validation.md) · `bfa929d` — runtime Zod validation of custom fields at store/PG layers with dynamic imports to avoid cycles, tests green.
 
 ## Phase 2 — Major Features (3+ weeks)
@@ -82,6 +82,8 @@
 | 018 | `11dfd49` | 2026-05-30 | 414/414 (Build and type-safety green) |
 | 025 | `bfa929d` | 2026-05-30 | 416/416 (+1 jsonb integration test) |
 | 023 | `2482ca7` | 2026-05-30 | 416/416 (Decoupled 123 test files via _harness.ts) |
+| 015 | `3342a0c` | 2026-05-30 | 416/416 (High-performance composite indexes on hot tables) |
+| 024 | `3342a0c` | 2026-05-30 | 416/416 (Declared lookup/composite Drizzle indexes + migrations) |
 
 ## Discovered Follow-ups
 
