@@ -12,6 +12,8 @@ const log = createLogger({ name: "api.bootstrap" });
 import { OpenAPIHono } from "@hono/zod-openapi";
 import { apiReference } from "@scalar/hono-api-reference";
 import { cors } from "hono/cors";
+import { secureHeaders } from "hono/secure-headers";
+import { rateLimiter } from "./middleware/rateLimiter";
 import type { Env } from "./middleware/tenantAuth";
 import { accountsApp } from "./routes/accounts";
 import {
@@ -83,7 +85,45 @@ import { EmbedderService } from "@crm/core";
 EmbedderService.initialize();
 
 const app = new OpenAPIHono<Env>();
-app.use("*", cors());
+
+// ── Security Middleware ────────────────────────────────────────────
+// Secure headers: CSP, HSTS, X-Frame-Options, X-Content-Type-Options, etc.
+app.use("*", secureHeaders());
+
+// CORS: restricted to CORS_ORIGIN in production, open in dev.
+const allowedOrigin = process.env.CORS_ORIGIN || "*";
+app.use(
+  "*",
+  cors({
+    origin: allowedOrigin === "*" ? "*" : allowedOrigin.split(","),
+  }),
+);
+
+// Rate limiting: 100 req/min globally per IP.
+app.use("*", rateLimiter(100));
+
+// Stricter rate limit on auth endpoints: 10 req/min.
+app.use("/api/auth/*", rateLimiter(10));
+
+// ── Centralized Error Handler ──────────────────────────────────────
+app.onError((err, c) => {
+  const status =
+    typeof (err as any).status === "number"
+      ? ((err as any).status as number)
+      : 500;
+  const isProd = process.env.NODE_ENV === "production";
+  log.error(
+    { err, method: c.req.method, path: c.req.path },
+    "Unhandled request error",
+  );
+  return c.json(
+    {
+      error: isProd ? "Internal Server Error" : err.message,
+      status,
+    },
+    status as any,
+  );
+});
 
 app.doc("/openapi.json", {
   openapi: "3.1.0",
