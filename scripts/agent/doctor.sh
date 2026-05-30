@@ -57,5 +57,60 @@ else
   echo "no npx found"
 fi
 
+# Advisory check — pnpm audit --json (does not fail script on moderate/low).
+ADVISORY_EXIT=0
+if command -v pnpm &> /dev/null && command -v node &> /dev/null; then
+  echo "Advisories:"
+  AUDIT_JSON=$(pnpm audit --json 2>/dev/null || true)
+  if [ -n "$AUDIT_JSON" ]; then
+    node -e "
+      try {
+        const a = JSON.parse(process.argv[1] || '{}');
+        const v = (a && a.metadata && a.metadata.vulnerabilities) || {};
+        const c = v.critical || 0;
+        const h = v.high || 0;
+        const m = v.moderate || 0;
+        const l = v.low || 0;
+        console.log('  ' + c + ' critical, ' + h + ' high, ' + m + ' moderate, ' + l + ' low');
+        if (c > 0 || h > 0) process.exit(2);
+      } catch (e) { console.log('  (could not parse audit output)'); }
+    " "$AUDIT_JSON" || ADVISORY_EXIT=$?
+  else
+    echo "  (no audit output)"
+  fi
+else
+  echo "Advisories: pnpm or node unavailable (skipped)"
+fi
+
+# Outdated check — pnpm outdated --recursive (informational only).
+if command -v pnpm &> /dev/null && command -v node &> /dev/null; then
+  echo "Outdated (major):"
+  OUTDATED_JSON=$(pnpm outdated --recursive --format json 2>/dev/null || true)
+  if [ -n "$OUTDATED_JSON" ]; then
+    node -e "
+      try {
+        const raw = process.argv[1] || '';
+        const m = raw.match(/^[{[][\s\S]*\$/m);
+        if (!m) { console.log('  0 package(s) with a newer major'); process.exit(0); }
+        const o = JSON.parse(m[0]);
+        const entries = Object.values(o || {});
+        const majors = entries.filter(e => {
+          const cur = String(e.current || '').split('.')[0];
+          const lat = String(e.latest || '').split('.')[0];
+          return cur && lat && cur !== lat;
+        });
+        console.log('  ' + majors.length + ' package(s) with a newer major');
+      } catch (e) { console.log('  (could not parse outdated output)'); }
+    " "$OUTDATED_JSON" || true
+  else
+    echo "  0 package(s) with a newer major"
+  fi
+fi
+
+if [ "$ADVISORY_EXIT" -ne 0 ]; then
+  echo "[ERROR] high or critical advisories present; address before continuing."
+  exit "$ADVISORY_EXIT"
+fi
+
 echo "Diagnostics complete."
 exit 0
