@@ -1,3 +1,5 @@
+import { resolvePath } from "./dsl/conditions";
+
 export const WORKFLOW_VERSION = "0.1.0";
 
 export type WorkflowConditionOperator =
@@ -129,6 +131,22 @@ function matchCondition(
   }
 }
 
+function compileTemplate(
+  template: string,
+  payload: Record<string, unknown>,
+): string {
+  return template.replace(/\{([A-Za-z0-9_.]+)\}/g, (_match, path) => {
+    const val = resolvePath(payload, path);
+    if (val === undefined || val === null) {
+      return "";
+    }
+    if (typeof val === "object") {
+      return JSON.stringify(val);
+    }
+    return String(val);
+  });
+}
+
 // executeWorkflows parses incoming dynamic events and matches against workflow criteria
 export async function executeWorkflows(
   event: WorkflowEvent,
@@ -161,27 +179,17 @@ export async function executeWorkflows(
         if (action.type === "webhook") {
           let target = action.target;
           if (action.config?.template) {
-            let compiled = action.config.template;
-            for (const [key, value] of Object.entries(event.payload)) {
-              compiled = compiled.replace(
-                new RegExp(`{${key}}`, "g"),
-                String(value),
-              );
-            }
+            const compiled = compileTemplate(
+              action.config.template,
+              event.payload,
+            );
             target = `${action.target}?payload=${encodeURIComponent(compiled)}`;
           }
           dispatchedWebhooks.push(`Dispatched webhook payload to: ${target}`);
         } else if (action.type === "notification") {
           let target = action.target;
           if (action.config?.template) {
-            let compiled = action.config.template;
-            for (const [key, value] of Object.entries(event.payload)) {
-              compiled = compiled.replace(
-                new RegExp(`{${key}}`, "g"),
-                String(value),
-              );
-            }
-            target = compiled;
+            target = compileTemplate(action.config.template, event.payload);
           }
           notificationsCreated.push(`Logged notification alert: ${target}`);
         } else if (action.type === "task") {

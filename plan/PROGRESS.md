@@ -100,6 +100,7 @@
 - [x] **048** — [BG-001: Automated Memory Leak Telemetry](./specs/048_memory_leak_telemetry.md) · `completed` · 2026-05-30 — Added MemoryTelemetry engine tracking heapUsed history and event loop latency lag, wrapped sequence step executions, and added 4 extensive leak scenario test cases.
 - [x] **049** — [TD-002: Dynamic Field Picklist Validation Optimization](./specs/049_picklist_validation_optimization.md) · `completed` · 2026-05-30 — Implemented rolling TTL in-memory cache and mutation-triggered dynamic cache invalidation, verified via 3 caching tests
 - [x] **050** — [BG-003: Webhook Outbox Batching & Concurrency Optimization](./specs/050_webhook_outbox_batching_optimization.md) · `completed` · 2026-05-30 — Optimized webhook outbox processing with high-performance concurrent Promise.all execution, reducing database connection time and passing all 5 outbox specs
+- [x] **051** — [Workflow Nested JSON Path Template Compilation](./specs/051_workflow_nested_template_compilation.md) · `completed` · 2026-05-30 — Implemented robust template compiler resolving nested paths (e.g. `{custom.score}`) and safely stringifying objects to JSON, verified via targeted test suite
 
 
 

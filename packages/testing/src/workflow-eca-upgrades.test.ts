@@ -325,6 +325,42 @@ describe("Workflow ECA Upgrades - Unit & Integration Tests", () => {
         "Logged notification alert: Deal Iron Man Suit is won!",
       );
     });
+
+    it("should substitute nested dot-notation path placeholders and safely serialize objects", async () => {
+      const rule: WorkflowRule = {
+        id: "rule-nested-path",
+        triggerEvent: "opportunity.stage_changed",
+        conditions: null,
+        actions: [
+          {
+            type: "webhook",
+            target: "https://hooks.slack.com/services/123",
+            config: {
+              template:
+                "Deal {name} score is {custom.score} and custom payload is {custom.payload}",
+            },
+          },
+        ],
+      };
+
+      const event: WorkflowEvent = {
+        name: "opportunity.stage_changed",
+        payload: {
+          id: "opp-999",
+          name: "Iron Man Suit",
+          custom: {
+            score: 95,
+            payload: { tags: ["vip", "iron"] },
+          },
+        },
+      };
+
+      const res = await executeWorkflows(event, [rule]);
+      expect(res.dispatchedWebhooks.length).toBe(1);
+      expect(res.dispatchedWebhooks[0]).toBe(
+        "Dispatched webhook payload to: https://hooks.slack.com/services/123?payload=Deal%20Iron%20Man%20Suit%20score%20is%2095%20and%20custom%20payload%20is%20%7B%22tags%22%3A%5B%22vip%22%2C%22iron%22%5D%7D",
+      );
+    });
   });
 
   describe("Security: Multi-Tenant RLS Boundaries", () => {

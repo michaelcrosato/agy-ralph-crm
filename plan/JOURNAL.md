@@ -173,6 +173,31 @@
 - Ran linter, formatter, and typecheck: `pnpm verify` (100% successful with exit code 0).
 - Ran entire monorepo-wide test suite: `pnpm test` (all 148 test files, 490 tests passed 100% green and regression-free).
 
+## [2026-05-30] Cycle 7 — Workflow Nested Path Template Compilation (Spec 051)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, fully clean working tree.
+- **Verification Command**: `pnpm verify` and `pnpm test`
+- **Test Baseline**: 148 passed test files, 490 passed tests.
+
+### 2. ARCHITECTURAL FINDINGS
+- Restricting ECA workflow templating to root-level keys limits capability to process complex event payloads.
+- Reusing the recursive path resolver (`resolvePath`) enables standard dot-notation path resolution (e.g. `{custom.score}`) inside action template interpolation seamlessly.
+- Properly stringifying object/array values to JSON prevents `"[object Object]"` output and ensures native compatibility with rich nested payload formats.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Workflow Nested Paths (Spec 051)**:
+  - Centralized robust template interpolation inside a `compileTemplate` utility using `resolvePath` under `packages/workflow/src/index.ts`.
+  - Configured safe JSON stringification fallback for nested objects and arrays.
+  - Linked the template compiler to both webhook and notification action dispatches inside `executeWorkflows`.
+  - Added intensive unit assertions checking nested dot path resolution and object serialization to JSON within `packages/testing/src/workflow-eca-upgrades.test.ts`.
+
+### 4. VERIFICATION LOG
+- Rebuilt workflow packages: `pnpm --filter @crm/workflow build`.
+- Ran targeted tests: `npx vitest run packages/testing/src/workflow.test.ts packages/testing/src/workflow-eca-upgrades.test.ts` (8/8 green).
+- Ran linter, formatter, and compiler checks: `pnpm verify` (100% successful with exit code 0).
+- Executed full workspace test suite: `pnpm test` (all 148 test files, 491 tests passed 100% green and regression-free).
+
 
 
 
