@@ -143,6 +143,7 @@ export function createPgStore(
 export const storeMetadata: Record<string, { table: any; prefix: string }> = {
   customEntityTypes: { table: schema.customEntityTypes, prefix: "cetype" },
   customEntityRecords: { table: schema.customEntityRecords, prefix: "cerec" },
+  embeddings: { table: schema.embeddings, prefix: "embed" },
   users: { table: schema.users, prefix: "user" },
   memberships: { table: schema.memberships, prefix: "membership" },
   leads: { table: schema.leads, prefix: "lead" },

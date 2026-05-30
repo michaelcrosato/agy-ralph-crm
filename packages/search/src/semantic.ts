@@ -51,27 +51,64 @@ export function createMockEmbeddingProvider(
   return {
     dimensions,
     embed(text: string): number[] {
-      let seed = 2166136261 >>> 0;
-      for (let i = 0; i < text.length; i++) {
-        seed ^= text.charCodeAt(i);
-        seed = Math.imul(seed, 16777619) >>> 0;
+      const stopWords = new Set([
+        "account",
+        "name",
+        "domain",
+        "email",
+        "contact",
+        "last",
+        "first",
+        "is",
+        "a",
+        "the",
+        "in",
+        "to",
+        "of",
+        "and",
+        "or",
+        "for",
+        "with",
+        "at",
+        "by",
+        "from",
+        "on",
+        "n",
+        "a",
+      ]);
+      const tokens = text.toLowerCase().match(/[a-z0-9]+/g) || [];
+      const filtered = tokens.filter((t) => t.length > 1 && !stopWords.has(t));
+      const tokensToUse = filtered.length > 0 ? filtered : [text];
+
+      const sumVector = new Array<number>(dimensions).fill(0);
+
+      for (const token of tokensToUse) {
+        let seed = 2166136261 >>> 0;
+        for (let i = 0; i < token.length; i++) {
+          seed ^= token.charCodeAt(i);
+          seed = Math.imul(seed, 16777619) >>> 0;
+        }
+        let state = seed >>> 0;
+        for (let i = 0; i < dimensions; i++) {
+          state = (state + 0x6d2b79f5) >>> 0;
+          let t = state;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          const r = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+          const value = r * 2 - 1;
+          sumVector[i] += value;
+        }
       }
-      const vector = new Array<number>(dimensions);
+
       let norm = 0;
-      let state = seed >>> 0;
       for (let i = 0; i < dimensions; i++) {
-        state = (state + 0x6d2b79f5) >>> 0;
-        let t = state;
-        t = Math.imul(t ^ (t >>> 15), t | 1);
-        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-        const r = ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-        const value = r * 2 - 1;
-        vector[i] = value;
-        norm += value * value;
+        norm += sumVector[i] * sumVector[i];
       }
       const magnitude = Math.sqrt(norm) || 1;
-      for (let i = 0; i < dimensions; i++) vector[i] /= magnitude;
-      return vector;
+      for (let i = 0; i < dimensions; i++) {
+        sumVector[i] /= magnitude;
+      }
+      return sumVector;
     },
   };
 }

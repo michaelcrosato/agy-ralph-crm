@@ -4,9 +4,10 @@ import {
   syncExternalItems,
   validateSurveyResponse,
 } from "@crm/core";
-import { dbStore } from "@crm/db";
+import { dbStore, pgDb } from "@crm/db";
 import { globalFuzzySearch } from "@crm/search";
 import { processOutboxItems } from "@crm/webhooks";
+import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { triggerOutboundWebhooks } from "../lib/webhooks";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
@@ -209,6 +210,87 @@ searchApp.get("/fuzzy", tenantAuth, async (c) => {
 
   return c.json({ success: true, data: results });
 });
+
+searchApp.get("/semantic", tenantAuth, async (c) => {
+  const q = c.req.query("q") || "";
+  const entity = c.req.query("entity"); // 'Account' | 'Contact'
+  const limitParam = c.req.query("limit");
+  const limit = limitParam ? Number.parseInt(limitParam, 10) : 10;
+
+  if (!q) {
+    return c.json({ error: "Missing query parameter 'q'" }, 400);
+  }
+
+  const { getEmbeddingProvider } = await import("@crm/core");
+  const provider = getEmbeddingProvider();
+  const queryVector = await provider.embed(q);
+
+  const tenant = c.get("tenant");
+  const results = [];
+
+  if (process.env.DB_DRIVER === "pg") {
+    let query = sql`
+      SELECT entity_id, entity_type, (1 - (embedding <=> ${JSON.stringify(queryVector)}::vector)) as score
+      FROM embeddings
+      WHERE org_id = ${tenant.orgId}
+    `;
+    if (entity) {
+      query = sql`${query} AND entity_type = ${entity}`;
+    }
+    query = sql`${query} ORDER BY embedding <=> ${JSON.stringify(queryVector)}::vector LIMIT ${limit}`;
+
+    const rows = await pgDb.execute(query);
+    for (const row of rows.rows || rows) {
+      const entityId = row.entity_id;
+      const entityType = row.entity_type;
+      const score = Number.parseFloat(row.score);
+
+      let record: any = null;
+      if (entityType === "Account") {
+        record = await dbStore.accounts.findOne(entityId);
+      } else if (entityType === "Contact") {
+        record = await dbStore.contacts.findOne(entityId);
+      }
+
+      if (record) {
+        results.push({ record, recordType: entityType, score });
+      }
+    }
+  } else {
+    const allEmbeddings = await dbStore.embeddings.findMany();
+    const filtered = allEmbeddings.filter(
+      (e: any) =>
+        e.orgId === tenant.orgId &&
+        (!entity || e.entityType.toLowerCase() === entity.toLowerCase()),
+    );
+
+    const { cosineSimilarity } = await import("@crm/search");
+    const hits = filtered
+      .map((e: any) => ({
+        entityId: e.entityId,
+        entityType: e.entityType,
+        score: cosineSimilarity(queryVector, e.embedding),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit);
+
+    for (const hit of hits) {
+      let record: any = null;
+      if (hit.entityType === "Account") {
+        record = await dbStore.accounts.findOne(hit.entityId);
+      } else if (hit.entityType === "Contact") {
+        record = await dbStore.contacts.findOne(hit.entityId);
+      }
+
+      if (record) {
+        results.push({ record, recordType: hit.entityType, score: hit.score });
+      }
+    }
+  }
+
+  return c.json({ success: true, data: results });
+});
+
 consentApp.get("/", tenantAuth, async (c) => {
   const _tenant = c.get("tenant");
   const recordType = c.req.query("recordType") as

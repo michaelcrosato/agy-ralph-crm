@@ -25,6 +25,7 @@ import { emailReplyEventsStore } from "./emailReplyEvents";
 import { emailTemplatesStore } from "./emailTemplates";
 import { emailTrackersStore } from "./emailTrackers";
 import { emailUnsubscribesStore } from "./emailUnsubscribes";
+import { embeddingsStore } from "./embeddings";
 import { esignatureRequestsStore } from "./esignatureRequests";
 import { fieldDefinitionsStore } from "./fieldDefinitions";
 import { forecastAdjustmentsStore } from "./forecastAdjustments";
@@ -125,6 +126,7 @@ function getDb() {
 const mockStores = {
   customEntityTypes: customEntityTypesStore,
   customEntityRecords: customEntityRecordsStore,
+  embeddings: embeddingsStore,
   users: usersStore,
   memberships: membershipsStore,
   leads: leadsStore,

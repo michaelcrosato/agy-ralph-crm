@@ -8,6 +8,7 @@ import {
   pgTable,
   text,
   timestamp,
+  vector,
 } from "drizzle-orm/pg-core";
 
 const uuid = (name: string): any => {
@@ -1768,5 +1769,26 @@ export const customEntityRecords = pgTable(
   (t) => [
     index("idx_custom_entity_records_org_type").on(t.orgId, t.typeId),
     index("idx_custom_entity_records_created").on(t.createdAt),
+  ],
+);
+
+export const embeddings = pgTable(
+  "embeddings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    orgId: uuid("org_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    entityType: text("entity_type").notNull(), // 'Lead' | 'Account' | 'Contact' | 'Opportunity' | 'Ticket'
+    entityId: text("entity_id").notNull(),
+    embedding: vector("embedding", { dimensions: 1536 }).notNull(),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [
+    index("idx_embeddings_org_entity").on(t.orgId, t.entityType, t.entityId),
+    index("idx_embeddings_vector").using(
+      "hnsw",
+      t.embedding.op("vector_cosine_ops"),
+    ),
   ],
 );

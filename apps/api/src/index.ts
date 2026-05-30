@@ -77,6 +77,11 @@ export {
 export { triggerOutboundWebhooks } from "./lib/webhooks";
 export { tenantAuth } from "./middleware/tenantAuth";
 
+import { EmbedderService } from "@crm/core";
+
+// Initialize the asynchronous background embeddings worker
+EmbedderService.initialize();
+
 const app = new OpenAPIHono<Env>();
 app.use("*", cors());
 

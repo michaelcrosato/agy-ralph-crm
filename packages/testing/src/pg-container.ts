@@ -25,7 +25,7 @@ export async function getTestPgContainer() {
   }
 
   // Spin up a hermetic PostgreSQL container
-  container = await new PostgreSqlContainer("postgres:15-alpine")
+  container = await new PostgreSqlContainer("pgvector/pgvector:pg15")
     .withDatabase("crm_test")
     .withUsername("postgres")
     .withPassword("postgres")

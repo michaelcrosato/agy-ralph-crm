@@ -1240,9 +1240,19 @@ export interface DBCustomEntityRecord {
   updatedAt: Date;
 }
 
+export interface DBEmbedding {
+  id: string;
+  orgId: string;
+  entityType: string;
+  entityId: string;
+  embedding: number[];
+  createdAt: Date;
+}
+
 export const store = {
   customEntityTypes: [] as DBCustomEntityType[],
   customEntityRecords: [] as DBCustomEntityRecord[],
+  embeddings: [] as DBEmbedding[],
   emailTemplates: [] as DBEmailTemplate[],
   emailTrackers: [] as DBEmailTracker[],
   picklistDependencies: [] as DBPicklistDependency[],

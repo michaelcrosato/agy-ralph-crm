@@ -29,6 +29,13 @@
       "when": 1780159455137,
       "tag": "0003_charming_princess_powerful",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780160608667,
+      "tag": "0004_heavy_firelord",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@ import type {
   CoreSequenceMembership,
   CoreSequenceStep,
 } from "../../../types";
-import { compileEmailTemplate, personalizeEmailTemplate } from "../../email";
+import { compileEmailTemplate } from "../../email";
 import { advanceMembershipToNextStep } from "./helpers";
 import type { SequenceDbStore } from "./types";
 

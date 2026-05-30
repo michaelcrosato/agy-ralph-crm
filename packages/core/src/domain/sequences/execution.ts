@@ -1,4 +1,4 @@
-import type { CoreSequence, CoreSequenceMembership } from "../../types";
+import type { CoreSequence } from "../../types";
 import {
   getNextValidSendingTime,
   isRecordSuppressedOrExcluded,

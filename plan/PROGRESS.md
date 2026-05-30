@@ -96,6 +96,8 @@
 - [x] **044** — [Workspace Diagnostics Log Sanitizer & Rotator](./specs/044_diagnostics_log_sanitizer_rotator.md) · `completed` · 2026-05-30 — Implemented rotate-logs.mjs with credentials sanitization, UTF-16LE auto-detection, log rotation up to index 3, and full check.ps1/sh integrations.
 - [x] **045** — [Automatic Migration Conflict Prevention Gate](./specs/045_migration_conflict_prevention_gate.md) · `completed` · 2026-05-30 — Implemented check-migrations.mjs with idx continuity, tag existence, and prefix uniqueness checks, hooked into doctor, verified via check-migrations.test.ts.
 - [x] **046** — [Dynamic Custom Objects: Database, REST, and Dynamic MCP Integration](./specs/046_dynamic_custom_objects_full_stack.md) · `completed`
+- [x] **047** — [pgvector + embeddings on Accounts/Contacts for semantic search (Full-Stack)](./specs/047_pgvector_semantic_search_full_stack.md) · `completed` · 2026-05-30 — Full-stack pgvector: RLS-isolated embeddings table, async mutation listener embedder service, /api/search/semantic Hono REST endpoint, and 2 extensive backend test suites.
+
 
 
 

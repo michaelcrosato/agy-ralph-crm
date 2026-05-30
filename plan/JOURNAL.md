@@ -93,4 +93,31 @@
 - Ran workspace-wide verification checks: `pnpm verify` (completed successfully with exit status 0).
 - Ran full workspace test suite: `pnpm test` (145/145 test files, 481/481 tests passed 100% cleanly).
 
+## [2026-05-30] Cycle 4 — pgvector Semantic Search: Database, Async Embedder, and Hono REST API
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active work in progress.
+- **Verification Command**: `pnpm verify` and `pnpm test`
+- **Test Baseline**: 145 passed test files, 481 passed tests.
+
+### 2. ARCHITECTURAL FINDINGS
+- Setting up full-stack pgvector search requires robust asynchronous queue-based generation of embeddings that is strictly compliant with multi-tenant database RLS boundaries.
+- Because background worker jobs run asynchronously out of the request context thread, they must explicitly invoke DB operations within a tenant session (`withTenant(item.orgId, ...)`).
+- When running under test environments, separate copies/instances of modules may be loaded (e.g. package source vs compiled dist in monorepos). Attaching state listeners (like `onMutationCallback`) on `globalThis` completely avoids module duplication synchronization issues.
+- A deterministic offline mock embedding provider can simulate realistic keyword/trigram matching by tokenizing and summing token vector components, ensuring tests run fully green without active external OpenAI credentials.
+
+### 3. ACTION PLAN & IMPLEMENTATION (Spec 047)
+- **Database Schema**: Established pgvector table `embeddings` with orgId, entityType, entityId, and HNSW cosine similarity vector index on Postgres. Patched Drizzle migrations to ensure vector extension is created.
+- **Robust Async Worker**: Implemented a queue-based `EmbedderService` worker listening to Account and Contact insert/updates. Wrapped all database calls in `withTenant` blocks using the target entity's `orgId` to ensure multi-tenant RLS compliance.
+- **Decoupled Event Registry**: Stored the mutation listener directly on `globalThis` (`globalThis.__crm_onMutationCallback`) to bridge multiple package instantiations.
+- **High-Fidelity Mock Embedder**: Enhanced `createMockEmbeddingProvider` to use token/trigram vector sum composition. This allows realistic offline semantic and keyword matches (e.g. matching "artificial intelligence search engine" to "Google AI Search").
+- **REST Endpoint**: Implemented `/api/search/semantic` endpoint with strict organization-level RLS context and fast PG native `<=>` cosine distance operations (and mock fallback cosine similarity).
+- **Integration Tests**: Created `packages/testing/src/semantic-search-full-stack.test.ts` asserting exact rank order, RLS tenant-isolation boundaries (Tenant A results invisible to Tenant B), and async generation.
+
+### 4. VERIFICATION LOG
+- Rebuilt packages and ran targeted tests: `npx vitest run packages/testing/src/semantic-search-full-stack.test.ts` (passed cleanly on both mock and pgvector Postgres testcontainer backends).
+- Validated whole workspace type safety and formatting: `pnpm verify` (100% green).
+- Executed whole workspace test suite: `pnpm test` (all 146 files, 483 tests passed cleanly).
+
+
 

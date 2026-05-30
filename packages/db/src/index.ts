@@ -166,7 +166,28 @@ export const dbStore = new Proxy({} as any, {
         }
       };
     }
-    return (stores as any)[prop];
+    const storeObj = (stores as any)[prop];
+    if (storeObj && (prop === "accounts" || prop === "contacts")) {
+      return new Proxy(storeObj, {
+        get(target, method: string) {
+          const original = target[method];
+          if (typeof original === "function") {
+            if (method === "insert" || method === "update") {
+              return async (...args: any[]) => {
+                const result = await original.apply(target, args);
+                const callback = (globalThis as any).__crm_onMutationCallback;
+                if (result?.id && callback) {
+                  callback(prop, result.id, result);
+                }
+                return result;
+              };
+            }
+          }
+          return original;
+        },
+      });
+    }
+    return storeObj;
   },
   ownKeys() {
     return Reflect.ownKeys(stores);
@@ -178,3 +199,9 @@ export const dbStore = new Proxy({} as any, {
     };
   },
 }) as typeof stores & { clear: () => void | Promise<void> };
+
+export function registerMutationListener(
+  cb: (entityType: string, id: string, data: any) => void,
+) {
+  (globalThis as any).__crm_onMutationCallback = cb;
+}

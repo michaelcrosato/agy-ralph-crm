@@ -4,6 +4,7 @@ export * from "./domain/contacts";
 export * from "./domain/csv";
 export * from "./domain/currencies";
 export * from "./domain/email";
+export * from "./domain/embeddings/embedder";
 export * from "./domain/esignature";
 export * from "./domain/leads";
 export * from "./domain/migrations";
