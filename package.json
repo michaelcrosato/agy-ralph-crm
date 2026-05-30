@@ -24,8 +24,5 @@
   "devDependencies": {
     "turbo": "^2.0.0",
     "@biomejs/biome": "^1.8.0"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": ["@biomejs/biome", "es5-ext", "esbuild", "sharp"]
   }
 }
