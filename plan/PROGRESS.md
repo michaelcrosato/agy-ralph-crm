@@ -24,7 +24,7 @@
 - [x] **014** — [Postgres RLS policies via set_config('app.current_tenant_id')](./specs/014_rls_policies_set_local.md) · `a7f5c59` — generated RLS enablement and tenant isolation policies migration for all 105 tenant-scoped tables, and wrote 3 property-based RLS tests
 - [ ] **015** — [Composite (tenant_id, …) indexes on hot tables](./specs/015_composite_indexes.md) · deps: 013
 - [x] **016** — [OpenTelemetry traces + metrics + log correlation](./specs/016_otel_instrumentation.md) · `8ae56cd`
-- [ ] **017** — [@hono/zod-openapi for type-safe routes + auto OpenAPI](./specs/017_zod_openapi_hono.md) · deps: 010
+- [x] **017** — [@hono/zod-openapi for type-safe routes + auto OpenAPI](./specs/017_zod_openapi_hono.md) · `41d0f5b` — health and leads routes fully migrated, validation parity confirmed, doc and UI tested green (133 passed/1 skipped)
 - [ ] **018** — [Typed Hono RPC client for apps/web](./specs/018_hono_rpc_client.md) · deps: 017
 - [x] **019** — [Drizzle 0.30 → 0.45.2 (partial; cleared GHSA-gpj5-g38j-94v9 high CVE)](./specs/019_drizzle_upgrade.md) · `c6ccad2` · _migration-conflict-check CI job carried forward to spec 013_
 - [x] **020** — [Next.js 16.0.0-alpha → 16.2.6 stable + Turbopack + React Compiler](./specs/020_nextjs_16_stable.md) · _committed inline below_
@@ -76,6 +76,9 @@
 | 022 | `65d66ce` | 2026-05-29 | 406/406 (pino+OTel; in-scope grep 0 console.*) |
 | 012 (partial) | `513e7d2` | 2026-05-29 | 409/409 (+3 RLS helper tests; stores split → spec 040) |
 | 024 (partial) | `cf290ea` | 2026-05-29 | 409/409 (6 core tables indexed; migration generation defers to spec 013) |
+| 013 | `c03ae3e` | 2026-05-30 | 412/412 (+3 db-rls tests) |
+| 014 | `a7f5c59` | 2026-05-30 | 412/412 (+3 db-rls tests) |
+| 017 | `41d0f5b` | 2026-05-30 | 414/414 (+2 openapi integration tests) |
 
 ## Discovered Follow-ups
 
