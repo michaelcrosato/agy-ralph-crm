@@ -8,6 +8,11 @@ Write-Host "=========================================" -ForegroundColor Green
 Write-Host " AGENT BOOTSTRAP: Workspace Setup" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green
 
+# corepack activates the pnpm version declared in packageManager
+if (Get-Command corepack -ErrorAction SilentlyContinue) {
+    try { corepack enable 2>$null } catch { Write-Host "[WARN] corepack enable failed (non-fatal)" -ForegroundColor Yellow }
+}
+
 $PMFallback = $null
 $PM = $null
 if (Test-Path "pnpm-lock.yaml") {

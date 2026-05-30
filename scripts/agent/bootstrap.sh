@@ -8,6 +8,11 @@ echo "========================================="
 echo " AGENT BOOTSTRAP: Workspace Setup"
 echo "========================================="
 
+# corepack activates the pnpm version declared in packageManager
+if command -v corepack &> /dev/null; then
+  corepack enable 2> /dev/null || echo "[WARN] corepack enable failed (non-fatal)"
+fi
+
 # Detect package manager
 if [ -f "pnpm-lock.yaml" ]; then
   PM="pnpm"

@@ -11,10 +11,14 @@ Welcome to the Modular CRM Core codebase. This repository is built as a highly r
 - **Package Manager**: `pnpm` (workspace linkages via Turborepo)
 
 ### 2. Installation
-To bootstrap the monorepo workspace and resolve all packages:
+Enable corepack so pnpm matches the version pinned in `package.json#packageManager`, then install:
 ```bash
+corepack enable
+corepack prepare pnpm@$(node -e 'console.log(require("./package.json").packageManager.split("@")[1])') --activate
 pnpm install
 ```
+
+`pnpm run agent:bootstrap` performs the corepack step automatically.
 
 ### 3. Run Development Server
 To launch both Hono API and Next.js UI local servers concurrently:
