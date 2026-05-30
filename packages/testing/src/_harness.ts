@@ -4,7 +4,12 @@ import type { Env } from "../../../apps/api/src/middleware/tenantAuth";
 import { leadsApp } from "../../../apps/api/src/routes/leads";
 import { opportunitiesApp } from "../../../apps/api/src/routes/opportunities";
 
-export function createTestApp(_options?: { drivers?: any; seed?: any }) {
+export interface CreateTestAppOptions {
+  drivers?: Record<string, unknown>;
+  seed?: Record<string, unknown>;
+}
+
+export function createTestApp(_options?: CreateTestAppOptions) {
   return app;
 }
 
