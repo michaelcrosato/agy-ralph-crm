@@ -38,12 +38,12 @@
 
 - [x] **030** — [Promote MCP server to packages/mcp (Twenty-style)](./specs/030_mcp_first_class.md) · `72c9a76` — promoted MCP server to dedicated packages/mcp with stdio transport + Hono routing integration, verified 100% green.
 - [ ] **031** — [Public defineObject() SDK for no-code custom objects](./specs/031_no_code_custom_objects.md) · deps: 011, 014
-- [ ] **032** — [IF conditions + FOREACH loops in workflow engine](./specs/032_workflow_conditions_foreach.md) · deps: 011
+- [x] **032** — [IF conditions + FOREACH loops in workflow engine](./specs/032_workflow_conditions_foreach.md) · `e991c18` — additive IF/FOREACH step engine, recursive-descent conditions parser, max iterations safety, and 8 nested workflow integration tests
 - [ ] **033** — [Finish TICKET004 — tRPC dashboard analytics](./specs/033_dashboard_analytics_api.md) · deps: 011, 017
 - [x] **034** — [Finish TICKET005 — Lead SLA breach email worker](./specs/034_lead_sla_email_notifications.md) · `7a1e781` — landed via the consolidated DB + SLA + picklist commit
 - [x] **035** — [Finish TICKET006 — picklist dependency validation](./specs/035_picklist_dependency_validation.md) · `7a1e781` — landed via the same consolidated commit
 - [ ] **036** — [pgvector + embeddings on Accounts/Contacts](./specs/036_pgvector_semantic_search.md) · deps: 013
-- [ ] **037** — [Streaming CSV import/export (10M-row safe)](./specs/037_streaming_csv_import.md) · deps: 013
+- [x] **037** — [Streaming CSV import/export (10M-row safe)](./specs/037_streaming_csv_import.md) · `d1f0b80` — constant-memory streaming CSV parser/importer (10M-row safe), batched flush mechanism, and 5 stream back-pressure tests
 - [ ] **038** — [Audit log → append-only Postgres + WORM export](./specs/038_audit_log_append_only.md) · deps: 014
 
 ---
