@@ -1,3 +1,7 @@
+type IndexableRecord = Record<string, unknown> & {
+  custom?: Record<string, unknown> | null;
+};
+
 export async function processSequenceLinkClick(
   // biome-ignore lint/suspicious/noExplicitAny: dynamic store
   dbStore: any,
@@ -107,8 +111,7 @@ export async function processSequenceLinkClick(
         if (recordTypeLower === "lead" && dbStore.leads) {
           const lead = await dbStore.leads.findOne(actLink.targetId);
           if (lead) {
-            // biome-ignore lint/suspicious/noExplicitAny: casting safe
-            const leadAny = lead as any;
+            const leadAny = lead as IndexableRecord;
             const beforeVal = field.startsWith("custom.")
               ? (leadAny.custom as Record<string, unknown>)?.[
                   field.substring(7)
@@ -143,8 +146,7 @@ export async function processSequenceLinkClick(
         } else if (recordTypeLower === "contact" && dbStore.contacts) {
           const contact = await dbStore.contacts.findOne(actLink.targetId);
           if (contact) {
-            // biome-ignore lint/suspicious/noExplicitAny: casting safe
-            const contactAny = contact as any;
+            const contactAny = contact as IndexableRecord;
             const beforeVal = field.startsWith("custom.")
               ? (contactAny.custom as Record<string, unknown>)?.[
                   field.substring(7)
@@ -340,8 +342,7 @@ export async function processSequenceEmailOpen(
         if (recordTypeLower === "lead" && dbStore.leads) {
           const lead = await dbStore.leads.findOne(actLink.targetId);
           if (lead) {
-            // biome-ignore lint/suspicious/noExplicitAny: casting safe
-            const leadAny = lead as any;
+            const leadAny = lead as IndexableRecord;
             const beforeVal = field.startsWith("custom.")
               ? (leadAny.custom as Record<string, unknown>)?.[
                   field.substring(7)
@@ -376,8 +377,7 @@ export async function processSequenceEmailOpen(
         } else if (recordTypeLower === "contact" && dbStore.contacts) {
           const contact = await dbStore.contacts.findOne(actLink.targetId);
           if (contact) {
-            // biome-ignore lint/suspicious/noExplicitAny: casting safe
-            const contactAny = contact as any;
+            const contactAny = contact as IndexableRecord;
             const beforeVal = field.startsWith("custom.")
               ? (contactAny.custom as Record<string, unknown>)?.[
                   field.substring(7)
@@ -591,8 +591,7 @@ export async function processSequenceEmailReply(
         if (recordTypeLower === "lead" && dbStore.leads) {
           const lead = await dbStore.leads.findOne(actLink.targetId);
           if (lead) {
-            // biome-ignore lint/suspicious/noExplicitAny: casting safe
-            const leadAny = lead as any;
+            const leadAny = lead as IndexableRecord;
             const beforeVal = field.startsWith("custom.")
               ? (leadAny.custom as Record<string, unknown>)?.[
                   field.substring(7)
@@ -627,8 +626,7 @@ export async function processSequenceEmailReply(
         } else if (recordTypeLower === "contact" && dbStore.contacts) {
           const contact = await dbStore.contacts.findOne(actLink.targetId);
           if (contact) {
-            // biome-ignore lint/suspicious/noExplicitAny: casting safe
-            const contactAny = contact as any;
+            const contactAny = contact as IndexableRecord;
             const beforeVal = field.startsWith("custom.")
               ? (contactAny.custom as Record<string, unknown>)?.[
                   field.substring(7)
