@@ -150,6 +150,8 @@ import { healthApp } from "./routes/health";
 import { mcpApp } from "./routes/mcp";
 import { metadataApp } from "./routes/metadata";
 import { publicApp } from "./routes/public";
+import { ticketsApp } from "./routes/tickets";
+import { workflowsApp } from "./routes/workflows";
 
 // Re-exports preserve the public surface used by 130 integration test
 // files until spec 023 lands the createTestApp harness.
@@ -170,90 +172,10 @@ app.route("/api/auth", authApp);
 app.route("/api/public", publicApp);
 app.route("/mcp", mcpApp);
 app.route("/api/metadata", metadataApp);
+app.route("/api/workflows", workflowsApp);
+app.route("/api/tickets", ticketsApp);
 
 
-// Workflow Automation Endpoints
-app.post("/api/workflows", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
-  const body = await c.req.json().catch(() => ({}));
-  const { name, triggerEvent, conditions, actions } = body;
-
-  if (!name || !triggerEvent || !actions) {
-    return c.json({ error: "Missing required workflow rules parameters" }, 400);
-  }
-
-  const newRule = await dbStore.workflows.insert({
-    orgId: tenant.orgId,
-    name,
-    triggerEvent,
-    conditions: conditions || null,
-    actions,
-  });
-
-  return c.json({ success: true, data: newRule });
-});
-
-app.get("/api/workflows", tenantAuth, async (c) => {
-  const rules = await dbStore.workflows.findMany();
-  return c.json({ success: true, data: rules });
-});
-
-// Support Ticketing (Service-Lite Extension) Endpoints
-app.post("/api/tickets", tenantAuth, async (c) => {
-  const tenant = c.get("tenant");
-  const body = await c.req.json().catch(() => ({}));
-  const { contactId, subject } = body;
-
-  if (!contactId || !subject) {
-    return c.json({ error: "Missing required ticketing parameters" }, 400);
-  }
-
-  // Generate support ticket representation
-  const ticketData = createTicket({
-    orgId: tenant.orgId,
-    contactId,
-    subject,
-  });
-
-  // Persist into database store under active RLS isolation context
-  const newTicket = await dbStore.tickets.insert({
-    orgId: tenant.orgId,
-    contactId: ticketData.contactId,
-    subject: ticketData.subject,
-    status: ticketData.status,
-  });
-
-  return c.json({ success: true, data: newTicket });
-});
-
-app.get("/api/tickets", tenantAuth, async (c) => {
-  const tickets = await dbStore.tickets.findMany();
-  return c.json({ success: true, data: tickets });
-});
-
-app.post("/api/tickets/:id/resolve", tenantAuth, async (c) => {
-  const id = c.req.param("id");
-  const ticket = await dbStore.tickets.findOne(id);
-  if (!ticket) {
-    return c.json({ error: "Ticket not found" }, 404);
-  }
-
-  // Resolve Ticket and mutate status
-  const resolved = resolveTicket(ticket);
-  const updated = await dbStore.tickets.update(id, {
-    status: resolved.status,
-  });
-
-  if (updated) {
-    triggerOutboundWebhooks(
-      updated.orgId,
-      "ticket.resolved",
-      updated as unknown as Record<string, unknown>,
-    );
-  }
-
-  return c.json({ success: true, data: updated });
-});
 
 // Support Ticket Assignment Rules REST API Endpoints protected by tenantAuth
 app.post("/api/service/tickets/routing-rules", tenantAuth, async (c) => {
