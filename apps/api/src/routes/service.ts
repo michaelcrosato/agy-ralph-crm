@@ -177,7 +177,7 @@ serviceApp.post("/tickets/:id/route", tenantAuth, async (c) => {
     },
   });
 
-  triggerOutboundWebhooks(tenant.orgId, "ticket.routed", {
+  await triggerOutboundWebhooks(tenant.orgId, "ticket.routed", {
     ticketId: id,
     assignedToId: match.newAssignedToId,
   });
@@ -212,7 +212,7 @@ serviceApp.put("/tickets/:id/assign", tenantAuth, async (c) => {
     },
   });
 
-  triggerOutboundWebhooks(tenant.orgId, "ticket.assigned", {
+  await triggerOutboundWebhooks(tenant.orgId, "ticket.assigned", {
     ticketId: id,
     assignedToId: assignedToId || null,
   });

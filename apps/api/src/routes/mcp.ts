@@ -165,7 +165,7 @@ mcpApp.post("/tools/call", tenantAuth, async (c) => {
       changes: null,
     });
 
-    triggerOutboundWebhooks(orgId, "ticket.created", {
+    await triggerOutboundWebhooks(orgId, "ticket.created", {
       id: newTicket.id,
       orgId,
       contactId,

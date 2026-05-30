@@ -50,7 +50,7 @@ ticketsApp.post("/:id/resolve", tenantAuth, async (c) => {
   });
 
   if (updated) {
-    triggerOutboundWebhooks(
+    await triggerOutboundWebhooks(
       updated.orgId,
       "ticket.resolved",
       updated as unknown as Record<string, unknown>,

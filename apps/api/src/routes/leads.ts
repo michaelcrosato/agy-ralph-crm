@@ -1,7 +1,9 @@
 import {
   calculateLeadDuplicates,
+  calculateLeadScore,
   calculateSlaStatus,
   convertLeadWithMappings,
+  evaluateLeadAssignment,
   mergeLeads,
 } from "@crm/core";
 import { dbStore, store } from "@crm/db";
@@ -18,6 +20,8 @@ import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
 /** Lead CRUD + SLA + duplicates + merge + convert. Mounted at /api/leads. */
 export const leadsApp = new Hono<Env>();
+export const leadAssignmentRulesApp = new Hono<Env>();
+export const leadScoringRulesApp = new Hono<Env>();
 
 leadsApp.post("/", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
@@ -81,7 +85,7 @@ leadsApp.post("/", tenantAuth, async (c) => {
     changes: null,
   });
 
-  triggerOutboundWebhooks(
+  await triggerOutboundWebhooks(
     tenant.orgId,
     "lead.created",
     newLead as unknown as Record<string, unknown>,
@@ -241,7 +245,7 @@ leadsApp.get("/sla-breaches", tenantAuth, async (c) => {
         changes: { status: { before: "Pending", after: "Breached" } },
       });
 
-      triggerOutboundWebhooks(tenant.orgId, "lead.sla_breached", {
+      await triggerOutboundWebhooks(tenant.orgId, "lead.sla_breached", {
         leadId: tracker.leadId,
         trackerId: tracker.id,
         responseTimeMinutes: slaStatus.responseTimeMinutes,
@@ -291,14 +295,14 @@ leadsApp.post("/:id/respond", tenantAuth, async (c) => {
   });
 
   if (slaStatus.status === "Met") {
-    triggerOutboundWebhooks(tenant.orgId, "lead.sla_resolved", {
+    await triggerOutboundWebhooks(tenant.orgId, "lead.sla_resolved", {
       leadId: id,
       trackerId: tracker.id,
       status: "Met",
       responseTimeMinutes: slaStatus.responseTimeMinutes,
     });
   } else if (slaStatus.status === "Breached") {
-    triggerOutboundWebhooks(tenant.orgId, "lead.sla_breached", {
+    await triggerOutboundWebhooks(tenant.orgId, "lead.sla_breached", {
       leadId: id,
       trackerId: tracker.id,
       status: "Breached",
@@ -496,7 +500,7 @@ leadsApp.post("/:id/merge", tenantAuth, async (c) => {
     },
   });
 
-  triggerOutboundWebhooks(tenant.orgId, "lead.merged", {
+  await triggerOutboundWebhooks(tenant.orgId, "lead.merged", {
     leadId: id,
     mergedLeadId: duplicateId,
     finalLead: updatedMaster,
@@ -611,7 +615,7 @@ leadsApp.post("/:id/convert", tenantAuth, async (c) => {
     },
   });
 
-  triggerOutboundWebhooks(tenant.orgId, "lead.converted", {
+  await triggerOutboundWebhooks(tenant.orgId, "lead.converted", {
     leadId: id,
     accountId: account.id,
     contactId: contact.id,
@@ -625,4 +629,260 @@ leadsApp.post("/:id/convert", tenantAuth, async (c) => {
     opportunityId,
     workflow: workflowExecution,
   });
+});
+leadsApp.post("/:id/assign", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found" }, 404);
+  }
+
+  const rules = await dbStore.leadAssignmentRules.findMany();
+  const activeRule = rules.find((r) => r.isActive === 1);
+  if (!activeRule) {
+    return c.json({
+      success: false,
+      message: "No active assignment rule found.",
+    });
+  }
+
+  const allEntries = await dbStore.leadAssignmentRuleEntries.findMany();
+  const activeEntries = allEntries
+    .filter((e) => e.ruleId === activeRule.id)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  if (activeEntries.length === 0) {
+    return c.json({
+      success: false,
+      message: "Active assignment rule has no entries.",
+    });
+  }
+
+  const evalLead = {
+    ...lead,
+    custom: lead.custom || null,
+  };
+  const matchResult = evaluateLeadAssignment(evalLead, activeEntries);
+
+  if (!matchResult) {
+    return c.json({
+      success: false,
+      message: "No matching routing entry found for this lead.",
+    });
+  }
+
+  const previousOwnerId = lead.ownerId;
+  const updatedLead = await dbStore.leads.update(id, {
+    ownerId: matchResult.newOwnerId,
+  });
+
+  const matchedEntry = activeEntries.find(
+    (e) => e.id === matchResult.matchedEntryId,
+  );
+  if (matchedEntry && matchedEntry.routingMethod === "round_robin") {
+    await dbStore.leadAssignmentRuleEntries.update(matchedEntry.id, {
+      lastAssignedIndex: matchResult.newLastAssignedIndex,
+    });
+  }
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "leads",
+    action: "assign",
+    userId: tenant.userId,
+    changes: {
+      ownerId: { before: previousOwnerId, after: matchResult.newOwnerId },
+    },
+  });
+
+  return c.json({
+    success: true,
+    data: updatedLead,
+    matchInfo: {
+      ruleId: activeRule.id,
+      entryId: matchResult.matchedEntryId,
+      newOwnerId: matchResult.newOwnerId,
+    },
+  });
+});
+
+leadsApp.get("/:id/score", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found." }, 404);
+  }
+  const rules = await dbStore.leadScoringRules.findMany();
+  const score = calculateLeadScore(
+    lead as unknown as Record<string, unknown>,
+    rules.map((r) => ({
+      id: r.id,
+      isActive: r.isActive,
+      scoreValue: r.scoreValue,
+      criteria: r.criteria,
+    })),
+  );
+  return c.json({ leadId: id, score });
+});
+
+leadsApp.post("/:id/score/recalculate", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const lead = await dbStore.leads.findOne(id);
+  if (!lead) {
+    return c.json({ error: "Lead not found." }, 404);
+  }
+  const rules = await dbStore.leadScoringRules.findMany();
+  const score = calculateLeadScore(
+    lead as unknown as Record<string, unknown>,
+    rules.map((r) => ({
+      id: r.id,
+      isActive: r.isActive,
+      scoreValue: r.scoreValue,
+      criteria: r.criteria,
+    })),
+  );
+
+  const custom = lead.custom || {};
+  const updatedCustom = { ...custom, score };
+
+  const updatedLead = await dbStore.leads.update(id, {
+    custom: updatedCustom,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "leads",
+    action: "recalculate_score",
+    userId: tenant.userId,
+    changes: {
+      score: { before: custom.score, after: score },
+    },
+  });
+
+  await triggerOutboundWebhooks(tenant.orgId, "lead.score_updated", {
+    leadId: id,
+    score,
+  });
+
+  // Run auto-conversion check
+  const autoConvertResult = await checkAndRunLeadAutoConversion(
+    id,
+    tenant.orgId,
+    tenant.userId,
+  );
+
+  return c.json({
+    success: true,
+    data: updatedLead,
+    autoConverted: autoConvertResult || null,
+  });
+});
+leadAssignmentRulesApp.post("/", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const { name, isActive, entries } = body;
+
+  if (!name) {
+    return c.json({ error: "Missing required rule parameter: name" }, 400);
+  }
+
+  if (isActive === 1) {
+    const existingRules = await dbStore.leadAssignmentRules.findMany();
+    for (const rule of existingRules) {
+      if (rule.isActive === 1) {
+        await dbStore.leadAssignmentRules.update(rule.id, { isActive: 0 });
+      }
+    }
+  }
+
+  const newRule = await dbStore.leadAssignmentRules.insert({
+    orgId: tenant.orgId,
+    name,
+    isActive: isActive !== undefined ? Number(isActive) : 0,
+  });
+
+  const createdEntries = [];
+  if (Array.isArray(entries)) {
+    for (const entry of entries) {
+      const { sortOrder, routingMethod, routingUserIds, criteria } = entry;
+      if (
+        sortOrder !== undefined &&
+        routingMethod &&
+        Array.isArray(routingUserIds) &&
+        Array.isArray(criteria)
+      ) {
+        const newEntry = await dbStore.leadAssignmentRuleEntries.insert({
+          orgId: tenant.orgId,
+          ruleId: newRule.id,
+          sortOrder: Number(sortOrder),
+          routingMethod,
+          routingUserIds,
+          lastAssignedIndex: -1,
+          criteria,
+        });
+        createdEntries.push(newEntry);
+      }
+    }
+  }
+
+  return c.json({
+    success: true,
+    data: { ...newRule, entries: createdEntries },
+  });
+});
+
+leadAssignmentRulesApp.get("/", tenantAuth, async (c) => {
+  const rules = await dbStore.leadAssignmentRules.findMany();
+  const allEntries = await dbStore.leadAssignmentRuleEntries.findMany();
+
+  const data = rules.map((r) => {
+    const entries = allEntries
+      .filter((e) => e.ruleId === r.id)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    return { ...r, entries };
+  });
+
+  return c.json({ success: true, data });
+});
+leadScoringRulesApp.get("/", tenantAuth, async (c) => {
+  const rules = await dbStore.leadScoringRules.findMany();
+  return c.json({ data: rules });
+});
+
+leadScoringRulesApp.post("/", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  if (
+    !body.name ||
+    !Array.isArray(body.criteria) ||
+    body.scoreValue === undefined
+  ) {
+    return c.json(
+      { error: "Missing name, criteria, or scoreValue in request body." },
+      400,
+    );
+  }
+  const newRule = await dbStore.leadScoringRules.insert({
+    orgId: tenant.orgId,
+    name: body.name,
+    criteria: body.criteria,
+    scoreValue: Number(body.scoreValue),
+    isActive: body.isActive !== undefined ? Number(body.isActive) : 1,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: newRule.id,
+    recordType: "lead_scoring_rules",
+    action: "create",
+    userId: tenant.userId,
+    changes: { rule: { before: null, after: newRule } },
+  });
+
+  return c.json({ success: true, data: newRule }, 201);
 });

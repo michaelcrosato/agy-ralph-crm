@@ -177,7 +177,7 @@ contactsApp.patch("/:id", tenantAuth, async (c) => {
       },
     });
 
-    triggerOutboundWebhooks(tenant.orgId, "contact.hierarchy_updated", {
+    await triggerOutboundWebhooks(tenant.orgId, "contact.hierarchy_updated", {
       contactId: id,
       oldReportsToId: existing.reportsToId,
       newReportsToId: updates.reportsToId || null,

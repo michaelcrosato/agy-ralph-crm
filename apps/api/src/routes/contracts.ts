@@ -359,7 +359,7 @@ invoicesApp.post("/generate", tenantAuth, async (c) => {
       changes: null,
     });
 
-    triggerOutboundWebhooks(
+    await triggerOutboundWebhooks(
       tenant.orgId,
       "invoice.created",
       inv as unknown as Record<string, unknown>,
@@ -411,7 +411,7 @@ subscriptionsApp.post("/", tenantAuth, async (c) => {
     changes: null,
   });
 
-  triggerOutboundWebhooks(
+  await triggerOutboundWebhooks(
     tenant.orgId,
     "subscription.created",
     sub as unknown as Record<string, unknown>,

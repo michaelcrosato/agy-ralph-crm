@@ -2,7 +2,6 @@ import {
   calculateSurveyMetrics,
   processESignatureTransition,
   syncExternalItems,
-  validateEmailLogInput,
   validateSurveyResponse,
 } from "@crm/core";
 import { dbStore } from "@crm/db";

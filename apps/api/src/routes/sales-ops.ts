@@ -1,11 +1,6 @@
-import {
-  calculateOpportunityCommission,
-  evaluateTerritoryRouting,
-  validateOpportunityTeamMember,
-} from "@crm/core";
+import { calculateOpportunityCommission } from "@crm/core";
 import { dbStore } from "@crm/db";
 import { Hono } from "hono";
-import { triggerOutboundWebhooks } from "../lib/webhooks";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
 export const territoriesApp = new Hono<Env>();

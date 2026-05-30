@@ -1,6 +1,7 @@
 import {
   calculateAccountDuplicates,
   detectCircularAccountRelation,
+  evaluateTerritoryRouting,
   mergeAccounts,
   rollupHierarchyPipeline,
   validateAccountTeamMember,
@@ -170,7 +171,7 @@ accountsApp.patch("/:id", tenantAuth, async (c) => {
       },
     });
 
-    triggerOutboundWebhooks(tenant.orgId, "account.hierarchy_updated", {
+    await triggerOutboundWebhooks(tenant.orgId, "account.hierarchy_updated", {
       accountId: id,
       oldParentId: existing.parentAccountId,
       newParentId: updates.parentAccountId || null,
@@ -446,4 +447,104 @@ accountsApp.delete("/:id/team/:userId", tenantAuth, async (c) => {
   });
 
   return c.json({ success: true });
+});
+accountsApp.post("/:id/route", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const id = c.req.param("id");
+  const account = await dbStore.accounts.findOne(id);
+  if (!account) {
+    return c.json({ error: "Account not found" }, 404);
+  }
+
+  const territories = await dbStore.territories.findMany();
+  const members = await dbStore.territoryMembers.findMany();
+
+  const evalAccount = {
+    ...account,
+    custom: account.custom || null,
+  };
+
+  const matchResult = evaluateTerritoryRouting(
+    evalAccount,
+    territories,
+    members,
+  );
+
+  if (!matchResult) {
+    return c.json({
+      success: false,
+      message: "No matching territory routing found.",
+    });
+  }
+
+  const matchedTerritory = territories.find(
+    (t) => t.id === matchResult.matchedTerritoryId,
+  );
+
+  const previousOwnerId = account.ownerId;
+  let updatedAccount = account;
+
+  if (matchResult.newOwnerId) {
+    const existingCustom =
+      (account.custom as Record<string, unknown> | null) || {};
+    const updatedCustom = {
+      ...existingCustom,
+      territoryId: matchResult.matchedTerritoryId,
+      territoryName: matchedTerritory?.name || "Unknown",
+    };
+
+    const updated = await dbStore.accounts.update(id, {
+      ownerId: matchResult.newOwnerId,
+      custom: updatedCustom,
+    });
+    if (updated) {
+      updatedAccount = updated;
+    }
+  }
+
+  // Update territory round-robin index if needed
+  if (matchedTerritory && matchedTerritory.routingMethod === "round_robin") {
+    await dbStore.territories.update(matchedTerritory.id, {
+      lastAssignedIndex: matchResult.newLastAssignedIndex,
+    });
+  }
+
+  // Log audit logs
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: id,
+    recordType: "accounts",
+    action: "route",
+    userId: tenant.userId,
+    changes: {
+      ownerId: { before: previousOwnerId, after: matchResult.newOwnerId },
+      territoryId: { before: null, after: matchResult.matchedTerritoryId },
+    },
+  });
+
+  // Trigger Webhook
+  await triggerOutboundWebhooks(tenant.orgId, "account.routed", {
+    accountId: id,
+    territoryId: matchResult.matchedTerritoryId,
+    newOwnerId: matchResult.newOwnerId,
+  });
+
+  return c.json({
+    success: true,
+    data: updatedAccount,
+    matchInfo: {
+      territoryId: matchResult.matchedTerritoryId,
+      newOwnerId: matchResult.newOwnerId,
+    },
+  });
+});
+
+accountsApp.get("/:id/contracts", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const account = await dbStore.accounts.findOne(id);
+  if (!account) {
+    return c.json({ error: "Account not found" }, 404);
+  }
+  const contracts = await dbStore.contracts.findForAccount(id);
+  return c.json({ success: true, data: contracts });
 });
