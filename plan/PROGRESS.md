@@ -19,17 +19,17 @@
 
 - [ ] **010** — [Decompose apps/api/src/index.ts (331 routes / 13,060 lines)](./specs/010_decompose_apps_api.md) · deps: 001
 - [ ] **011** — [Decompose packages/core/src/index.ts (100+ exports / 9,505 lines)](./specs/011_decompose_packages_core.md) · deps: 010
-- [ ] **012** — [Decompose packages/db/src/index.ts (6,312 lines, 70+ stores)](./specs/012_decompose_packages_db.md)
+- [x] **012 (partial)** — [Decompose packages/db/src/index.ts (6,312 lines, 70+ stores)](./specs/012_decompose_packages_db.md) · `513e7d2` — helpers extracted; aggregate stores deferred to spec 040
 - [ ] **013** — [Wire real Postgres + Drizzle + testcontainers](./specs/013_real_postgres_drizzle.md) · deps: 012
 - [ ] **014** — [Postgres RLS policies via set_config('app.current_tenant_id')](./specs/014_rls_policies_set_local.md) · deps: 013
 - [ ] **015** — [Composite (tenant_id, …) indexes on hot tables](./specs/015_composite_indexes.md) · deps: 013
-- [ ] **016** — [OpenTelemetry traces + metrics + log correlation](./specs/016_otel_instrumentation.md)
+- [x] **016** — [OpenTelemetry traces + metrics + log correlation](./specs/016_otel_instrumentation.md) · `8ae56cd`
 - [ ] **017** — [@hono/zod-openapi for type-safe routes + auto OpenAPI](./specs/017_zod_openapi_hono.md) · deps: 010
 - [ ] **018** — [Typed Hono RPC client for apps/web](./specs/018_hono_rpc_client.md) · deps: 017
 - [x] **019** — [Drizzle 0.30 → 0.45.2 (partial; cleared GHSA-gpj5-g38j-94v9 high CVE)](./specs/019_drizzle_upgrade.md) · `c6ccad2` · _migration-conflict-check CI job carried forward to spec 013_
 - [x] **020** — [Next.js 16.0.0-alpha → 16.2.6 stable + Turbopack + React Compiler](./specs/020_nextjs_16_stable.md) · _committed inline below_
-- [ ] **021** — [Playwright config + lead/contact/opportunity smoke E2E](./specs/021_playwright_smoke_e2e.md) · deps: 020
-- [ ] **022** — [Replace console.* with pino bridged to OTel](./specs/022_pino_otel_logging.md) · deps: 016
+- [x] **021** — [Playwright config + lead/contact/opportunity smoke E2E](./specs/021_playwright_smoke_e2e.md) · `97c0cb0` (runtime install deferred)
+- [x] **022** — [Replace console.* with pino bridged to OTel](./specs/022_pino_otel_logging.md) · `65d66ce`
 - [ ] **023** — [Decouple 129 test files from apps/api/src/index import](./specs/023_test_decouple_from_apps.md) · deps: 010
 - [ ] **024** — [Declare composite + single-column indexes on Drizzle schema](./specs/024_drizzle_indexes_declare.md) · deps: 013
 - [ ] **025** — [Zod-validate JSONB columns at insert/update](./specs/025_jsonb_zod_validation.md) · deps: 013
@@ -70,7 +70,13 @@
 | 008 | `a0ed110` | 2026-05-29 | 406/406 (+3 genid property tests) |
 | 002 | `7d3e68e` | 2026-05-29 | 406/406 |
 | 003 | `72f4bea` | 2026-05-29 | 406/406 |
+| 020 | `a5459f6` | 2026-05-29 | 406/406 (web Turbopack build green) |
+| 016 | `8ae56cd` | 2026-05-29 | 406/406 (+@crm/observability scaffold) |
+| 021 | `97c0cb0` | 2026-05-29 | 406/406 (+5 Playwright smoke specs; runtime install deferred) |
+| 022 | `65d66ce` | 2026-05-29 | 406/406 (pino+OTel; in-scope grep 0 console.*) |
+| 012 (partial) | `513e7d2` | 2026-05-29 | 409/409 (+3 RLS helper tests; stores split → spec 040) |
 
 ## Discovered Follow-ups
 
 - **039** — [Fix 22 floating-promise sites surfaced by Biome 2.4](./specs/039_followup_floating_promises.md) (opened from spec 002)
+- **040** — [Split `packages/db/src/index.ts` aggregate stores](./specs/040_followup_db_aggregate_stores.md) (opened from spec 012)
