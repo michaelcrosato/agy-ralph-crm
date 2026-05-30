@@ -1,0 +1,3 @@
+## 2025-05-30 - Added Empty State to Fuzzy Search Input
+**Learning:** Search inputs often silently fail by dropping results, leaving the user confused whether a query executed or returned nothing. Also, icon-only functions (like a search clear button) and interactive elements lacking ARIA labels are a missed opportunity for keyboard/screen reader accessibility.
+**Action:** Always add empty states (`No results found`) for dynamic dropdowns, ensure interactive visual icons like '✕' have `aria-label`, and provide sufficient right padding in inputs so interactive overlapping buttons do not obscure text.
