@@ -1,4 +1,5 @@
 import { genId } from "../_ids";
+import { validateCustomFields } from "../_jsonb";
 import { assertTenantOwns } from "../_rls";
 import type { DBOpportunity } from "../_store";
 import { store } from "../_store";
@@ -18,8 +19,9 @@ export const opportunitiesStore = {
     return o || null;
   },
   insert: async (o: Omit<DBOpportunity, "id">) => {
-    const _orgId = getActiveOrgId();
+    const orgId = getActiveOrgId();
     assertTenantOwns(o);
+    await validateCustomFields(orgId, "opportunities", (o.custom as any) || {});
     const newOpp: DBOpportunity = {
       ...o,
       currencyCode: o.currencyCode || "USD",
@@ -33,10 +35,17 @@ export const opportunitiesStore = {
     id: string,
     updates: Partial<Omit<DBOpportunity, "id" | "orgId">>,
   ) => {
-    const _orgId = getActiveOrgId();
+    const orgId = getActiveOrgId();
     const index = store.opportunities.findIndex((o) => o.id === id);
     if (index === -1) return null;
     assertTenantOwns(store.opportunities[index]);
+    if (updates.custom !== undefined) {
+      await validateCustomFields(
+        orgId,
+        "opportunities",
+        (updates.custom as any) || {},
+      );
+    }
     store.opportunities[index] = {
       ...store.opportunities[index],
       ...updates,

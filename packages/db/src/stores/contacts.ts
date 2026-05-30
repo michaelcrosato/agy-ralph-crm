@@ -1,4 +1,5 @@
 import { genId } from "../_ids";
+import { validateCustomFields } from "../_jsonb";
 import { assertTenantOwns } from "../_rls";
 import type { DBContact } from "../_store";
 import { store } from "../_store";
@@ -18,8 +19,9 @@ export const contactsStore = {
     return c || null;
   },
   insert: async (c: Omit<DBContact, "id">) => {
-    const _orgId = getActiveOrgId();
+    const orgId = getActiveOrgId();
     assertTenantOwns(c);
+    await validateCustomFields(orgId, "contacts", (c.custom as any) || {});
     const newContact: DBContact = {
       ...c,
       reportsToId: c.reportsToId || null,
@@ -32,10 +34,17 @@ export const contactsStore = {
     id: string,
     updates: Partial<Omit<DBContact, "id" | "orgId">>,
   ) => {
-    const _orgId = getActiveOrgId();
+    const orgId = getActiveOrgId();
     const index = store.contacts.findIndex((c) => c.id === id);
     if (index === -1) return null;
     assertTenantOwns(store.contacts[index]);
+    if (updates.custom !== undefined) {
+      await validateCustomFields(
+        orgId,
+        "contacts",
+        (updates.custom as any) || {},
+      );
+    }
     store.contacts[index] = { ...store.contacts[index], ...updates };
     return store.contacts[index];
   },

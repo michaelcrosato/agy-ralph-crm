@@ -1,4 +1,5 @@
 import { genId } from "../_ids";
+import { validateCustomFields } from "../_jsonb";
 import { assertTenantOwns } from "../_rls";
 import type { DBAccount } from "../_store";
 import { store } from "../_store";
@@ -18,8 +19,9 @@ export const accountsStore = {
     return acc || null;
   },
   insert: async (acc: Omit<DBAccount, "id">) => {
-    const _orgId = getActiveOrgId();
+    const orgId = getActiveOrgId();
     assertTenantOwns(acc);
+    await validateCustomFields(orgId, "accounts", (acc.custom as any) || {});
     const newAcc: DBAccount = {
       ...acc,
       parentAccountId: acc.parentAccountId || null,
@@ -32,10 +34,17 @@ export const accountsStore = {
     id: string,
     updates: Partial<Omit<DBAccount, "id" | "orgId">>,
   ) => {
-    const _orgId = getActiveOrgId();
+    const orgId = getActiveOrgId();
     const index = store.accounts.findIndex((a) => a.id === id);
     if (index === -1) return null;
     assertTenantOwns(store.accounts[index]);
+    if (updates.custom !== undefined) {
+      await validateCustomFields(
+        orgId,
+        "accounts",
+        (updates.custom as any) || {},
+      );
+    }
     store.accounts[index] = { ...store.accounts[index], ...updates };
     return store.accounts[index];
   },

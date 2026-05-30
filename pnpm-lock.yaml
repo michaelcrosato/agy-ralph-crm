@@ -244,6 +244,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@crm/metadata':
+        specifier: workspace:*
+        version: link:../metadata
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@opentelemetry/api@1.9.1)(@types/pg@8.15.6)(pg@8.21.0)(postgres@3.4.9)
@@ -313,9 +316,6 @@ importers:
 
   packages/metadata:
     dependencies:
-      '@crm/db':
-        specifier: workspace:*
-        version: link:../db
       zod:
         specifier: ^3.23.0
         version: 3.25.76

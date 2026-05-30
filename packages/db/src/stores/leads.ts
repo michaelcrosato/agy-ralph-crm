@@ -1,4 +1,5 @@
 import { genId } from "../_ids";
+import { validateCustomFields } from "../_jsonb";
 import { assertTenantOwns } from "../_rls";
 import type { DBLead } from "../_store";
 import { store } from "../_store";
@@ -18,8 +19,9 @@ export const leadsStore = {
     return lead || null;
   },
   insert: async (lead: Omit<DBLead, "id">) => {
-    const _orgId = getActiveOrgId();
+    const orgId = getActiveOrgId();
     assertTenantOwns(lead);
+    await validateCustomFields(orgId, "leads", (lead.custom as any) || {});
     const newLead: DBLead = {
       ...lead,
       id: genId("lead"),
@@ -31,10 +33,13 @@ export const leadsStore = {
     id: string,
     updates: Partial<Omit<DBLead, "id" | "orgId">>,
   ) => {
-    const _orgId = getActiveOrgId();
+    const orgId = getActiveOrgId();
     const index = store.leads.findIndex((l) => l.id === id);
     if (index === -1) return null;
     assertTenantOwns(store.leads[index]);
+    if (updates.custom !== undefined) {
+      await validateCustomFields(orgId, "leads", (updates.custom as any) || {});
+    }
     store.leads[index] = { ...store.leads[index], ...updates };
     return store.leads[index];
   },

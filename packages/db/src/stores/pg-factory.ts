@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { getTableConfig } from "drizzle-orm/pg-core";
 import { genId } from "../_ids";
+import { validateCustomFields } from "../_jsonb";
 import { assertTenantOwns } from "../_rls";
 import { getActiveOrgId } from "../_tenant";
 import * as schema from "../schema";
@@ -35,8 +36,19 @@ export function createPgStore(
     },
     insert: async (data: any) => {
       const db = getDbClient();
+      const orgId = getActiveOrgId();
       if ("orgId" in table && "orgId" in data) {
         assertTenantOwns(data);
+      }
+      const customTables = [
+        "leads",
+        "accounts",
+        "contacts",
+        "opportunities",
+        "tickets",
+      ];
+      if (customTables.includes(_tableName)) {
+        await validateCustomFields(orgId, _tableName, data.custom || {});
       }
       const newRow = {
         ...data,
@@ -64,6 +76,17 @@ export function createPgStore(
 
       if ("orgId" in table && "orgId" in oldRow) {
         assertTenantOwns(oldRow);
+      }
+
+      const customTables = [
+        "leads",
+        "accounts",
+        "contacts",
+        "opportunities",
+        "tickets",
+      ];
+      if (customTables.includes(_tableName) && updates.custom !== undefined) {
+        await validateCustomFields(orgId, _tableName, updates.custom || {});
       }
 
       await db.update(table).set(updates).where(eq(table.id, id));

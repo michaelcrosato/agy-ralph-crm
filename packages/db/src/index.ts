@@ -2,6 +2,7 @@ import { store } from "./_store";
 import { stores } from "./stores";
 
 export { genId } from "./_ids";
+export { JsonbValidationError, validateCustomFields } from "./_jsonb";
 export { assertTenantOwns } from "./_rls";
 export * from "./_store";
 export {
