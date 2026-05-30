@@ -1,11 +1,13 @@
 // MUST be the first import: initializes OTel + auto-instrumentations
 // before any module they patch (http, pg, etc.) is required.
-import { initOtel } from "@crm/observability";
+import { createLogger, initOtel } from "@crm/observability";
 
 initOtel({
   serviceName: process.env.OTEL_SERVICE_NAME ?? "crm-api",
   serviceVersion: "0.1.0",
 });
+
+const log = createLogger({ name: "api.bootstrap" });
 
 import {
   createSessionToken,
@@ -13040,14 +13042,14 @@ if (process.env.NODE_ENV !== "test") {
   const port = Number(process.env.PORT) || 3001;
   import("@hono/node-server")
     .then(({ serve }) => {
-      console.log(`[Hono API] Server is starting on port ${port}`);
+      log.info({ port }, "Hono API server starting");
       serve({
         fetch: app.fetch,
         port,
       });
     })
     .catch((err) => {
-      console.error("Failed to load @hono/node-server:", err);
+      log.error({ err }, "Failed to load @hono/node-server");
     });
 }
 

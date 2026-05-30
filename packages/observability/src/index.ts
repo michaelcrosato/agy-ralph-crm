@@ -1,3 +1,5 @@
+export type { Logger } from "./logger";
+export { createLogger, logger } from "./logger";
 export type { OtelInitOptions } from "./otel";
 export { initOtel, shutdownOtel } from "./otel";
 export { withSpan, withTenantSpan } from "./spans";

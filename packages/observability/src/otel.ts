@@ -1,6 +1,7 @@
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-http";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
+import { PinoInstrumentation } from "@opentelemetry/instrumentation-pino";
 import { resourceFromAttributes } from "@opentelemetry/resources";
 import { PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { NodeSDK } from "@opentelemetry/sdk-node";
@@ -54,6 +55,9 @@ export function initOtel(options: OtelInitOptions): NodeSDK | null {
         "@opentelemetry/instrumentation-fs": { enabled: false },
         "@opentelemetry/instrumentation-dns": { enabled: false },
       }),
+      // Bridges pino log records into the OTel logs SDK and attaches
+      // trace_id / span_id from the active context.
+      new PinoInstrumentation(),
     ],
   });
 
