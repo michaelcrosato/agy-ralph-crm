@@ -222,6 +222,31 @@
 - Ran linter, formatter, and type-checks: `pnpm verify` (100% successful with exit code 0).
 - Ran entire test suite: `pnpm test` (all 150 test files, 511 tests passed 100% green and regression-free).
 
+## [2026-05-30] Cycle 9 — Reciprocal Rank Fusion (RRF) Hybrid Search (Spec 064)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active work in progress.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 151 passed test files, 517 passed tests. All green.
+
+### 2. ARCHITECTURAL FINDINGS
+- A unified search endpoint combines fuzzy keyword search and vector cosine semantic search.
+- Reciprocal Rank Fusion (RRF) with constant $k = 60$ provides an elegant, non-normalized sorting metric that automatically prioritizes records matched by both methods (high consensus).
+- A Hono routing conflict was identified where a wildcard route `GET /:id` in the lead CRUD router swallowed more specific lead routers' subpaths (like `/auto-conversion-rules` or `/sla` targets) mounted after it, returning a 404. Reordering route mounting resolved all issues.
+- Missing `await` on asynchronous `dbStore.clear()` database truncation queries during test setups caused concurrent Postgres tables to wipe out during test insertions (race condition), which was resolved by ensuring the promise is properly awaited.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Hybrid Search (Spec 064)**:
+  - Implemented `globalHybridSearch` in `packages/search/src/index.ts` with default $k = 60$ Reciprocal Rank Fusion scoring.
+  - Exposed Hono API endpoint `GET /api/productivity/search/hybrid` (also mounted as `/api/search/hybrid` on Hono routers).
+  - Created `packages/testing/src/hybrid-search.test.ts` to test lexical, semantic, consensus ranking, and tenant context isolation.
+  - Set custom 60,000ms Vitest hook timeout to prevent parallel test container setup timeouts.
+  - Cleaned up unused `tokenTenantB` variables to ensure Biome linter is completely warning-free.
+
+### 4. VERIFICATION LOG
+- Executed whole workspace verification check: `pnpm run agent:check` (completed successfully with exit status 0).
+- All 151 test files and 517 tests passed cleanly and regression-free.
+
 
 
 

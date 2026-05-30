@@ -98,6 +98,7 @@
 | 061 | `c11d027` | 2026-05-30 | 511/511 (+17 dedicated unit tests for domain/shared/) |
 | 062 | `e4f6c16` | 2026-05-30 | 511/511 (Split routes/service.ts monolith into routing, sla, kb, tags, macros, comments, feedback) |
 | 063 | `9530a68` | 2026-05-30 | 511/511 (Split routes/leads.ts monolith into crud, sla, conversion, dedup, assignment, scoring) |
+| 064 | `f9a12a4` | 2026-05-30 | 517/517 (+6 hybrid search integration tests) |
 
 ## Discovered Follow-ups
 
@@ -128,7 +129,7 @@
 - [x] **061** — [Add dedicated unit tests for `domain/shared/` utilities](./specs/061_shared_domain_unit_tests.md)
 - [x] **062** — [Split `routes/service.ts` (1,196 → ≤400 lines)](./specs/062_split_service_routes.md)
 - [x] **063** — [Split `routes/leads.ts` (962 → ≤400 lines)](./specs/063_split_leads_routes.md)
-- [ ] **064** — [Reciprocal Rank Fusion (RRF) Hybrid Search (Lexical + Semantic)](./specs/064_hybrid_rrf_search.md)
+- [x] **064** — [Reciprocal Rank Fusion (RRF) Hybrid Search (Lexical + Semantic)](./specs/064_hybrid_rrf_search.md) · `f9a12a4`
 
 
 
