@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "zod": "^3.23.0",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "@crm/db": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
