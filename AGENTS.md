@@ -44,7 +44,7 @@ Agents must read the following files in sequence upon startup:
 2. `GOAL.md` - System architectural blueprint, high-level scope, definition of done.
 3. `ROADMAP.md` - Phased implementation plans, risk maps, unblocked tickets.
 4. `docs/ai/REPO_MAP.md` - Current code layout, core modules, testing entry points.
-5. The highest priority unblocked ticket in `tickets/TICKET0NN.md`.
+5. The highest-priority unblocked ticket in `tickets/` (for example `tickets/TICKET004.md`).
 
 ### 5.2 The Repeatable Agent Loop
 Agents must execute tasks recursively by strictly repeating this workflow:

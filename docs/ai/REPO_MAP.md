@@ -67,7 +67,7 @@ Verification of all modules is centralized under:
 
 Use this order for every coding loop:
 1. Read `AGENTS.md`, `GOAL.md`, `ROADMAP.md`, `docs/ai/REPO_MAP.md`.
-2. Read the highest-priority pending `tickets/TICKET0NN.md`.
+2. Read the highest-priority pending ticket under `tickets/` (for example `tickets/TICKET004.md`).
 3. Run `pnpm run agent:status` for quick repo context.
 4. Execute the smallest atomic ticket steps and keep edits scoped.
 5. Run `pnpm run agent:check` (format + lint + typecheck + test).

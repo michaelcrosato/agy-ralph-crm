@@ -54,7 +54,7 @@ Upon task instantiation, agents must follow this reading order:
 2. `GOAL.md` - System architecture, scope matrix, and desired end state.
 3. `ROADMAP.md` - Phased implementation plans, risk maps, unblocked tickets.
 4. `docs/ai/REPO_MAP.md` - Subdirectory mappings and entry points.
-5. `tickets/TICKET0NN.md` - The top unblocked ticket to be resolved.
+5. `tickets/TICKET004.md` (or the highest-priority unblocked ticket) - The top ticket to be resolved.
 
 ### 5.2 Key Commands
 - **Workspace Verify Check**: `pnpm verify` (Runs compiler, lint, and Biome checks)
@@ -81,4 +81,4 @@ A task is marked completed and AFK-ready only when:
 2. Lint check passes cleanly with no warnings or errors via Biome checker (`pnpm run agent:lint`).
 3. Integration and unit tests pass with a `0` exit status (`pnpm test` or specific vitest runners).
 4. No unresolved tenant data leak or RLS violations exist in test suites.
-5. The associated ticket in `tickets/TICKET0NN.md` is updated to `Status: completed`.
+5. The associated ticket in the current highest-priority unblocked `tickets/TICKET*.md` file is updated to `Status: completed`.
