@@ -145,6 +145,7 @@ import {
 } from "./lib/validation";
 import { triggerOutboundWebhooks } from "./lib/webhooks";
 import { type Env, tenantAuth } from "./middleware/tenantAuth";
+import { healthApp } from "./routes/health";
 
 // Re-exports preserve the public surface used by 130 integration test
 // files until spec 023 lands the createTestApp harness.
@@ -160,9 +161,7 @@ export { tenantAuth } from "./middleware/tenantAuth";
 const app = new Hono<Env>();
 app.use("*", cors());
 
-app.get("/health", (c) =>
-  c.json({ status: "ok", timestamp: new Date().toISOString() }),
-);
+app.route("/health", healthApp);
 
 app.post("/api/auth/token", async (c) => {
   const body = await c.req.json().catch(() => ({}));
