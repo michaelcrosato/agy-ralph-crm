@@ -86,6 +86,18 @@
 | 024 | `3342a0c` | 2026-05-30 | 416/416 (Declared lookup/composite Drizzle indexes + migrations) |
 | 030 | `72c9a76` | 2026-05-30 | 418/418 (+2 MCP package integration tests) |
 | 033 | `29b8281` | 2026-05-30 | 451/451 (+4 lead analytics integration tests) |
+| 052 | `f301e53` | 2026-05-30 | 451/451 (+3 api security tests) |
+| 053 | `4fb3858` | 2026-05-30 | 494/494 (+119 marketing sequence integration tests) |
+| 054 | `b90df19` | 2026-05-30 | 494/494 (+32 opportunity integration tests) |
+| 055 | `7ff7b59` | 2026-05-30 | 494/494 (+10 MCP/custom object integration tests) |
+| 056 | `ff9d7d4` | 2026-05-30 | 494/494 (Strong types in sequence tracking) |
+| 057 | `9328458` | 2026-05-30 | 494/494 (Node 22.22.3 runtime upgrade) |
+| 058 | `0d70d59` | 2026-05-30 | 511/511 (Split domain/shared monolith into calculations, analytics, fields, sequences, reporting) |
+| 059 | `c907387` | 2026-05-30 | 511/511 (Structured logger in embedder) |
+| 060 | `a91c7c6` | 2026-05-30 | 511/511 (Swallowed error handling fix in sales-ops) |
+| 061 | `c11d027` | 2026-05-30 | 511/511 (+17 dedicated unit tests for domain/shared/) |
+| 062 | `e4f6c16` | 2026-05-30 | 511/511 (Split routes/service.ts monolith into routing, sla, kb, tags, macros, comments, feedback) |
+| 063 | `9530a68` | 2026-05-30 | 511/511 (Split routes/leads.ts monolith into crud, sla, conversion, dedup, assignment, scoring) |
 
 ## Discovered Follow-ups
 
@@ -102,7 +114,20 @@
 - [x] **050** — [BG-003: Webhook Outbox Batching & Concurrency Optimization](./specs/050_webhook_outbox_batching_optimization.md) · `completed` · 2026-05-30 — Optimized webhook outbox processing with high-performance concurrent Promise.all execution, reducing database connection time and passing all 5 outbox specs
 - [x] **051** — [Workflow Nested JSON Path Template Compilation](./specs/051_workflow_nested_template_compilation.md) · `completed` · 2026-05-30 — Implemented robust template compiler resolving nested paths (e.g. `{custom.score}`) and safely stringifying objects to JSON, verified via targeted test suite
 
+## Phase 3 — Production Hardening & File Budget Compliance (Cycle 8+)
 
+- [x] **052** — [API Security Hardening: Secure Headers, Rate Limiting, CORS, Error Handler](./specs/052_api_security_hardening.md)
+- [x] **053** — [Split `routes/sequences.ts` (3,296 → ≤400 lines)](./specs/053_split_sequences_routes.md)
+- [x] **054** — [Split `routes/opportunities.ts` (2,125 → ≤400 lines)](./specs/054_split_opportunities_routes.md)
+- [x] **055** — [Split `packages/mcp/src/index.ts` (1,185 → ≤400 lines)](./specs/055_split_mcp_index.md)
+- [x] **056** — [Eliminate `as any` casts in sequence tracking.ts](./specs/056_eliminate_as_any_tracking.md)
+- [x] **057** — [Node.js 22.22.0 → 22.22.3 Security Patch (May 2026 CVEs)](./specs/057_node_22_22_3_security.md)
+- [x] **058** — [Split `domain/shared/index.ts` (1,367 → ≤400 lines)](./specs/058_split_shared_domain.md)
+- [x] **059** — [Migrate `embedder.ts` console.* to structured logger](./specs/059_embedder_structured_logging.md)
+- [x] **060** — [Fix silent error swallowing in `sales-ops.ts`](./specs/060_fix_silent_catch_sales_ops.md)
+- [x] **061** — [Add dedicated unit tests for `domain/shared/` utilities](./specs/061_shared_domain_unit_tests.md)
+- [x] **062** — [Split `routes/service.ts` (1,196 → ≤400 lines)](./specs/062_split_service_routes.md)
+- [x] **063** — [Split `routes/leads.ts` (962 → ≤400 lines)](./specs/063_split_leads_routes.md)
 
 
 
