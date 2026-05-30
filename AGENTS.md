@@ -83,4 +83,4 @@ Agents must execute tasks recursively by strictly repeating this workflow:
 - **Use Ripgrep strategically**: Target searches specifically using `grep_search` rather than reading large files line-by-line.
 - **Skip Noise**: Always respect the rules outlined in `.aiignore`.
 
-*Last Updated: May 30, 2026*
+*Last Updated: May 29, 2026*

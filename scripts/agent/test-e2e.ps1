@@ -17,7 +17,7 @@ if (Test-Path "playwright.config.mjs" -PathType Leaf) { $hasConfig = $true }
 if (Test-Path "playwright.config.cjs" -PathType Leaf) { $hasConfig = $true }
 
 if ($hasConfig) {
-    if (Test-Path "pnpm-workspace.yaml" -PathType Leaf -and (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+    if ((Test-Path "pnpm-workspace.yaml" -PathType Leaf) -and (Get-Command pnpm -ErrorAction SilentlyContinue)) {
         pnpm exec playwright test
     } elseif (Get-Command npx -ErrorAction SilentlyContinue) {
         npx playwright test

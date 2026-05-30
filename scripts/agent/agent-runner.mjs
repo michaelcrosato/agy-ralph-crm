@@ -10,61 +10,56 @@ if (!command) {
 }
 
 const runnerDir = dirname(fileURLToPath(import.meta.url));
+const repoRoot = resolve(runnerDir, "..", "..");
 const scriptBase = join(runnerDir, command);
+const ps1Path = `${scriptBase}.ps1`;
+const shPath = `${scriptBase}.sh`;
 
-function resolveCommand(name) {
-  const result = spawnSync("cmd", ["/c", `where ${name}`], {
-    encoding: "utf8",
-    windowsHide: true,
-  });
-  return result.status === 0;
+function hasCommand(name) {
+  const probe =
+    process.platform === "win32"
+      ? spawnSync("cmd", ["/c", `where ${name}`], {
+          encoding: "utf8",
+          windowsHide: true,
+        })
+      : spawnSync("sh", ["-c", `command -v ${name}`], { encoding: "utf8" });
+  return probe.status === 0;
 }
 
-function run(args) {
+function exec(args) {
   const child = spawnSync(args[0], args.slice(1), {
     stdio: "inherit",
     shell: false,
-    cwd: resolve(runnerDir, "..", ".."),
+    cwd: repoRoot,
   });
   process.exit(child.status ?? 1);
 }
 
-if (process.platform === "win32") {
-  const scriptPaths = {
-    ps1: `${scriptBase}.ps1`,
-    sh: `${scriptBase}.sh`,
-  };
-
-  if (existsSync(scriptPaths.ps1)) {
-    if (resolveCommand("pwsh")) {
-      run([
-        "pwsh",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        scriptPaths.ps1,
-      ]);
-    } else if (resolveCommand("powershell")) {
-      run([
-        "powershell",
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        scriptPaths.ps1,
-      ]);
-    } else if (resolveCommand("bash") && existsSync(scriptPaths.sh)) {
-      run(["bash", scriptPaths.sh]);
-    }
-  } else if (resolveCommand("bash") && existsSync(scriptPaths.sh)) {
-    run(["bash", scriptPaths.sh]);
+if (process.platform === "win32" && existsSync(ps1Path)) {
+  if (hasCommand("pwsh")) {
+    exec(["pwsh", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", ps1Path]);
+  }
+  if (hasCommand("powershell")) {
+    exec([
+      "powershell",
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      ps1Path,
+    ]);
   }
 }
 
-if (existsSync(`${scriptBase}.sh`)) {
-  run(["bash", `${scriptBase}.sh`]);
+if (existsSync(shPath) && hasCommand("bash")) {
+  exec(["bash", shPath]);
 }
 
-console.error(`No executable agent script found for command "${command}".`);
+if (process.platform === "win32" && existsSync(ps1Path)) {
+  console.error(
+    `Found ${ps1Path} but no PowerShell/bash available to run it. Install PowerShell 7+ or Git Bash.`,
+  );
+} else {
+  console.error(`No executable agent script found for command "${command}".`);
+}
 process.exit(1);

@@ -11,22 +11,33 @@ crm-core/
 ├── apps/
 │   ├── api/                   # Hono Engine Routing (REST, tRPC, MCP, Webhooks)
 │   │   └── src/index.ts       # Central API entry point & Hono controllers
-│   └── web/                   # Next.js 16 Interface UI dashboard shell
+│   └── web/                   # Next.js 16 dashboard shell (src/app/)
 ├── packages/
-│   ├── core/                  # Clean business domain logic & Zod contracts
-│   │   └── src/index.ts       # Sequence execution, personalizations, timeline logging
+│   ├── core/                  # Pure relational engine, sequence execution, Zod contracts
+│   │   └── src/index.ts
 │   ├── db/                    # Drizzle ORM config, schemas, & mocked stores
 │   │   ├── src/schema.ts      # Main schema declarations
-│   │   └── src/index.ts       # tenant isolation wrappers (withTenant)
-│   ├── auth/                  # Session tokens and permissions engine
-│   └── testing/               # Integration, property-based RLS, & fuzz-testing
-│       └── src/               # 129 comprehensive Vitest integration tests
+│   │   └── src/index.ts       # withTenant isolation wrappers & dbStore
+│   ├── auth/                  # Session tokens & permissions engine
+│   ├── audit/                 # Audit trail primitives & RLS-safe loggers
+│   ├── metadata/              # Tenant metadata: layouts, picklists, field defs
+│   ├── workflow/              # ECA workflow engine & condition evaluators
+│   ├── reporting/             # Report definitions, scheduled report runtime
+│   ├── forecasting/           # Forecast categories, adjustments, quotas
+│   ├── webhooks/              # Outbound webhook dispatcher & outbox
+│   ├── documents/             # Document templates & mail merge primitives
+│   ├── search/                # TrigramIndex, hybrid Levenshtein search
+│   ├── ui/                    # Shared UI components for apps/web
+│   └── testing/               # Vitest integration suites (129 files / 403 tests)
+│       └── src/
 ├── modules/
-│   ├── service-lite/          # Structural standalone ticketing extension
-│   └── _template/             # Default template for new modules
+│   ├── service-lite/          # Standalone ticketing extension w/ MCP support
+│   └── _template/             # Module scaffold template
 ├── scripts/
-│   └── agent/                 # Central cross-platform diagnostic utility scripts
+│   └── agent/                 # Cross-platform agent utility scripts (sh + ps1)
+│       └── agent-runner.mjs   # Cross-platform dispatcher (Node + pwsh/bash)
 ├── tickets/                   # Atomic, executable step-by-step task logs
+├── plan/                      # Legacy specs & status logs (thin pointers to root)
 └── .ralph/
     └── specs/                 # 130 granular functional specifications
 ```
@@ -40,8 +51,16 @@ crm-core/
 | **REST Router Endpoints** | `apps/api/src/index.ts` | `packages/core/src/index.ts` |
 | **Database Schema** | `packages/db/src/schema.ts` | `packages/db/src/index.ts` |
 | **Sequence Delivery Primitives** | `packages/core/src/index.ts` | `packages/db/src/schema.ts` |
+| **Tenant Metadata (layouts/picklists)** | `packages/metadata/src/` | `apps/api/src/index.ts` |
+| **Workflow / ECA Engine** | `packages/workflow/src/` | `packages/core/src/index.ts` |
+| **Reports & Forecasting** | `packages/reporting/src/`, `packages/forecasting/src/` | `apps/api/src/index.ts` |
+| **Search / Fuzzy Lookup** | `packages/search/src/` | `packages/testing/src/search.test.ts` |
+| **Webhooks & Outbox** | `packages/webhooks/src/` | `apps/api/src/index.ts` |
+| **Documents & Mail Merge** | `packages/documents/src/` | `packages/testing/src/documents.test.ts` |
+| **Service-lite Module / MCP** | `modules/service-lite/src/` | `packages/testing/src/mcp-service-lite.test.ts` |
 | **Integration Test Suites** | `packages/testing/src/` | `packages/testing/package.json` |
-| **Agent Automation Helpers** | `scripts/agent/` | `package.json` |
+| **Agent Automation Helpers** | `scripts/agent/` (sh + ps1) | `scripts/agent/agent-runner.mjs`, `package.json` |
+| **AFK Loop Bootstrap (Windows)** | `run-afk-loop.ps1` | `AGENTS.md` |
 
 ---
 

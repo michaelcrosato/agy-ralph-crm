@@ -5,6 +5,10 @@ budgets:
   max_context_tokens: 32768
   max_file_lines_standard: 400
 allowlisted_commands:
-  - "pnpm typecheck"
-  - "pnpm lint"
+  - "pnpm verify"
+  - "pnpm build"
   - "pnpm test"
+  - "pnpm test:e2e"
+  - "pnpm run agent:check"
+  - "pnpm run agent:doctor"
+  - "pnpm run agent:status"

@@ -35,7 +35,7 @@ pnpm verify
 ```
 
 ### 6. Run Test Suites
-To run all 129 integration and unit tests:
+To run all integration and unit tests (currently 403 tests across 129 Vitest files):
 ```bash
 pnpm test
 ```

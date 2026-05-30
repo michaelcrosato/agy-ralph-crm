@@ -6,13 +6,16 @@ Write-Host "=========================================" -ForegroundColor Green
 Write-Host " AGENT CHECK: Comprehensive Verification" -ForegroundColor Green
 Write-Host "=========================================" -ForegroundColor Green
 
+$pwshCmd = Get-Command pwsh -ErrorAction SilentlyContinue
+$Shell = if ($pwshCmd) { $pwshCmd.Source } else { "powershell" }
+
 function Invoke-AgentStep {
     param([string]$Name, [string]$Script)
     Write-Host "Step: $Name" -ForegroundColor Cyan
     if (Test-Path $Script) {
-        $null = & powershell -ExecutionPolicy Bypass -File $Script
+        & $Shell -NoProfile -ExecutionPolicy Bypass -File $Script
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "[ERROR] $Name failed." -ForegroundColor Red
+            Write-Host "[ERROR] $Name failed (exit $LASTEXITCODE)." -ForegroundColor Red
             return 1
         }
         return 0
@@ -30,7 +33,8 @@ $failed += Invoke-AgentStep -Name "test suites" -Script "scripts/agent/test.ps1"
 
 if ($failed -gt 0) {
     Write-Host "Agent check failed." -ForegroundColor Red
-} else {
-    Write-Host "All checks passed." -ForegroundColor Green
+    exit 1
 }
-exit $failed
+
+Write-Host "All checks passed." -ForegroundColor Green
+exit 0
