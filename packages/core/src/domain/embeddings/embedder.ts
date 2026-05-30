@@ -5,14 +5,17 @@ import {
   registerMutationListener,
   withTenant,
 } from "@crm/db";
+import { createLogger } from "@crm/observability";
 import { createMockEmbeddingProvider } from "@crm/search";
+
+const log = createLogger({ name: "embedder" });
 
 export function getEmbeddingProvider() {
   const providerType = process.env.EMBEDDINGS_PROVIDER || "mock";
   if (providerType === "openai") {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      console.warn(
+      log.warn(
         "OPENAI_API_KEY missing. Falling back to mock embedding provider.",
       );
       return createMockEmbeddingProvider(1536);
@@ -74,7 +77,7 @@ export class EmbedderService {
 
       // Trigger queue processing asynchronously
       EmbedderService.processQueue().catch((err) => {
-        console.error("Embedder queue error:", err);
+        log.error({ err }, "Embedder queue error");
       });
     });
   }
@@ -118,9 +121,9 @@ export class EmbedderService {
             }
           });
         } catch (err) {
-          console.error(
-            `Failed to generate embedding for ${item.entityType} ${item.entityId}:`,
-            err,
+          log.error(
+            { err, entityType: item.entityType, entityId: item.entityId },
+            "Failed to generate embedding",
           );
         }
       }
