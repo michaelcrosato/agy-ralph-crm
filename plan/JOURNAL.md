@@ -592,3 +592,27 @@
 - Committed successfully with SHA `87d7801`.
 - Executed workspace preflights: `pnpm run agent:check` (all 156 files and 546 tests passed 100% green).
 
+## [2026-05-31] Cycle 24 — API Contacts Routes Modularization (Spec 079)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 156 passed test files, 546 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Decomposing the Contacts router file `apps/api/src/routes/contacts.ts` (457 lines) into a dedicated folder `apps/api/src/routes/contacts/` simplifies the data boundary, conforming with the standard standard file limit.
+- Separating standard CRUD logic, hierarchy parent queries, and dynamic duplicate merging cascades into distinct modules significantly increases maintainability and type-safety.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Contacts Routes Modularization**:
+  - Created `apps/api/src/routes/contacts/crud.ts` containing contacts standard CRUD endpoints (`crudApp`) and schemas.
+  - Created `apps/api/src/routes/contacts/hierarchy.ts` containing hierarchy paths endpoints (`hierarchyApp`).
+  - Created `apps/api/src/routes/contacts/operations.ts` containing duplicate checking, merge cascade updates, and AI enrichment triggering.
+  - Created `apps/api/src/routes/contacts/index.ts` barrel composing and re-exporting the `contactsApp`.
+  - Removed old monolithic `apps/api/src/routes/contacts.ts`.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `c8dcc30`.
+- Executed workspace preflights: `pnpm run agent:check` (all 156 files and 546 tests passed 100% green).
+
+

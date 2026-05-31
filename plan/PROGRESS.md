@@ -157,6 +157,8 @@
 - [x] **076** — [Split routes/admin.ts (789 → ≤400 lines)](./specs/076_split_admin_routes.md) · `e523c70`
 - [x] **077** — [Split routes/accounts.ts (624 → ≤400 lines)](./specs/077_split_accounts_routes.md) · `8016410`
 - [x] **078** — [Split routes/campaigns.ts (534 → ≤400 lines)](./specs/078_split_campaigns_routes.md) · `87d7801`
+- [x] **079** — [Split routes/contacts.ts (457 → ≤400 lines)](./specs/079_split_contacts_routes.md) · `c8dcc30`
+
 
 
 
