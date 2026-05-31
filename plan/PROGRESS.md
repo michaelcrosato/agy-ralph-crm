@@ -154,6 +154,7 @@
 
 - [x] **075** — [Split Main Dashboard Page (1,502 → ≤400 lines)](./specs/075_split_main_dashboard_page.md) · `a1d2a5b`
 - [x] **076** — [Split routes/admin.ts (789 → ≤400 lines)](./specs/076_split_admin_routes.md) · `e523c70`
+- [~] **077** — [Split routes/accounts.ts (624 → ≤400 lines)](./specs/077_split_accounts_routes.md)
 
 
 
