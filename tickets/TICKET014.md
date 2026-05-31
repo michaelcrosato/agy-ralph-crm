@@ -1,7 +1,7 @@
 # TICKET014: AI Attributes & Auto-Enrichment Background Worker
 
 ## Details
-- **Status**: todo
+- **Status**: completed
 - **Priority**: High
 - **Goal**: Implement a background worker and REST endpoint to automatically calculate AI Attributes (summarization, ICP scoring, and competitor extraction) on CRM records.
 - **Context**: Spec 071 describes establishing real-time background semantic enrichment for Contacts and Leads under strict tenant RLS isolation.

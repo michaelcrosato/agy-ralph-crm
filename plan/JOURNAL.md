@@ -414,6 +414,30 @@
 - Executed the entire test suite sequentially: `pnpm test` (all 154 test files and 536 tests passed 100% green and regression-free).
 - Validated linter, formatter, typecheck, and monorepo build checks: `pnpm verify` (completed successfully with exit status 0).
 
+## [2026-05-31] Cycle 17 — AI Attributes & Auto-Enrichment Background Worker (Spec 071)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 155 passed test files, 541 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Swapping standard mock hooks with full array-based registration allows multiple mutation callbacks (e.g. `EmbedderService` and `AIAttributeService`) to execute concurrently in the database proxy without interference.
+- Restricting enrichment triggers solely to non-AI updates (using a static transaction-level lock set) prevents recursion loops on database writes.
+- NLP rules for ICP and competitor matching can run fully offline, ensuring tests execute with 100% determinism.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Offline NLP Engine**: Created `packages/core/src/domain/shared/ai.ts` with ICP calculation rules, competitor extraction maps, and auto-summarization logic.
+- **Service & Queue**: Implemented `AIAttributeService` in `packages/core/src/domain/shared/ai-service.ts` tracking Lead and Contact insertions and updates.
+- **REST Gateways**: Implemented force recalculation endpoints `POST /api/leads/:id/enrich` and `POST /api/contacts/:id/enrich` fully verified by tenant RLS context.
+- **Integration Tests**: Created `packages/testing/src/ai-enrichment.test.ts` validating auto-calculation, rule accuracy, manual endpoints, and strict RLS tenant isolation.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `f30b824`.
+- Executed the entire test suite sequentially: `pnpm test` (all 155 test files and 541 tests passed 100% green and regression-free).
+- Validated linter, formatter, typecheck, and monorepo build checks: `pnpm verify` (completed successfully with exit status 0).
+
+
 
 
 
