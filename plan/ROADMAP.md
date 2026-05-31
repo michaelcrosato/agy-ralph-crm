@@ -153,6 +153,8 @@ Score = (Impact × Fit) ÷ (Risk × (6 - Feasibility)). Higher = ship sooner. 1�
 | [038](./specs/038_audit_log_append_only.md) | Audit log → append-only Postgres table + WORM exports | 2 | 4 | 4 | 2 | 4 | **4.0** | 014 |
 | [065](./specs/065_rrf_cross_encoder_reranker.md) | RRF Search Cross-Encoder Reranking Engine | 4 | 5 | 4 | 2 | 5 | **6.3** | 064 |
 | [070](./specs/070_full_stack_openapi_sdk.md) | Full-Stack OpenAPI SDK Generation & Next.js Dashboard Integration | 4 | 5 | 4 | 2 | 5 | **6.3** | 017, 018, 068 |
+| [071](./specs/071_ai_attributes_enrichment_worker.md) | AI Attributes & Auto-Enrichment Background Worker | 5 | 5 | 4 | 2 | 5 | **6.3** | 013, 014, 025, 047 |
+
 
 ---
 

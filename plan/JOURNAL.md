@@ -390,6 +390,31 @@
 - Validated linter, formatter, type-checker, and builds: `pnpm verify` (completed successfully with exit status 0).
 - Ran health preflight checks: `pnpm run agent:doctor` (exited 0 with all checks fully verified).
 
+## [2026-05-31] Cycle 16 — Full-Stack OpenAPI SDK Generation & Next.js Dashboard Integration (Spec 070)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 154 passed test files, 536 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Swapping plain Hono routers for `@hono/zod-openapi`'s `OpenAPIHono` enables compile-time strict TypeScript types for the API client (`hc<AppType>`) end-to-end, solidifying monorepo boundaries.
+- Using local sub-apps and exporting fully-chained `.openapi(...)` signatures (type chaining) preserves all routing parameters and route declarations, preventing type collapse.
+- Keeping middleware integration (such as `tenantAuth` RLS context setting) global across sub-apps preserves multi-tenant safety and organization RLS boundaries.
+- Timezone offsets in verification child processes can disrupt computed cryptographic hash validation chains. Passing `TZ: "UTC"` to the child process environment and using native `.toISOString()` ensures stable cryptographic alignment.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Modular OpenAPI Migration**: Swapped standard `Hono` with `OpenAPIHono` across `accountsApp`, `contactsApp`, `opportunitiesApp` (via its modular `crudApp`), and `leadsApp` (via `crudRouter`).
+- **Strict SDK Types**: Removed the permissive `Record<string, any>` fallback type from `@crm/api-client` to enforce absolute compile-time RPC type safety.
+- **Next.js Integration**: Aligned contact and opportunity property definitions and parsed Close Date strings safely inside the primary dashboard components (`apps/web/src/app/page.tsx`).
+- **Cryptographic UTC Alignment**: Enforced `TZ: "UTC"` in child process test executors and migrated `verify-audit-integrity.mjs` to `.toISOString()`.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `45e3e7d`.
+- Executed the entire test suite sequentially: `pnpm test` (all 154 test files and 536 tests passed 100% green and regression-free).
+- Validated linter, formatter, typecheck, and monorepo build checks: `pnpm verify` (completed successfully with exit status 0).
+
+
 
 
 
