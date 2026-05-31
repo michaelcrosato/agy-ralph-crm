@@ -4,7 +4,7 @@ import {
   mergeContacts,
 } from "@crm/core";
 import { dbStore, store } from "@crm/db";
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   enforceCustomValidationRules,
   enforcePicklistDependencies,
@@ -13,25 +13,96 @@ import { triggerOutboundWebhooks } from "../lib/webhooks";
 import { resourceRbac } from "../middleware/rbac";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
-/** Contact CRUD + hierarchy + duplicates + merge. Mounted at /api/contacts. */
-export const contactsApp = new Hono<Env>();
-contactsApp.use("*", tenantAuth, resourceRbac);
+export const ContactSchema = z
+  .object({
+    id: z.string(),
+    orgId: z.string(),
+    ownerId: z.string(),
+    accountId: z.string().nullable().optional(),
+    firstName: z.string().nullable().optional(),
+    lastName: z.string().nullable().optional(),
+    email: z.string().nullable().optional(),
+    custom: z.any().nullable().optional(),
+    reportsToId: z.string().nullable().optional(),
+  })
+  .openapi("Contact");
 
-contactsApp.get("/", tenantAuth, async (c) => {
-  const contacts = await dbStore.contacts.findMany();
-  return c.json({ success: true, data: contacts });
+/** Contact CRUD + hierarchy + duplicates + merge. Mounted at /api/contacts. */
+const baseContactsApp = new OpenAPIHono<Env>();
+baseContactsApp.use("*", tenantAuth, resourceRbac);
+
+export const listContactsRoute = createRoute({
+  method: "get",
+  path: "/",
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.array(ContactSchema),
+          }),
+        },
+      },
+      description: "List all contacts",
+    },
+  },
 });
 
-contactsApp.get("/:id", tenantAuth, async (c) => {
+export const getContactRoute = createRoute({
+  method: "get",
+  path: "/{id}",
+  request: {
+    params: z.object({
+      id: z.string().openapi({
+        param: {
+          name: "id",
+          in: "path",
+        },
+        example: "123e4567-e89b-12d3-a456-426614174000",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: ContactSchema,
+          }),
+        },
+      },
+      description: "Retrieve a contact by ID",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+      description: "Contact not found",
+    },
+  },
+});
+
+const appWithList = baseContactsApp.openapi(listContactsRoute, async (c) => {
+  const contacts = await dbStore.contacts.findMany();
+  return c.json({ success: true, data: contacts }, 200);
+});
+
+const appWithGet = appWithList.openapi(getContactRoute, async (c) => {
   const id = c.req.param("id");
   const contact = await dbStore.contacts.findOne(id);
   if (!contact) {
     return c.json({ error: "Contact not found" }, 404);
   }
-  return c.json({ success: true, data: contact });
+  return c.json({ success: true, data: contact }, 200);
 });
 
-contactsApp.post("/", tenantAuth, async (c) => {
+baseContactsApp.post("/", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
   const { accountId, firstName, lastName, email, custom, reportsToId } = body;
@@ -88,7 +159,7 @@ contactsApp.post("/", tenantAuth, async (c) => {
   return c.json({ success: true, data: contact }, 201);
 });
 
-contactsApp.patch("/:id", tenantAuth, async (c) => {
+baseContactsApp.patch("/:id", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
 
@@ -200,7 +271,7 @@ contactsApp.patch("/:id", tenantAuth, async (c) => {
   return c.json({ success: true, data: updated });
 });
 
-contactsApp.get("/:id/duplicates", tenantAuth, async (c) => {
+baseContactsApp.get("/:id/duplicates", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
 
@@ -218,7 +289,7 @@ contactsApp.get("/:id/duplicates", tenantAuth, async (c) => {
   return c.json({ success: true, data: duplicates });
 });
 
-contactsApp.post("/:id/merge", tenantAuth, async (c) => {
+baseContactsApp.post("/:id/merge", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
@@ -345,7 +416,7 @@ contactsApp.post("/:id/merge", tenantAuth, async (c) => {
   return c.json({ success: true, data: updatedMaster });
 });
 
-contactsApp.get("/:id/hierarchy", tenantAuth, async (c) => {
+baseContactsApp.get("/:id/hierarchy", tenantAuth, async (c) => {
   const id = c.req.param("id");
 
   const contact = await dbStore.contacts.findOne(id);
@@ -365,3 +436,5 @@ contactsApp.get("/:id/hierarchy", tenantAuth, async (c) => {
     },
   });
 });
+
+export const contactsApp = appWithGet;

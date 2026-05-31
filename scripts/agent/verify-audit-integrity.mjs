@@ -11,17 +11,7 @@ function formatLocalToUtcIso(date) {
   if (!(date instanceof Date)) {
     date = new Date(date);
   }
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  const h = String(date.getHours()).padStart(2, "0");
-  const min = String(date.getMinutes()).padStart(2, "0");
-  const s = String(date.getSeconds()).padStart(2, "0");
-  const ms = String(date.getMilliseconds())
-    .padStart(2, "0")
-    .padEnd(3, "0")
-    .slice(0, 3);
-  return `${y}-${m}-${d}T${h}:${min}:${s}.${ms}Z`;
+  return date.toISOString();
 }
 
 function stableStringify(value) {

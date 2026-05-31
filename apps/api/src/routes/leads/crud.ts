@@ -9,9 +9,9 @@ import {
 import { triggerOutboundWebhooks } from "../../lib/webhooks";
 import { type Env, tenantAuth } from "../../middleware/tenantAuth";
 
-export const crudRouter = new OpenAPIHono<Env>();
+const baseCrudRouter = new OpenAPIHono<Env>();
 
-crudRouter.use(tenantAuth);
+baseCrudRouter.use(tenantAuth);
 
 export const LeadSchema = z.object({
   id: z.string(),
@@ -25,7 +25,7 @@ export const LeadSchema = z.object({
   custom: z.any().nullable().optional(),
 });
 
-crudRouter.post("/", tenantAuth, async (c) => {
+baseCrudRouter.post("/", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
   const { email, company, status, custom } = body;
@@ -137,7 +137,7 @@ export const listLeadsRoute = createRoute({
   },
 });
 
-crudRouter.openapi(listLeadsRoute, async (c) => {
+const appWithList = baseCrudRouter.openapi(listLeadsRoute, async (c) => {
   const leads = await dbStore.leads.findMany();
   return c.json({ success: true, data: leads }, 200);
 });
@@ -181,7 +181,7 @@ export const getLeadRoute = createRoute({
   },
 });
 
-crudRouter.openapi(getLeadRoute, async (c) => {
+const appWithGet = appWithList.openapi(getLeadRoute, async (c) => {
   const id = c.req.param("id");
   const lead = await dbStore.leads.findOne(id);
   if (!lead) {
@@ -190,7 +190,7 @@ crudRouter.openapi(getLeadRoute, async (c) => {
   return c.json({ success: true, data: lead }, 200);
 });
 
-crudRouter.patch("/:id", tenantAuth, async (c) => {
+baseCrudRouter.patch("/:id", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
@@ -275,3 +275,5 @@ crudRouter.patch("/:id", tenantAuth, async (c) => {
     autoConverted: autoConvertResult || null,
   });
 });
+
+export const crudRouter = appWithGet;

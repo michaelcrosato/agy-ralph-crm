@@ -108,6 +108,9 @@ importers:
       '@crm/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      api:
+        specifier: workspace:*
+        version: link:../api
       next:
         specifier: ^16.2.6
         version: 16.2.6(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(babel-plugin-react-compiler@0.0.0-experimental-a1856f3-20260507)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)

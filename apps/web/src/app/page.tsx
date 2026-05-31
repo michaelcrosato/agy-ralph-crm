@@ -16,9 +16,9 @@ interface Lead {
 interface Contact {
   id: string;
   orgId: string;
-  firstName: string | null;
-  lastName: string | null;
-  email: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
   custom?: Record<string, unknown> | null;
 }
 
@@ -26,7 +26,7 @@ interface Opportunity {
   id: string;
   orgId: string;
   name: string;
-  amount: string;
+  amount?: string | null;
   stage: string;
 }
 
@@ -463,7 +463,7 @@ export default function Home() {
             id: o.id,
             type: "Opportunity",
             title: o.name,
-            subtitle: `$${o.amount} - ${o.stage}`,
+            subtitle: `$${o.amount || "0"} - ${o.stage}`,
           }));
 
         setSearchResults(
@@ -478,7 +478,7 @@ export default function Home() {
 
   // Statistics summaries
   const totalPipeline = opportunities.reduce(
-    (acc, o) => acc + (Number.parseFloat(o.amount) || 0),
+    (acc, o) => acc + (Number.parseFloat(o.amount || "0") || 0),
     0,
   );
   const unconvertedLeadsCount = leads.filter(
@@ -881,12 +881,13 @@ export default function Home() {
                   {opportunities.map((opp, idx) => {
                     const maxAmount = Math.max(
                       ...opportunities.map(
-                        (o) => Number.parseFloat(o.amount) || 1,
+                        (o) => Number.parseFloat(o.amount || "0") || 1,
                       ),
                     );
                     const widthFraction =
                       maxAmount > 0
-                        ? (Number.parseFloat(opp.amount) || 0) / maxAmount
+                        ? (Number.parseFloat(opp.amount || "0") || 0) /
+                          maxAmount
                         : 0;
                     const barWidth = Math.max(10, widthFraction * 70); // % width
                     const barY = idx * 50 + 20;
@@ -935,7 +936,7 @@ export default function Home() {
                         >
                           $
                           {(
-                            Number.parseFloat(opp.amount) || 0
+                            Number.parseFloat(opp.amount || "0") || 0
                           ).toLocaleString()}
                         </text>
                       </g>
@@ -1314,7 +1315,7 @@ export default function Home() {
                         </td>
                         <td style={{ fontWeight: "bold" }}>
                           $
-                          {Number(opp.amount).toLocaleString(undefined, {
+                          {Number(opp.amount || 0).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                           })}
                         </td>

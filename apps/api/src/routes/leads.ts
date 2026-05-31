@@ -8,15 +8,16 @@ import { dedupRouter } from "./leads/dedup";
 import { leadScoringRulesApp, scoringRouter } from "./leads/scoring";
 import { slaRouter } from "./leads/sla";
 
-export const leadsApp = new OpenAPIHono<Env>();
-leadsApp.use("*", resourceRbac);
+const baseLeadsApp = new OpenAPIHono<Env>();
+baseLeadsApp.use("*", resourceRbac);
 
-// Mount the decomposed leads sub-routers at the root path
-leadsApp.route("/", slaRouter);
-leadsApp.route("/", conversionRouter);
-leadsApp.route("/", dedupRouter);
-leadsApp.route("/", assignmentRouter);
-leadsApp.route("/", scoringRouter);
-leadsApp.route("/", crudRouter);
+// Mount the decomposed leads sub-routers at the root path with chained types
+export const leadsApp = baseLeadsApp
+  .route("/", slaRouter)
+  .route("/", conversionRouter)
+  .route("/", dedupRouter)
+  .route("/", assignmentRouter)
+  .route("/", scoringRouter)
+  .route("/", crudRouter);
 
 export { leadAssignmentRulesApp, leadScoringRulesApp };

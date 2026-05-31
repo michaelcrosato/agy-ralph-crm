@@ -209,6 +209,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
               ...process.env,
               DB_DRIVER: "pg",
               DB_URL: connectionString,
+              TZ: "UTC",
             },
             stdio: "pipe",
           });
@@ -247,6 +248,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
               ...process.env,
               DB_DRIVER: "pg",
               DB_URL: connectionString,
+              TZ: "UTC",
             },
             stdio: "pipe",
           });
@@ -294,6 +296,7 @@ describe("Audit Log Cryptographic Integrity & Chaining Pipeline", () => {
               ...process.env,
               DB_DRIVER: "pg",
               DB_URL: connectionString,
+              TZ: "UTC",
             },
             stdio: "pipe",
           });

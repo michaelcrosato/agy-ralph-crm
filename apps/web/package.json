@@ -16,7 +16,8 @@
     "@crm/core": "workspace:*",
     "@crm/auth": "workspace:*",
     "@crm/ui": "workspace:*",
-    "@crm/api-client": "workspace:*"
+    "@crm/api-client": "workspace:*",
+    "api": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.0.0",

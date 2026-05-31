@@ -1,7 +1,7 @@
 import { type StageGateRule, validateOpportunityStageGate } from "@crm/core";
 import { dbStore } from "@crm/db";
 import { executeWorkflows } from "@crm/workflow";
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   enforceCustomValidationRules,
   enforcePicklistDependencies,
@@ -9,23 +9,104 @@ import {
 import { triggerOutboundWebhooks } from "../../lib/webhooks";
 import { type Env, tenantAuth } from "../../middleware/tenantAuth";
 
-export const crudApp = new Hono<Env>();
+export const OpportunitySchema = z
+  .object({
+    id: z.string(),
+    orgId: z.string(),
+    ownerId: z.string(),
+    accountId: z.string().nullable().optional(),
+    campaignId: z.string().nullable().optional(),
+    stage: z.string(),
+    name: z.string(),
+    amount: z.string().nullable().optional(),
+    closeDate: z
+      .preprocess(
+        (val) => (val instanceof Date ? val.toISOString() : val),
+        z.string(),
+      )
+      .nullable()
+      .optional(),
+    custom: z.any().nullable().optional(),
+    currencyCode: z.string().optional(),
+    amountCorporate: z.string().nullable().optional(),
+  })
+  .openapi("Opportunity");
 
-crudApp.get("/", tenantAuth, async (c) => {
-  const opportunities = await dbStore.opportunities.findMany();
-  return c.json({ success: true, data: opportunities });
+const baseCrudApp = new OpenAPIHono<Env>();
+baseCrudApp.use("*", tenantAuth);
+
+export const listOpportunitiesRoute = createRoute({
+  method: "get",
+  path: "/",
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.array(OpportunitySchema),
+          }),
+        },
+      },
+      description: "List all opportunities",
+    },
+  },
 });
 
-crudApp.get("/:id", tenantAuth, async (c) => {
+export const getOpportunityRoute = createRoute({
+  method: "get",
+  path: "/{id}",
+  request: {
+    params: z.object({
+      id: z.string().openapi({
+        param: {
+          name: "id",
+          in: "path",
+        },
+        example: "123e4567-e89b-12d3-a456-426614174000",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: OpportunitySchema,
+          }),
+        },
+      },
+      description: "Retrieve an opportunity by ID",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+      description: "Opportunity not found",
+    },
+  },
+});
+
+const appWithList = baseCrudApp.openapi(listOpportunitiesRoute, async (c) => {
+  const opportunities = await dbStore.opportunities.findMany();
+  return c.json({ success: true, data: opportunities }, 200);
+});
+
+const appWithGet = appWithList.openapi(getOpportunityRoute, async (c) => {
   const id = c.req.param("id");
   const opportunity = await dbStore.opportunities.findOne(id);
   if (!opportunity) {
     return c.json({ error: "Opportunity not found" }, 404);
   }
-  return c.json({ success: true, data: opportunity });
+  return c.json({ success: true, data: opportunity }, 200);
 });
 
-crudApp.post("/", tenantAuth, async (c) => {
+baseCrudApp.post("/", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
   const { name, stage, accountId, amount, closeDate, currencyCode } = body;
@@ -95,7 +176,7 @@ crudApp.post("/", tenantAuth, async (c) => {
   return c.json({ success: true, data: opp });
 });
 
-crudApp.patch("/:id", tenantAuth, async (c) => {
+baseCrudApp.patch("/:id", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
@@ -247,3 +328,5 @@ crudApp.patch("/:id", tenantAuth, async (c) => {
     workflow: workflowExecution,
   });
 });
+
+export const crudApp = appWithGet;

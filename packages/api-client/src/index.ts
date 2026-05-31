@@ -7,8 +7,7 @@ import { hc } from "hono/client";
 // (callers may type their own response shapes for now) while still keeping
 // the strongly-typed AppType available for opt-in use.
 type TypedClient = ReturnType<typeof hc<AppType>>;
-// biome-ignore lint/suspicious/noExplicitAny: pragmatic seam until all routes are openapi-typed
-export type ApiClient = TypedClient & Record<string, any>;
+export type ApiClient = TypedClient;
 
 export function createApiClient(
   baseUrl: string,

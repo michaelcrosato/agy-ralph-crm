@@ -7,7 +7,7 @@ import {
   validateAccountTeamMember,
 } from "@crm/core";
 import { dbStore, store } from "@crm/db";
-import { Hono } from "hono";
+import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import {
   enforceCustomValidationRules,
   enforcePicklistDependencies,
@@ -16,16 +16,46 @@ import { triggerOutboundWebhooks } from "../lib/webhooks";
 import { resourceRbac } from "../middleware/rbac";
 import { type Env, tenantAuth } from "../middleware/tenantAuth";
 
-/** Account CRUD + hierarchy + duplicates + merge + team. Mounted at /api/accounts. */
-export const accountsApp = new Hono<Env>();
-accountsApp.use("*", tenantAuth, resourceRbac);
+export const AccountSchema = z
+  .object({
+    id: z.string(),
+    orgId: z.string(),
+    ownerId: z.string(),
+    name: z.string(),
+    domain: z.string().nullable(),
+    custom: z.any().nullable().optional(),
+    parentAccountId: z.string().nullable().optional(),
+  })
+  .openapi("Account");
 
-accountsApp.get("/", tenantAuth, async (c) => {
-  const accounts = await dbStore.accounts.findMany();
-  return c.json({ success: true, data: accounts });
+/** Account CRUD + hierarchy + duplicates + merge + team. Mounted at /api/accounts. */
+const baseAccountsApp = new OpenAPIHono<Env>();
+baseAccountsApp.use("*", tenantAuth, resourceRbac);
+
+export const listAccountsRoute = createRoute({
+  method: "get",
+  path: "/",
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: z.array(AccountSchema),
+          }),
+        },
+      },
+      description: "List all accounts",
+    },
+  },
 });
 
-accountsApp.post("/", tenantAuth, async (c) => {
+const appWithList = baseAccountsApp.openapi(listAccountsRoute, async (c) => {
+  const accounts = await dbStore.accounts.findMany();
+  return c.json({ success: true, data: accounts }, 200);
+});
+
+baseAccountsApp.post("/", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const body = await c.req.json().catch(() => ({}));
   const { name, domain, custom, parentAccountId } = body;
@@ -80,16 +110,55 @@ accountsApp.post("/", tenantAuth, async (c) => {
   return c.json({ success: true, data: account }, 201);
 });
 
-accountsApp.get("/:id", tenantAuth, async (c) => {
+export const getAccountRoute = createRoute({
+  method: "get",
+  path: "/{id}",
+  request: {
+    params: z.object({
+      id: z.string().openapi({
+        param: {
+          name: "id",
+          in: "path",
+        },
+        example: "123e4567-e89b-12d3-a456-426614174000",
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            success: z.boolean(),
+            data: AccountSchema,
+          }),
+        },
+      },
+      description: "Retrieve an account by ID",
+    },
+    404: {
+      content: {
+        "application/json": {
+          schema: z.object({
+            error: z.string(),
+          }),
+        },
+      },
+      description: "Account not found",
+    },
+  },
+});
+
+const appWithGet = appWithList.openapi(getAccountRoute, async (c) => {
   const id = c.req.param("id");
   const account = await dbStore.accounts.findOne(id);
   if (!account) {
     return c.json({ error: "Account not found" }, 404);
   }
-  return c.json({ success: true, data: account });
+  return c.json({ success: true, data: account }, 200);
 });
 
-accountsApp.patch("/:id", tenantAuth, async (c) => {
+baseAccountsApp.patch("/:id", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
 
@@ -194,7 +263,7 @@ accountsApp.patch("/:id", tenantAuth, async (c) => {
   return c.json({ success: true, data: updated });
 });
 
-accountsApp.get("/:id/duplicates", tenantAuth, async (c) => {
+baseAccountsApp.get("/:id/duplicates", tenantAuth, async (c) => {
   const id = c.req.param("id");
   const sourceAccount = await dbStore.accounts.findOne(id);
   if (!sourceAccount) {
@@ -205,7 +274,7 @@ accountsApp.get("/:id/duplicates", tenantAuth, async (c) => {
   return c.json({ success: true, data: duplicates });
 });
 
-accountsApp.post("/:id/merge", tenantAuth, async (c) => {
+baseAccountsApp.post("/:id/merge", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
   const body = await c.req.json().catch(() => ({}));
@@ -312,7 +381,7 @@ accountsApp.post("/:id/merge", tenantAuth, async (c) => {
   return c.json({ success: true, data: updatedMaster });
 });
 
-accountsApp.get("/:id/hierarchy", tenantAuth, async (c) => {
+baseAccountsApp.get("/:id/hierarchy", tenantAuth, async (c) => {
   const id = c.req.param("id");
   const account = await dbStore.accounts.findOne(id);
   if (!account) {
@@ -331,7 +400,7 @@ accountsApp.get("/:id/hierarchy", tenantAuth, async (c) => {
   });
 });
 
-accountsApp.get("/:id/consolidated-pipeline", tenantAuth, async (c) => {
+baseAccountsApp.get("/:id/consolidated-pipeline", tenantAuth, async (c) => {
   const id = c.req.param("id");
   const account = await dbStore.accounts.findOne(id);
   if (!account) {
@@ -349,7 +418,7 @@ accountsApp.get("/:id/consolidated-pipeline", tenantAuth, async (c) => {
   });
 });
 
-accountsApp.get("/:id/team", tenantAuth, async (c) => {
+baseAccountsApp.get("/:id/team", tenantAuth, async (c) => {
   const id = c.req.param("id");
   const account = await dbStore.accounts.findOne(id);
   if (!account) {
@@ -359,7 +428,7 @@ accountsApp.get("/:id/team", tenantAuth, async (c) => {
   return c.json({ success: true, data: team });
 });
 
-accountsApp.post("/:id/team", tenantAuth, async (c) => {
+baseAccountsApp.post("/:id/team", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
   const account = await dbStore.accounts.findOne(id);
@@ -412,7 +481,7 @@ accountsApp.post("/:id/team", tenantAuth, async (c) => {
   );
 });
 
-accountsApp.delete("/:id/team/:userId", tenantAuth, async (c) => {
+baseAccountsApp.delete("/:id/team/:userId", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
   const userId = c.req.param("userId");
@@ -450,7 +519,7 @@ accountsApp.delete("/:id/team/:userId", tenantAuth, async (c) => {
 
   return c.json({ success: true });
 });
-accountsApp.post("/:id/route", tenantAuth, async (c) => {
+baseAccountsApp.post("/:id/route", tenantAuth, async (c) => {
   const tenant = c.get("tenant");
   const id = c.req.param("id");
   const account = await dbStore.accounts.findOne(id);
@@ -541,7 +610,7 @@ accountsApp.post("/:id/route", tenantAuth, async (c) => {
   });
 });
 
-accountsApp.get("/:id/contracts", tenantAuth, async (c) => {
+baseAccountsApp.get("/:id/contracts", tenantAuth, async (c) => {
   const id = c.req.param("id");
   const account = await dbStore.accounts.findOne(id);
   if (!account) {
@@ -550,3 +619,5 @@ accountsApp.get("/:id/contracts", tenantAuth, async (c) => {
   const contracts = await dbStore.contracts.findForAccount(id);
   return c.json({ success: true, data: contracts });
 });
+
+export const accountsApp = appWithGet;

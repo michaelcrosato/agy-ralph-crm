@@ -1,4 +1,4 @@
-import { Hono } from "hono";
+import { OpenAPIHono } from "@hono/zod-openapi";
 import type { Env } from "../middleware/tenantAuth";
 import { opportunitiesApprovalsApp } from "./opportunities/approvals";
 import { crudApp } from "./opportunities/crud";
@@ -13,12 +13,12 @@ export { productsApp } from "./opportunities/products";
 
 import { resourceRbac } from "../middleware/rbac";
 
-export const opportunitiesApp = new Hono<Env>();
-opportunitiesApp.use("*", resourceRbac);
+const baseOpportunitiesApp = new OpenAPIHono<Env>();
+baseOpportunitiesApp.use("*", resourceRbac);
 
 // Mount the modular sub-apps under opportunitiesApp root paths to preserve exact routing paths.
 // We mount crudApp last to prevent its parameterized /:id route from colliding with static routes.
-opportunitiesApp
+export const opportunitiesApp = baseOpportunitiesApp
   .route("/", opportunitiesStagesApp)
   .route("/", opportunitiesTeamsApp)
   .route("/", opportunitiesApprovalsApp)
