@@ -74,8 +74,15 @@ All ticket files currently present in `tickets/` are recorded as completed.
 | TICKET007 | completed | Sequence execution monolith decomposition |
 | TICKET008 | completed | Public `defineObject()` SDK and custom objects |
 | TICKET009 | completed | Diagnostic log sanitizer and workspace log rotator |
+| TICKET010 | completed | Workspace diagnostic preflight and health checks |
+| TICKET011 | completed | API and Packages core decomposition and split |
+| TICKET012 | completed | Deep RBAC (Role-Based Access Control) Enforcement Middleware |
+| TICKET013 | completed | OpenTelemetry Grafana Observability Dashboard |
+| TICKET014 | completed | OpenAPI SDK client generation and Next.js integration |
+| TICKET015 | completed | Conversational AI lead qualification bot integration |
+| TICKET016 | completed | Next.js Leads BANT Analytics dashboard & Conversation Simulator |
 
-No `TICKET010.md` is currently present. New implementation work must start with a new ticket and, when code behavior changes, a matching structured spec under `.ralph/specs/`.
+No `TICKET017.md` is currently present. New implementation work must start with a new ticket and, when code behavior changes, a matching structured spec under `.ralph/specs/`.
 
 ### 3.2 Verification posture
 
