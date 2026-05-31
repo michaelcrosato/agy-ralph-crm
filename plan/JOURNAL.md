@@ -662,6 +662,29 @@
 - Committed successfully with SHA `f261778`.
 - Executed workspace preflights: `pnpm run agent:check` (all 156 files and 546 tests passed 100% green).
 
+---
+
+## 2026-05-31: Cycle 27 — Spec 082: Split Monolithic Opportunities Products Router
+
+### 1. SUMMARY & RATIONALE
+The monolithic Hono opportunity products router at `apps/api/src/routes/opportunities/products.ts` grew to 620 lines, violating the strict `ralph.yml` standard limit of 400 lines. We successfully decomposed this monolith into four single-responsibility sub-routers mounted under `apps/api/src/routes/opportunities/products/` while keeping Hono RPC client schema typescript generation and compilation 100% stable.
+
+### 2. ARCHITECTURAL BOUNDARIES & REFACTORING
+- Created sub-directory `apps/api/src/routes/opportunities/products/` to house the modular sub-routers.
+- Decomposed the monolith into:
+  - **`products.ts`**: Product catalog CRUD endpoints (`productsApp` for `/api/products` endpoints).
+  - **`line-items.ts`**: Opportunity product line items CRUD and deal amount rollup aggregations (`lineItemsApp` for `/:oppId/products` endpoints).
+  - **`quotes.ts`**: Quoting & CPQ calculations, dynamic document merging, and audit log generation (`quotesApp` for `/:oppId/quote` endpoints).
+  - **`schedules.ts`**: Payment schedules CRUD, validation, and generation (`schedulesApp` for schedules endpoints).
+- Created a barrel **`index.ts`** that composes `lineItemsApp`, `quotesApp`, and `schedulesApp` into `opportunitiesProductsApp` and re-exports `productsApp` to preserve the parent routing context prefix perfectly.
+- Safely removed monolithic `apps/api/src/routes/opportunities/products.ts`.
+
+### 3. VERIFICATION LOG
+- Committed successfully with SHA `d7b2435` and progress checklist updated with `c50b6ea`.
+- Executed workspace checks: `pnpm run agent:check` (all 546 tests passed 100% green).
+- Successfully built Next.js front-end app (`web:build`) and confirmed complete client-side Hono RPC types resolution without modifications.
+
+
 
 
 
