@@ -145,6 +145,7 @@
 - [x] **071** — [AI Attributes & Auto-Enrichment Background Worker](./specs/071_ai_attributes_enrichment_worker.md) · `f30b824` · 5/5 pass
 - [x] **072** — [Conversational AI Lead Qualification Bot](./specs/072_conversational_lead_bot.md) · `c017cfe` · 3/3 pass
 - [x] **073** — [Relationship Intelligence Engine Next.js Dashboard](./specs/073_relationship_intelligence_engine.md) · `completed` · 544/544 pass
+- [ ] **074** — [Sales Territory & Routing Assignment Dashboard](./specs/074_sales_territory_rules_dashboard.md)
 
 
 
