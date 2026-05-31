@@ -155,11 +155,7 @@
     "to": "now"
   },
   "timepicker": {
-    "refresh_intervals": [
-      "5s",
-      "10s",
-      "30s"
-    ]
+    "refresh_intervals": ["5s", "10s", "30s"]
   },
   "timezone": "browser",
   "title": "CRM Core Observability Dashboard",

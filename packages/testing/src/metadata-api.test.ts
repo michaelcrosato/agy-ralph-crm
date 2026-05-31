@@ -16,7 +16,7 @@ describe("Metadata API & Dynamic Field Customization Tests", () => {
       userId: "user-a",
       orgId: orgA,
       roleId: "role-a",
-      permissionsMask: 7,
+      permissionsMask: 63,
     });
   });
 

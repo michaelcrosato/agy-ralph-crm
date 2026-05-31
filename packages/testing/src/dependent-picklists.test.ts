@@ -61,14 +61,14 @@ describe.each(
       userId: "user-a",
       orgId: orgA,
       roleId: "role-a",
-      permissionsMask: 7,
+      permissionsMask: 63,
     });
 
     tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",
-      permissionsMask: 7,
+      permissionsMask: 63,
     });
   }, 60000);
 

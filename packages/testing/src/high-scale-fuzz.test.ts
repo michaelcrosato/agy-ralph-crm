@@ -19,14 +19,14 @@ describe("Phase 6: High Scale Seeder and Fuzz Testing Engine API Tests", () => {
       userId: "user-a",
       orgId: orgA,
       roleId: "role-a",
-      permissionsMask: 7,
+      permissionsMask: 63,
     });
 
     _tokenTenantB = await createSessionToken({
       userId: "user-b",
       orgId: orgB,
       roleId: "role-b",
-      permissionsMask: 7,
+      permissionsMask: 63,
     });
   });
 

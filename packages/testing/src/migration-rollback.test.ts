@@ -22,14 +22,14 @@ describe("Database Migration & Rollback Versioning Engine", () => {
       userId: userA,
       orgId: orgA,
       roleId: "role-a",
-      permissionsMask: 7,
+      permissionsMask: 63,
     });
 
     tokenTenantB = await createSessionToken({
       userId: userB,
       orgId: orgB,
       roleId: "role-b",
-      permissionsMask: 7,
+      permissionsMask: 63,
     });
   });
 

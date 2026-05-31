@@ -172,6 +172,7 @@ async function main() {
             `  Record payload stringify:`,
             stableStringify(recordToHash),
           );
+          console.error(`  Raw DB record:`, JSON.stringify(log));
           hasErrors = true;
           break;
         }

@@ -368,6 +368,28 @@
 - Committed successfully with SHA `dbc72c0`.
 - Verified yaml structure and linting: `pnpm verify` passed with exit code 0.
 
+## [2026-05-31] Cycle 15 — Integration Test Alignment for Deep RBAC & Parallel PG Execution Isolation
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work finalized.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 154 passed test files, 536 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Introducing strict bitmask-based RBAC gates (GET -> `READ_RECORDS`, DELETE -> `DELETE_RECORDS`, metadata -> `MANAGE_METADATA`, admin/migrations -> `MANAGE_USERS`) caused legacy integration tests that utilized simple CRUD permissions (`permissionsMask: 7`) to get blocked by 403 Forbidden responses.
+- Running parallel test files that share a single global Postgres testcontainer leads to race conditions under concurrent test execution. When one test file triggers table truncation (`dbStore.clear()`), it intercepts and wipes out active database operations of other concurrent test suites, leading to sporadic and flaky integration test failures.
+- Sequentially isolating integration tests via Vitest's `--no-file-parallelism` guarantees zero state collision and robust database-level integration testing without network or thread performance degradation.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Test Security Elevation**: Located and updated session token configurations in `csv-import.test.ts`, `custom-validation-rules.test.ts`, `dependent-picklists.test.ts`, `email-templates.test.ts`, `high-scale-fuzz.test.ts`, `metadata-api.test.ts`, and `migration-rollback.test.ts`. Elevated their `permissionsMask` setting from `7` to `63` to grant full administrative rights matching the target API routes under verification.
+- **Sequential Test Isolation**: Added `--no-file-parallelism` to the `@crm/testing` test execution command in `packages/testing/package.json` to prevent concurrent database state truncation overlaps.
+- **Debugging & Traceability**: Patched `verify-audit-integrity.mjs` to log raw DB records on cryptographic hash mismatches to allow rapid diagnosis of timezone, component-parsing, or payload structure discrepancies.
+
+### 4. VERIFICATION LOG
+- Ran full workspace-wide test runner sequentially: `pnpm test` (all 154 test files and 536 tests passed 100% green).
+- Validated linter, formatter, type-checker, and builds: `pnpm verify` (completed successfully with exit status 0).
+- Ran health preflight checks: `pnpm run agent:doctor` (exited 0 with all checks fully verified).
+
 
 
 
