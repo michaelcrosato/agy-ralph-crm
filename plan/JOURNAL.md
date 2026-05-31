@@ -508,3 +508,39 @@
 ### 4. REPLENISHMENT TRIGGER
 - All Phase 5 specs (071–074) complete. Next: [R]EPLENISH — scan for new audit findings, tech debt, or feature gaps to generate Spec 075+.
 
+## [2026-05-31] Cycle 21 — Phase 6 Dashboard Decomposition & API Admin Routes Modularization (Spec 075 & Spec 076)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 156 passed test files, 544 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Swapping the massive monolithic Next.js dashboard shell `apps/web/src/app/page.tsx` (1,502 lines) with modular, single-responsibility components under `apps/web/src/components/dashboard/` dramatically reduces individual component cognitive load and token count without visual or behavioral regressions.
+- Extracting mock data and shared CRM types into common packages (`CRM Types`, `Mock Tenants`) enforces type uniformity across the front-end layout structure.
+- Monolithic API route declarations (such as `apps/api/src/routes/admin.ts` at 895 lines) are primary tech debt risk points. Splitting routes into isolated resource gateways (`admin.ts`, `db.ts`, `imports.ts`, `reports.ts`, `leaderboards.ts`, `forecasting.ts`) mounts cleanly in `index.ts` barrel, satisfying strict file line limits while preserving the Hono RPC client schema type.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Dashboard Decomposition (Spec 075)**:
+  - Extracted shared typescript interfaces to `apps/web/src/types/crm.ts`.
+  - Extracted static mock tenant structures to `apps/web/src/data/mock-tenants.ts`.
+  - Created modular SVG analytics & statistics cards in `apps/web/src/components/dashboard/MetricsGrid.tsx`.
+  - Extracted fuzzy search bar dropdown routing to `apps/web/src/components/dashboard/SearchBar.tsx`.
+  - Decomposed tabbed record layout arrays to `apps/web/src/components/dashboard/RecordTabs.tsx`.
+  - Isolated lead qualification/conversion dialog overlay to `apps/web/src/components/dashboard/ConversionModal.tsx`.
+  - Isolated chronological audit trail updates to `apps/web/src/components/dashboard/ActivityFeed.tsx`.
+  - Rewrote Next.js `page.tsx` as a thin 447-line orchestrator shell.
+- **Admin Routes Modularization (Spec 076)**:
+  - Created `apps/api/src/routes/admin/admin.ts` to manage standard seed and fuzz testing routes.
+  - Created `apps/api/src/routes/admin/db.ts` to manage schema migrations and rollbacks.
+  - Created `apps/api/src/routes/admin/imports.ts` to manage CSV importing logic.
+  - Created `apps/api/src/routes/admin/reports.ts` to manage custom queries and scheduled reports.
+  - Created `apps/api/src/routes/admin/leaderboards.ts` to manage periodic sales rankings.
+  - Created `apps/api/src/routes/admin/forecasting.ts` to manage forecast adjustments and categories.
+  - Setup a clean 6-line barrel exports index `apps/api/src/routes/admin/index.ts`.
+  - Safely deleted old `apps/api/src/routes/admin.ts` monolith.
+
+### 4. VERIFICATION LOG
+- Committed Spec 075 changes successfully with SHA `a1d2a5b`.
+- Committed Spec 076 changes successfully with SHA `e523c70` and documentation adjustments with SHA `a98d3cc`.
+- Executed the entire sequential check script: `pnpm run agent:check` (all 544 sequential tests passed 100% green, biome check exit 0, types verified).
