@@ -148,6 +148,11 @@
 - [x] **073** — [Relationship Intelligence Engine Next.js Dashboard](./specs/073_relationship_intelligence_engine.md) · `completed` · 544/544 pass
 - [x] **074** — [Sales Territory & Routing Assignment Dashboard](./specs/074_sales_territory_rules_dashboard.md) · `38e3fa2` · 544/544 pass
 
+## Phase 6 — File Budget Compliance & Dashboard Decomposition (Cycle 20+)
+
+- [ ] **075** — [Split Main Dashboard Page (1,502 → ≤400 lines)](./specs/075_split_main_dashboard_page.md)
+- [ ] **076** — [Split routes/admin.ts (789 → ≤400 lines)](./specs/076_split_admin_routes.md)
+
 
 
 
