@@ -143,6 +143,7 @@
 ## Phase 5 — AI-Native Relationship Intelligence & Autonomous CRM Workflow Agents (Cycle 17+)
 
 - [x] **071** — [AI Attributes & Auto-Enrichment Background Worker](./specs/071_ai_attributes_enrichment_worker.md) · `f30b824` · 5/5 pass
+- [x] **072** — [Conversational AI Lead Qualification Bot](./specs/072_conversational_lead_bot.md) · `c017cfe` · 3/3 pass
 
 
 

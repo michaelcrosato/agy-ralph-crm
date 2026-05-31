@@ -437,6 +437,30 @@
 - Executed the entire test suite sequentially: `pnpm test` (all 155 test files and 541 tests passed 100% green and regression-free).
 - Validated linter, formatter, typecheck, and monorepo build checks: `pnpm verify` (completed successfully with exit status 0).
 
+## [2026-05-31] Cycle 18 — Conversational AI Lead Qualification Bot (Spec 072)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 156 passed test files, 544 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- A classic race condition can occur when an API route handler simulates an inbound message and runs `qualifyLead` synchronously, while the database mutation listener callback simultaneously triggers the background processing queue (`processQueue`) to run `qualifyLead` on the same lead concurrently.
+- Promise-level deduplication (tracking active execution promises in a static map keyed by tenant organization and lead ID) elegantly resolves concurrent execution race conditions, ensuring only one qualification run executes at a time and prevents duplicate conversational bot replies from being inserted.
+- Idempotency guards in the global database listener registry (`registerMutationListener`) preventing registration of duplicate callback source representations across module reloads or sequential test instantiations ensures correct execution metrics.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Deduplication Engine**: Implemented static promise mapping `activePromises` in `ConversationalBotService` (inside `packages/core/src/domain/leads/bot-service.ts`) returning the active running promise on concurrent queries.
+- **Mutation Idempotency Guard**: Added source-check idempotency logic in `registerMutationListener` (inside `packages/db/src/index.ts`) eliminating duplicate listener callbacks during multiple initializations.
+- **Acceptance Verification**: Validated the entire BANT conversational qualificationbot, multi-tenant RLS isolation, and dynamic qualification status transitions.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `c017cfe`.
+- Executed the entire sequential test suite: `pnpm test` (all 156 test files and 544 tests passed 100% green and regression-free).
+- Ran Playwright E2E suite: `pnpm test:e2e` (all 5 specs passed 100% green).
+- Validated linter, formatter, typecheck, and monorepo build checks: `pnpm verify` (completed successfully with exit status 0).
+
+
 
 
 

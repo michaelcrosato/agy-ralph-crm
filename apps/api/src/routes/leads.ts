@@ -2,6 +2,7 @@ import { OpenAPIHono } from "@hono/zod-openapi";
 import { resourceRbac } from "../middleware/rbac";
 import type { Env } from "../middleware/tenantAuth";
 import { assignmentRouter, leadAssignmentRulesApp } from "./leads/assignment";
+import { conversationRouter } from "./leads/conversation";
 import { conversionRouter } from "./leads/conversion";
 import { crudRouter } from "./leads/crud";
 import { dedupRouter } from "./leads/dedup";
@@ -18,6 +19,7 @@ export const leadsApp = baseLeadsApp
   .route("/", dedupRouter)
   .route("/", assignmentRouter)
   .route("/", scoringRouter)
+  .route("/", conversationRouter)
   .route("/", crudRouter);
 
 export { leadAssignmentRulesApp, leadScoringRulesApp };

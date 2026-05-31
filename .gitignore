@@ -43,3 +43,7 @@ pnpm-debug.log*
 # OS Files
 .DS_Store
 Thumbs.db
+
+# Scratch Files
+/scratch
+
