@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { type Env, tenantAuth } from "../../../middleware/tenantAuth";
+import type { Env } from "../../../middleware/tenantAuth";
 import { campaignInfluenceApp } from "./campaign-influence";
 import { competitorsApp } from "./competitors";
 import { contactRolesApp } from "./contact-roles";
