@@ -79,10 +79,12 @@ export {
 export { triggerOutboundWebhooks } from "./lib/webhooks";
 export { tenantAuth } from "./middleware/tenantAuth";
 
-import { EmbedderService } from "@crm/core";
+import { AIAttributeService, EmbedderService } from "@crm/core";
 
 // Initialize the asynchronous background embeddings worker
 EmbedderService.initialize();
+// Initialize the asynchronous background AI attributes enrichment worker
+AIAttributeService.initialize();
 
 const app = new OpenAPIHono<Env>();
 

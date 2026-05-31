@@ -1,4 +1,5 @@
 import {
+  AIAttributeService,
   calculateContactDuplicates,
   detectCircularContactRelation,
   mergeContacts,
@@ -435,6 +436,21 @@ baseContactsApp.get("/:id/hierarchy", tenantAuth, async (c) => {
       directReports,
     },
   });
+});
+
+baseContactsApp.post("/:id/enrich", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const tenant = c.get("tenant");
+  try {
+    const enriched = await AIAttributeService.enrichRecord(
+      "contact",
+      id,
+      tenant.orgId,
+    );
+    return c.json({ success: true, data: enriched });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
 });
 
 export const contactsApp = appWithGet;

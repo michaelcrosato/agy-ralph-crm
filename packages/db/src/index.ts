@@ -167,7 +167,8 @@ export const dbStore = new Proxy({} as any, {
       };
     }
     const storeObj = (stores as any)[prop];
-    const isMutationTracked = prop === "accounts" || prop === "contacts";
+    const isMutationTracked =
+      prop === "accounts" || prop === "contacts" || prop === "leads";
     const isValidationCachable =
       prop === "picklistDependencies" || prop === "validationRules";
     if (storeObj && (isMutationTracked || isValidationCachable)) {
@@ -197,7 +198,7 @@ export const dbStore = new Proxy({} as any, {
                   if (valCallback) {
                     try {
                       valCallback(prop);
-                    } catch (e) {
+                    } catch (_e) {
                       // ignore callback errors
                     }
                   }
@@ -226,5 +227,16 @@ export const dbStore = new Proxy({} as any, {
 export function registerMutationListener(
   cb: (entityType: string, id: string, data: any) => void,
 ) {
-  (globalThis as any).__crm_onMutationCallback = cb;
+  const g = globalThis as any;
+  g.__crm_onMutationCallbacks = g.__crm_onMutationCallbacks || [];
+  g.__crm_onMutationCallbacks.push(cb);
+  g.__crm_onMutationCallback = (prop: string, id: string, data: any) => {
+    for (const callback of g.__crm_onMutationCallbacks) {
+      try {
+        callback(prop, id, data);
+      } catch (_e) {
+        // ignore callback errors
+      }
+    }
+  };
 }

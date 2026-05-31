@@ -1,3 +1,4 @@
+import { AIAttributeService } from "@crm/core";
 import { dbStore } from "@crm/db";
 import { validateCustomFields } from "@crm/metadata";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
@@ -274,6 +275,21 @@ baseCrudRouter.patch("/:id", tenantAuth, async (c) => {
     data: updatedLead,
     autoConverted: autoConvertResult || null,
   });
+});
+
+baseCrudRouter.post("/:id/enrich", tenantAuth, async (c) => {
+  const id = c.req.param("id");
+  const tenant = c.get("tenant");
+  try {
+    const enriched = await AIAttributeService.enrichRecord(
+      "lead",
+      id,
+      tenant.orgId,
+    );
+    return c.json({ success: true, data: enriched });
+  } catch (error: any) {
+    return c.json({ error: error.message }, 400);
+  }
 });
 
 export const crudRouter = appWithGet;
