@@ -1,0 +1,58 @@
+import { dbStore } from "@crm/db";
+import { Hono } from "hono";
+import { triggerOutboundWebhooks } from "../../lib/webhooks";
+import { type Env, tenantAuth } from "../../middleware/tenantAuth";
+
+export const subscriptionsApp = new Hono<Env>();
+
+subscriptionsApp.post("/", tenantAuth, async (c) => {
+  const tenant = c.get("tenant");
+  const body = await c.req.json().catch(() => ({}));
+  const {
+    accountId,
+    planName,
+    billingPeriod,
+    unitPrice,
+    quantity,
+    startDate,
+    endDate,
+  } = body;
+
+  if (!accountId || !planName || !billingPeriod || !unitPrice || !startDate) {
+    return c.json({ error: "Missing required subscription parameters" }, 400);
+  }
+
+  const sub = await dbStore.subscriptions.insert({
+    orgId: tenant.orgId,
+    accountId,
+    planName,
+    status: "active",
+    billingPeriod,
+    unitPrice: String(unitPrice),
+    quantity: quantity !== undefined ? Number(quantity) : 1,
+    startDate: new Date(startDate),
+    endDate: endDate ? new Date(endDate) : null,
+  });
+
+  await dbStore.auditLogs.insert({
+    orgId: tenant.orgId,
+    recordId: sub.id,
+    recordType: "Subscription",
+    action: "create",
+    userId: tenant.userId,
+    changes: null,
+  });
+
+  await triggerOutboundWebhooks(
+    tenant.orgId,
+    "subscription.created",
+    sub as unknown as Record<string, unknown>,
+  );
+
+  return c.json({ success: true, data: sub });
+});
+
+subscriptionsApp.get("/", tenantAuth, async (c) => {
+  const subs = await dbStore.subscriptions.findMany();
+  return c.json({ success: true, data: subs });
+});
