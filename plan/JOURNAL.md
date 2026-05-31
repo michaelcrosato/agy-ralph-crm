@@ -615,4 +615,28 @@
 - Committed successfully with SHA `c8dcc30`.
 - Executed workspace preflights: `pnpm run agent:check` (all 156 files and 546 tests passed 100% green).
 
+## [2026-05-31] Cycle 25 — API Contracts Routes Modularization (Spec 080)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 156 passed test files, 546 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Splitting the Contracts router file `apps/api/src/routes/contracts.ts` (427 lines) into a folder-structured module grouping contracts, document templates, batch invoicing, and active subscriptions cleanly isolates four distinct domain resources into individual files, conforming with the standard standard file limit.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Contracts Routes Modularization**:
+  - Created `apps/api/src/routes/contracts/contracts.ts` containing contracts CRUD and renewals endpoints (`contractsApp`).
+  - Created `apps/api/src/routes/contracts/documents.ts` containing templates management and merging compiler endpoints (`documentsApp`).
+  - Created `apps/api/src/routes/contracts/invoices.ts` containing batch pro-rated invoicing endpoints (`invoicesApp`).
+  - Created `apps/api/src/routes/contracts/subscriptions.ts` containing active subscriptions endpoints (`subscriptionsApp`).
+  - Created `apps/api/src/routes/contracts/index.ts` barrel composing and re-exporting the four sub-routers.
+  - Removed old monolithic `apps/api/src/routes/contracts.ts`.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `18f4184`.
+- Executed workspace preflights: `pnpm run agent:check` (all 156 files and 546 tests passed 100% green).
+
+
 
