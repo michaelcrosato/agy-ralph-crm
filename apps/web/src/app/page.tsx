@@ -697,6 +697,42 @@ export default function Home() {
                 </option>
               </select>
             </div>
+
+            {/* Quick Nav Links */}
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <a
+                href="/leads"
+                id="nav-link-leads"
+                style={{
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "6px",
+                  border: "1px solid var(--glass-border)",
+                  color: "var(--text-secondary)",
+                  textDecoration: "none",
+                  fontSize: "0.78rem",
+                  fontWeight: 500,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                Leads
+              </a>
+              <a
+                href="/territories"
+                id="nav-link-territories"
+                style={{
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "6px",
+                  border: "1px solid var(--glass-border)",
+                  color: "var(--text-secondary)",
+                  textDecoration: "none",
+                  fontSize: "0.78rem",
+                  fontWeight: 500,
+                  transition: "all 0.2s ease",
+                }}
+              >
+                🗺️ Territories
+              </a>
+            </div>
           </div>
         </header>
 
