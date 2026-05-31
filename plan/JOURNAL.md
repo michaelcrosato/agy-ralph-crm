@@ -638,5 +638,30 @@
 - Committed successfully with SHA `18f4184`.
 - Executed workspace preflights: `pnpm run agent:check` (all 156 files and 546 tests passed 100% green).
 
+## [2026-05-31] Cycle 26 — API Opportunities Teams Routes Modularization (Spec 081)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 156 passed test files, 546 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Splitting the massive Opportunities Teams router file `apps/api/src/routes/opportunities/teams.ts` (819 lines) into a folder-structured module grouping splits, contact roles, campaign influence, competitors win-loss, and team members collaboration cleanly separates five distinct sub-domains, conforming with standard file limit budgets.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Opportunities Teams Routes Modularization**:
+  - Created `apps/api/src/routes/opportunities/teams/splits.ts` containing opportunity splits and commissions endpoints (`splitsApp`).
+  - Created `apps/api/src/routes/opportunities/teams/contact-roles.ts` containing contact roles and primary selections (`contactRolesApp`).
+  - Created `apps/api/src/routes/opportunities/teams/campaign-influence.ts` containing campaign influence revenue shares endpoints (`campaignInfluenceApp`).
+  - Created `apps/api/src/routes/opportunities/teams/competitors.ts` containing deal competitors tracking endpoints (`competitorsApp`).
+  - Created `apps/api/src/routes/opportunities/teams/team-members.ts` containing opportunity team members collaborations (`teamMembersApp`).
+  - Created `apps/api/src/routes/opportunities/teams/index.ts` barrel index composing and re-exporting the `opportunitiesTeamsApp` sub-router.
+  - Removed old monolithic `apps/api/src/routes/opportunities/teams.ts`.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `f261778`.
+- Executed workspace preflights: `pnpm run agent:check` (all 156 files and 546 tests passed 100% green).
+
+
 
 
