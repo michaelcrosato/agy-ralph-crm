@@ -160,12 +160,7 @@
 - [x] **079** — [Split routes/contacts.ts (457 → ≤400 lines)](./specs/079_split_contacts_routes.md) · `c8dcc30`
 - [x] **080** — [Split routes/contracts.ts (427 → ≤400 lines)](./specs/080_split_contracts_routes.md) · `18f4184`
 - [x] **081** — [Split routes/opportunities/teams.ts (819 → ≤400 lines)](./specs/081_split_opportunities_teams_routes.md) · `f261778`
-
-
-
-
-
-
+- [x] **082** — [Split routes/opportunities/products.ts (620 → ≤400 lines)](./specs/082_split_opportunities_products_routes.md) · `d7b2435`
 
 
 
