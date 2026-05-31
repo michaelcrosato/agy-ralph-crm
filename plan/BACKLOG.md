@@ -30,3 +30,28 @@ This backlog tracks adjacent feature ideas, technical debt recommendations, and 
 - [x] **TD-004: OpenTelemetry Collector Service & Grafana Performance Dashboard** (Spec 069)
   - *Description*: Configure an OTEL Collector, Prometheus, and Jaeger stack in a local `docker-compose.yaml` to aggregate live telemetry (traces, metrics, logs) from Hono.
   - *Benefit*: Establishes enterprise-grade production observability.
+
+---
+
+## 3. Phase 6 — File Line Budget Compliance (Replenished Wave)
+
+The following files exceed the `ralph.yml` 400-line limit budget and are scheduled for decomposition in future waves:
+
+- **TD-077: Split accounts routes (`apps/api/src/routes/accounts.ts`, 624 lines)**
+- **TD-078: Split campaigns routes (`apps/api/src/routes/campaigns.ts`, 534 lines)**
+- **TD-079: Split contacts routes (`apps/api/src/routes/contacts.ts`, 457 lines)**
+- **TD-080: Split contracts routes (`apps/api/src/routes/contracts.ts`, 427 lines)**
+- **TD-081: Split opportunities teams routes (`apps/api/src/routes/opportunities/teams.ts`, 819 lines)**
+- **TD-082: Split opportunities products routes (`apps/api/src/routes/opportunities/products.ts`, 620 lines)**
+- **TD-083: Split productivity routes (`apps/api/src/routes/productivity.ts`, 859 lines)**
+- **TD-084: Split sequence steps routes (`apps/api/src/routes/sequences/steps.ts`, 721 lines)**
+- **TD-085: Split sequence public emails routes (`apps/api/src/routes/sequences/public-emails.ts`, 552 lines)**
+- **TD-086: Split sequence enrollment routes (`apps/api/src/routes/sequences/enrollment.ts`, 495 lines)**
+- **TD-087: Split lead domain core logic (`packages/core/src/domain/leads/index.ts`, 599 lines)**
+- **TD-088: Split opportunity domain core logic (`packages/core/src/domain/opportunities/index.ts`, 515 lines)**
+- **TD-089: Split sequence lifecycle domain logic (`packages/core/src/domain/sequences/lifecycle.ts`, 727 lines)**
+- **TD-090: Split sequence tracking domain logic (`packages/core/src/domain/sequences/tracking.ts`, 720 lines)**
+- **TD-091: Split sequence analytics domain logic (`packages/core/src/domain/sequences/analytics.ts`, 716 lines)**
+- **TD-092: Split sequence execution domain logic (`packages/core/src/domain/sequences/execution.ts`, 580 lines)**
+- **TD-093: Split email domain core logic (`packages/core/src/domain/email/index.ts`, 443 lines)**
+- **TD-094: Modularize shared core types (`packages/core/src/types.ts`, 1,296 lines)**
