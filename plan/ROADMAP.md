@@ -1,3 +1,88 @@
+# /plan/ROADMAP.md - Readiness Roadmap
+
+Readiness refresh: 2026-05-31. This top section supersedes older status claims below when choosing autonomous work. Historical blueprint content is retained after this section for traceability.
+
+## Assessment
+
+`agy-ralph-crm` is a broad multi-tenant CRM monorepo with strong test emphasis around tenant isolation, but it is not ready for blind perpetual execution until the loop follows stricter safety gates.
+
+Current strengths:
+- Tenant context is centralized through `tenantAuth`, `withTenant`, `getActiveOrgId`, and `assertTenantOwns`.
+- Webhooks are outbox/simulation backed, email/SMS/call surfaces are modeled as CRM activities/logs, and AI/search providers default to mocks.
+- CI exists for verify, build/typecheck, test, lint, doctor, PostgreSQL integration, and Playwright E2E.
+- Agent scripts exist for status, doctor, check, format, lint, typecheck, test, and E2E.
+
+Current risks:
+- The local runtime observed during readiness was Node `v24.15.0`, while the repo engine requires Node `>=22.22.3 <23`.
+- The worktree already contains in-progress TICKET018 accounts-route split changes; the next loop must not overwrite them.
+- Some provider settings can perform live OpenAI/Cohere calls if keys are set; unattended loops must keep `EMBEDDINGS_PROVIDER=mock` and `RERANK_PROVIDER=mock`.
+- Core CRM records still use physical delete paths in many stores/routes; new work should prefer soft-delete semantics unless a spec proves hard delete is safe.
+- Large route/domain files remain above the 400-line budget, so modularity work must be ticket-driven and verified after each slice.
+
+## Phased Waves
+
+### P0 - Stabilize/Auth/RBAC/PII Safety
+
+- Keep `JWT_SECRET` environment-backed and required in production.
+- Confirm every protected route uses `tenantAuth` and resource RBAC before handler logic.
+- File and address any IDOR where path IDs can reveal cross-tenant existence or state.
+- Keep `.env.example` mock-safe and secret-free.
+- Extend PII-safe logging checks when new logs or artifacts are added.
+
+### P0 - Tooling and Dependencies
+
+- Run loops on Node 22.22.x to avoid unsupported-engine drift.
+- Keep `pnpm run agent:doctor` green or file a dependency/security ticket.
+- Treat high/critical advisories as blockers.
+- Keep Playwright browser install separate from normal unit/integration loops unless UI changes require it.
+
+### P0 - Docs
+
+- Keep `AGENTS.md`, `plan/GOAL.md`, `plan/ROADMAP.md`, and `docs/ai/REPO_MAP.md` aligned after structural changes.
+- Record exact command outcomes in the active ticket, not just "green".
+- Keep `.aiignore` current so future loops avoid logs, caches, generated reports, and scratchpads.
+
+### P0 - Bugs and Tests
+
+- Finish and verify the current TICKET018 accounts-route split before starting unrelated route splits.
+- Add focused RLS/RBAC regression tests for any route touched by modularization.
+- Prefer targeted Vitest runs before broad `pnpm run agent:check`.
+
+### P0 - Modularity
+
+- Continue route/domain decomposition only via one ticket/spec at a time.
+- Preserve route order, middleware order, Hono RPC inference, OpenAPI schema exports, and existing test imports.
+- Do not split by line count alone; split by route resource or domain responsibility.
+
+### P1 - Core Workflows and Data Integrity
+
+- Audit hard-delete paths and migrate new user-facing deletion flows toward soft-delete where product behavior allows.
+- Strengthen PostgreSQL store parity for high-value objects: accounts, contacts, leads, opportunities, tickets, activities, audit logs.
+- Add database-level indexes and constraints only through additive migrations verified against ephemeral/test DBs.
+- Expand N+1 and bulk-operation tests around imports, deduplication, route rollups, and reporting.
+
+### P2 - Ralph AI and Integrations
+
+- Keep Ralph AI enrichment, embeddings, and reranking provider-safe by default.
+- Require explicit tickets and skip/fail behavior for live provider calls in CI or AFK loops.
+- Keep webhooks outbox-backed with DLQ/audit coverage before any real dispatch provider.
+- Treat email/SMS/billing integrations as mocked until credentials, billing, and compliance review are explicitly approved.
+
+## Priority Table
+
+| Item | Wave | Impact | Feasibility | Risk | Fit | Priority |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Finish TICKET018 accounts route split with full gate | P0 Bugs/Tests | 5 | 4 | 3 | 5 | 8.3 |
+| Enforce route auth/RBAC audit checklist for touched routes | P0 Stabilize/Auth/RBAC/PII | 5 | 4 | 2 | 5 | 12.5 |
+| Run perpetual loop on Node 22.22.x | P0 Tooling/deps | 4 | 5 | 1 | 5 | 20.0 |
+| Keep `.env.example` secret-free and mock-safe | P0 Docs | 4 | 5 | 1 | 5 | 20.0 |
+| Add follow-up tickets for live AI/provider skip behavior | P2 Ralph AI/Integrations | 4 | 4 | 3 | 5 | 6.7 |
+| Audit hard deletes and define soft-delete policy | P1 Core workflows/Data integrity | 4 | 3 | 3 | 5 | 4.4 |
+| Expand IDOR regression tests for route splits | P0 Bugs/Tests | 5 | 3 | 3 | 5 | 5.6 |
+| Continue large-file modularity by active spec only | P0 Modularity | 3 | 4 | 2 | 4 | 6.0 |
+
+---
+
 # /plan/ROADMAP.md — 2026 Modernization Blueprint
 
 > Audit date: 2026-05-29 (initial) · Refreshed: 2026-05-30 · Author: Principal SWE Agent (Opus 4.7, 1M ctx)

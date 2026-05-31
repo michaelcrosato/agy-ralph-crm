@@ -22,10 +22,32 @@ export interface TenantContext {
   permissionsMask: number;
 }
 
-// A simple symmetric secret key for signing session tokens (JWT)
-const JWT_SECRET = new TextEncoder().encode(
-  "cohesive-crm-super-secret-key-that-is-at-least-32-characters",
-);
+const DEV_JWT_SECRET = "dev-only-jwt-secret-change-before-production-000000";
+
+function readEnv(name: string): string | undefined {
+  const env =
+    (
+      globalThis as typeof globalThis & {
+        process?: { env?: Record<string, string | undefined> };
+      }
+    ).process?.env ?? {};
+  const value = env[name];
+  return value && value.length > 0 ? value : undefined;
+}
+
+function getJwtSecret(): Uint8Array {
+  const configuredSecret = readEnv("JWT_SECRET");
+  const isProduction = readEnv("NODE_ENV") === "production";
+  if (!configuredSecret && isProduction) {
+    throw new Error("JWT_SECRET is required in production.");
+  }
+
+  const secret = configuredSecret ?? DEV_JWT_SECRET;
+  if (secret.length < 32) {
+    throw new Error("JWT_SECRET must be at least 32 characters.");
+  }
+  return new TextEncoder().encode(secret);
+}
 
 // Sign a session token containing TenantContext
 export async function createSessionToken(
@@ -35,14 +57,14 @@ export async function createSessionToken(
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("24h")
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 // Verify a session token and return the resolved TenantContext
 export async function verifySessionToken(
   token: string,
 ): Promise<TenantContext> {
-  const { payload } = await jose.jwtVerify(token, JWT_SECRET);
+  const { payload } = await jose.jwtVerify(token, getJwtSecret());
   return {
     userId: payload.userId as string,
     orgId: payload.orgId as string,

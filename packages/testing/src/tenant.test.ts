@@ -5,7 +5,11 @@ import {
 } from "@crm/auth";
 import { assertSessionTenant, mockDb, withTenant } from "@crm/db";
 import { sql } from "drizzle-orm";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("Phase 1: Multi-Tenant Security & Authentication Tests", () => {
   it("should successfully sign and verify Tenant JWT tokens", async () => {
@@ -25,6 +29,35 @@ describe("Phase 1: Multi-Tenant Security & Authentication Tests", () => {
     expect(decoded.orgId).toBe(mockContext.orgId);
     expect(decoded.roleId).toBe(mockContext.roleId);
     expect(decoded.permissionsMask).toBe(mockContext.permissionsMask);
+  });
+
+  it("should use JWT_SECRET when configured and reject a different secret", async () => {
+    const context: TenantContext = {
+      userId: "user-123",
+      orgId: "org-456",
+      roleId: "role-789",
+      permissionsMask: 7,
+    };
+
+    vi.stubEnv("JWT_SECRET", "test-secret-that-is-at-least-32-characters");
+    const token = await createSessionToken(context);
+
+    vi.stubEnv("JWT_SECRET", "different-secret-that-is-also-32-characters");
+    await expect(verifySessionToken(token)).rejects.toThrow();
+  });
+
+  it("should fail closed when JWT_SECRET is missing in production", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("JWT_SECRET", "");
+
+    await expect(
+      createSessionToken({
+        userId: "user-123",
+        orgId: "org-456",
+        roleId: "role-789",
+        permissionsMask: 7,
+      }),
+    ).rejects.toThrow("JWT_SECRET is required in production.");
   });
 
   it("should execute queries with strict app.current_org_id RLS transactions", async () => {

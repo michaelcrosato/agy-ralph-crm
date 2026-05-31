@@ -1,7 +1,7 @@
 # TICKET018: Split Accounts Routes Monolith (Spec 077)
 
 ## Details
-- **Status**: in_progress
+- **Status**: completed
 - **Priority**: High
 - **Goal**: Decompose monolithic `apps/api/src/routes/accounts.ts` into focused sub-modules to achieve compliance with our strict 400-line file limit budget.
 - **Context**: Spec 077 describes split boundaries, sub-routers mounting, and test verification strategies.
@@ -31,8 +31,8 @@
 ---
 
 ## Acceptance Criteria
-- [ ] No file exceeds 400 lines (barrel ≤ 100 lines).
-- [ ] Zod OpenAPI schema type inferences resolve cleanly in RPC client.
-- [ ] Picklist and custom dynamic validation rules execute on inserts/updates.
-- [ ] Circular dependency checks prevent hierarchy loops.
-- [ ] All build gates and 544+ tests remain 100% green.
+- [x] No file exceeds 400 lines (barrel ≤ 100 lines).
+- [x] Zod OpenAPI schema type inferences resolve cleanly in RPC client.
+- [x] Picklist and custom dynamic validation rules execute on inserts/updates.
+- [x] Circular dependency checks prevent hierarchy loops.
+- [x] All build gates and 544+ tests remain 100% green.
