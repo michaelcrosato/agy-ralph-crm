@@ -1,7 +1,7 @@
 # TICKET016: Relationship Intelligence Engine (Next.js Dashboard Integration)
 
 ## Details
-- **Status**: todo
+- **Status**: completed
 - **Priority**: High
 - **Goal**: Implement Next.js frontend interfaces and simulation panels mapping to BANT conversational qualification metrics.
 - **Context**: Spec 073 describes establishing visual analytics panels, conversation logs, and dynamic RPC hook connections.
@@ -32,8 +32,8 @@
 ---
 
 ## Acceptance Criteria
-- [ ] BANT qualification traits (Budget, Authority, Need, Timeline) are visualized with clean status badges and progress scores.
-- [ ] Simulated turn-by-turn chat logs are clearly displayed.
-- [ ] Typing a new message and submitting triggers the simulation loop and updates the scores immediately.
-- [ ] Strictly adheres to tenant JWT boundaries.
-- [ ] All build and verification checks pass green.
+- [x] BANT qualification traits (Budget, Authority, Need, Timeline) are visualized with clean status badges and progress scores.
+- [x] Simulated turn-by-turn chat logs are clearly displayed.
+- [x] Typing a new message and submitting triggers the simulation loop and updates the scores immediately.
+- [x] Strictly adheres to tenant JWT boundaries.
+- [x] All build and verification checks pass green.
