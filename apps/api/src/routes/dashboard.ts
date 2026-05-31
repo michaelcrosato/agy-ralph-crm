@@ -61,7 +61,7 @@ dashboardApp.openapi(getLeadAnalyticsRoute, async (c) => {
     if (log.action === "create") {
       leadTimes[log.recordId].created = new Date(log.createdAt);
     } else if (log.action === "update") {
-      const changes = log.changes as any;
+      const changes = log.changes as Record<string, { after?: string }> | null;
       if (changes?.status?.after === "Converted") {
         leadTimes[log.recordId].converted = new Date(log.createdAt);
       }

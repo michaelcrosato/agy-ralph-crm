@@ -115,10 +115,8 @@ app.use("/api/auth/*", rateLimiter(10));
 
 // ── Centralized Error Handler ──────────────────────────────────────
 app.onError((err, c) => {
-  const status =
-    typeof (err as any).status === "number"
-      ? ((err as any).status as number)
-      : 500;
+  const errObj = err as Error & { status?: number };
+  const status = typeof errObj.status === "number" ? errObj.status : 500;
   const isProd = process.env.NODE_ENV === "production";
   log.error(
     { err, method: c.req.method, path: c.req.path },
@@ -129,7 +127,7 @@ app.onError((err, c) => {
       error: isProd ? "Internal Server Error" : err.message,
       status,
     },
-    status as any,
+    status as 400 | 401 | 403 | 404 | 500,
   );
 });
 
