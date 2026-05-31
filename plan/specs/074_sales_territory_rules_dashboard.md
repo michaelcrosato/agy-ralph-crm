@@ -1,6 +1,6 @@
 # 074 — Sales Territory & Routing Assignment Dashboard
 
-**Phase:** 5 · **Priority:** High · **Status:** `[ ] Todo` · **Depends on:** 073
+**Phase:** 5 · **Priority:** High · **Status:** `[x] Done` · **Depends on:** 073 · **Commit:** `38e3fa2`
 
 ## Description & Expected Impact
 Sales executives need an elegant, robust workspace to configure geographic and firmographic territory rules and assign members with direct/round-robin routing.

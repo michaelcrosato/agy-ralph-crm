@@ -486,7 +486,25 @@
 
 
 
+## [2026-05-31] Cycle 20 — Sales Territory & Routing Assignment Dashboard (Spec 074)
 
+### 1. REPO BASELINE
+- **Branch**: `main`, clean working tree.
+- **Test Baseline**: 156 test files, 544 tests.
 
+### 2. IMPLEMENTATION (Spec 074)
+- **TerritoryList.tsx**: Interactive territory list with active/inactive badges, routing method pills, criteria summaries, and selection highlighting. Uses `refreshKey` prop pattern to trigger refetch after parent mutations.
+- **TerritoryEditor.tsx**: Full criteria rules builder (field/operator/value rows with add/remove), routing method selector (Direct/Round Robin), status toggle, and territory member assignment grid (add/remove users with role selection).
+- **RoutingSimulator.tsx**: Real-time interactive sandbox that fetches accounts, shows account detail preview, executes `POST /api/accounts/:id/route` territory routing engine, and displays routing result trace (matched territory, new owner).
+- **TerritoriesPage** (`/territories`): Unified glassmorphic layout composing all 3 components in responsive two-column grid. Header with back-to-console link and API connection status indicator. Glow orbs and spin animation.
+- **Dashboard Navigation**: Added Quick Nav Links (Leads, 🗺️ Territories) to the main console header for cross-module navigation.
 
+### 3. VERIFICATION LOG
+- Biome lint: 4/4 new files clean (`npx biome check --write` exit 0).
+- Next.js production build: `/territories` compiled as static page (20/20 tasks green).
+- Full test suite: 40/40 tasks, 544/544 tests green.
+- Commit: `38e3fa2`.
+
+### 4. REPLENISHMENT TRIGGER
+- All Phase 5 specs (071–074) complete. Next: [R]EPLENISH — scan for new audit findings, tech debt, or feature gaps to generate Spec 075+.
 
