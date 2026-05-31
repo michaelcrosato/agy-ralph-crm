@@ -138,6 +138,7 @@
 - [x] **067** — [TD-003: Continuous Playwright E2E Integration in CI](./specs/067_playwright_ci_integration.md) · `e783842`
 - [x] **068** — [Deep RBAC (Role-Based Access Control) Enforcement Engine](./specs/068_deep_rbac_enforcement.md) · `7dbd18d` · 6/6 pass
 - [x] **069** — [TD-004: OpenTelemetry Collector & Grafana Observability Dashboard](./specs/069_otel_grafana_observability.md) · `dbc72c0`
+- [ ] **070** — [Full-Stack OpenAPI SDK Generation & Next.js Dashboard Integration](./specs/070_full_stack_openapi_sdk.md)
 
 
 
