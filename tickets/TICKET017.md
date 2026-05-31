@@ -1,7 +1,7 @@
 # TICKET017: Sales Territory & Routing Assignment Dashboard (Next.js Dashboard Integration)
 
 ## Details
-- **Status**: todo
+- **Status**: completed
 - **Priority**: High
 - **Goal**: Implement Next.js frontend interfaces and simulation panels for managing sales territory criteria rules, members mapping, and dynamic routing.
 - **Context**: Spec 074 describes establishing active territory listing panels, rules criteria editors, and account routing simulators.
@@ -35,9 +35,9 @@
 ---
 
 ## Acceptance Criteria
-- [ ] Active and inactive Sales Territories are visualized with clean status badges and routing details.
-- [ ] Criteria rules criteria builder dynamically supports adding/removing filter clauses with operators (equals, contains, greater_than, less_than).
-- [ ] Users can be assigned as territory members with role settings.
-- [ ] Interactive Accounts Routing Simulator executes live routing rules and updates the account owner in the list immediately.
-- [ ] Strictly adheres to tenant JWT boundaries.
-- [ ] All build and verification checks pass green.
+- [x] Active and inactive Sales Territories are visualized with clean status badges and routing details.
+- [x] Criteria rules criteria builder dynamically supports adding/removing filter clauses with operators (equals, contains, greater_than, less_than).
+- [x] Users can be assigned as territory members with role settings.
+- [x] Interactive Accounts Routing Simulator executes live routing rules and updates the account owner in the list immediately.
+- [x] Strictly adheres to tenant JWT boundaries.
+- [x] All build and verification checks pass green.

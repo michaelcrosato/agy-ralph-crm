@@ -100,6 +100,7 @@
 | 063 | `9530a68` | 2026-05-30 | 511/511 (Split routes/leads.ts monolith into crud, sla, conversion, dedup, assignment, scoring) |
 | 064 | `f9a12a4` | 2026-05-30 | 517/517 (+6 hybrid search integration tests) |
 | 074 | `38e3fa2` | 2026-05-31 | 544/544 (Territory dashboard: TerritoryList, TerritoryEditor, RoutingSimulator, /territories page) |
+| 075 | `a1d2a5b` | 2026-05-31 | 544/544 (Dashboard split: 7 modules, page.tsx to 447 lines) |
 
 ## Discovered Follow-ups
 
@@ -150,7 +151,7 @@
 
 ## Phase 6 — File Budget Compliance & Dashboard Decomposition (Cycle 20+)
 
-- [ ] **075** — [Split Main Dashboard Page (1,502 → ≤400 lines)](./specs/075_split_main_dashboard_page.md)
+- [x] **075** — [Split Main Dashboard Page (1,502 → ≤400 lines)](./specs/075_split_main_dashboard_page.md) · `a1d2a5b`
 - [ ] **076** — [Split routes/admin.ts (789 → ≤400 lines)](./specs/076_split_admin_routes.md)
 
 
