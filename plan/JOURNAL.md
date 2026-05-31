@@ -544,3 +544,51 @@
 - Committed Spec 075 changes successfully with SHA `a1d2a5b`.
 - Committed Spec 076 changes successfully with SHA `e523c70` and documentation adjustments with SHA `a98d3cc`.
 - Executed the entire sequential check script: `pnpm run agent:check` (all 544 sequential tests passed 100% green, biome check exit 0, types verified).
+
+## [2026-05-31] Cycle 22 — API Accounts Routes Modularization (Spec 077)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 156 passed test files, 544 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Decomposing the massive monolithic router declarations in `apps/api/src/routes/accounts.ts` (624 lines) into isolated sub-routers under `apps/api/src/routes/accounts/` enables clean organization of resources, satisfies the 400-line budget limit, and simplifies readability.
+- Re-exporting Hono types from the index barrel file ensures Hono RPC schema types (`hc<AppType>`) infer cleanly at compile time for consumers.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Accounts Routes Modularization**:
+  - Created `apps/api/src/routes/accounts/crud.ts` managing standard retrieve, update, create endpoints.
+  - Created `apps/api/src/routes/accounts/team.ts` managing memberships and roles.
+  - Created `apps/api/src/routes/accounts/hierarchy.ts` managing parent relationships and Rollup pipelines.
+  - Created `apps/api/src/routes/accounts/operations.ts` managing territory routing and merging.
+  - Setup a clean barrel entrypoint `apps/api/src/routes/accounts/index.ts` to export accountsApp.
+  - Safely removed old monolithic `apps/api/src/routes/accounts.ts`.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `8016410`.
+- Executed sequential unit and integration checks: `pnpm run agent:check` (all 544 tests passed cleanly, 100% green).
+
+## [2026-05-31] Cycle 23 — API Campaigns Routes Modularization (Spec 078)
+
+### 1. REPO BASELINE
+- **Branch**: `main`, active local work committed.
+- **Verification Command**: `pnpm run agent:check`
+- **Test Baseline**: 156 passed test files, 546 passed tests, all 100% green and verified.
+
+### 2. ARCHITECTURAL FINDINGS
+- Splitting the monolithic Campaigns router file `apps/api/src/routes/campaigns.ts` (534 lines) into a folder-structured module grouping campaigns, marketing segments, and unsubscribes cleanly splits three distinct domain resources into individual files, conforming with the standard file lines limit.
+- Using relative paths for imports is sensitive to directory nesting depth; ensuring imports from parent folders (`../../middleware/tenantAuth`) are adjusted correctly avoids compiler errors.
+
+### 3. ACTION PLAN & IMPLEMENTATION
+- **Campaigns Routes Modularization**:
+  - Created `apps/api/src/routes/campaigns/campaigns.ts` containing campaigns endpoints (`campaignsApp`).
+  - Created `apps/api/src/routes/campaigns/segments.ts` containing segments endpoints (`segmentsApp`).
+  - Created `apps/api/src/routes/campaigns/unsubscribes.ts` containing unsubscribes endpoints (`unsubscribesApp`).
+  - Created `apps/api/src/routes/campaigns/index.ts` barrel composing and re-exporting the three sub-apps.
+  - Removed old monolithic `apps/api/src/routes/campaigns.ts`.
+
+### 4. VERIFICATION LOG
+- Committed successfully with SHA `87d7801`.
+- Executed workspace preflights: `pnpm run agent:check` (all 156 files and 546 tests passed 100% green).
+

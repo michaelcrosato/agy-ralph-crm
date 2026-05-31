@@ -102,6 +102,7 @@
 | 074 | `38e3fa2` | 2026-05-31 | 544/544 (Territory dashboard: TerritoryList, TerritoryEditor, RoutingSimulator, /territories page) |
 | 075 | `a1d2a5b` | 2026-05-31 | 544/544 (Dashboard split: 7 modules, page.tsx to 447 lines) |
 | 076 | `e523c70` | 2026-05-31 | 544/544 (Admin split: 6 sub-modules, index.ts to 6 lines) |
+| 077 | `8016410` | 2026-05-31 | 544/544 (Accounts split: 4 sub-modules, index.ts to 21 lines) |
 
 ## Discovered Follow-ups
 
@@ -154,7 +155,9 @@
 
 - [x] **075** — [Split Main Dashboard Page (1,502 → ≤400 lines)](./specs/075_split_main_dashboard_page.md) · `a1d2a5b`
 - [x] **076** — [Split routes/admin.ts (789 → ≤400 lines)](./specs/076_split_admin_routes.md) · `e523c70`
-- [~] **077** — [Split routes/accounts.ts (624 → ≤400 lines)](./specs/077_split_accounts_routes.md)
+- [x] **077** — [Split routes/accounts.ts (624 → ≤400 lines)](./specs/077_split_accounts_routes.md) · `8016410`
+- [x] **078** — [Split routes/campaigns.ts (534 → ≤400 lines)](./specs/078_split_campaigns_routes.md) · `87d7801`
+
 
 
 
